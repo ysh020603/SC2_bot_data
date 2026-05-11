@@ -1,0 +1,69 @@
+{
+    "_comment": "LLM 模型调用的静态参数。两阶段使用不同 profile：stage1 偏推理(reasoning)，stage2 偏严格 JSON 输出。运行时由 API_Tools/llm_caller.py 读取。",
+    "default_profile": "stage1_reasoning",
+    "profiles": {
+        "stage1_reasoning": {
+            "_comment": "第一阶段：意图分析。允许/期望模型进行深度思考(CoT)。",
+            "api_key": "sk-a81d0b1ef1cb4ad687c7a14f100113e3",
+            "base_url": "https://api.deepseek.com/v1",
+            "model": "deepseek-v4-flash",
+            "temperature": 0.6,
+            "max_tokens": 8192,
+            "timeout_seconds": 60,
+            "is_reasoning": false
+        },
+        "stage2_translation": {
+            "_comment": "第二阶段：动作映射。强制关闭推理，要求 JSON 严格输出。",
+            "api_key": "sk-a81d0b1ef1cb4ad687c7a14f100113e3",
+            "base_url": "https://api.deepseek.com/v1",
+            "model": "deepseek-v4-flash",
+            "temperature": 0.0,
+            "max_tokens": 1024,
+            "timeout_seconds": 30,
+            "is_reasoning": false,
+            "response_format": {"type": "json_object"}
+        }
+    },
+    "vendor_dispatch": {
+        "_comment": "根据模型名子串匹配相应厂商，注入对应的 reasoning 开关。is_reasoning 由调用方控制，True => enabled，False => disabled。",
+        "rules": [
+            {
+                "match_keywords": ["glm-4.6", "glm-4-plus", "glm-z1"],
+                "vendor": "zhipuai_glm",
+                "reasoning_field_path": ["extra_body", "thinking", "type"],
+                "enabled_value": "enabled",
+                "disabled_value": "disabled"
+            },
+            {
+                "match_keywords": ["kimi-thinking", "kimi-k2", "moonshot-thinking"],
+                "vendor": "kimi",
+                "reasoning_field_path": ["extra_body", "enable_thinking"],
+                "enabled_value": true,
+                "disabled_value": false
+            },
+            {
+                "match_keywords": ["deepseek-reasoner", "deepseek-r1", "deepseek-v3.1"],
+                "vendor": "deepseek",
+                "reasoning_field_path": ["extra_body", "enable_thinking"],
+                "enabled_value": true,
+                "disabled_value": false
+            },
+            {
+                "match_keywords": ["qwen3", "qwen-3"],
+                "vendor": "qwen",
+                "reasoning_field_path": ["extra_body", "enable_thinking"],
+                "enabled_value": true,
+                "disabled_value": false
+            }
+        ],
+        "fallback": {
+            "_comment": "命中不到任何 vendor 时（含本地 VLLM 等通用 OpenAI 兼容服务），保留原始参数透传。",
+            "vendor": "openai_compatible"
+        }
+    },
+    "post_processing": {
+        "_comment": "对模型返回的 content 做的统一清洗逻辑。",
+        "strip_think_tags": true,
+        "strip_reasoning_field": true
+    }
+}
