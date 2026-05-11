@@ -4,42 +4,17 @@ from sharpy.plans.tactics import *
 from sharpy.plans.tactics.terran import *
 from sc2.data import Race
 from sc2.ids.unit_typeid import UnitTypeId
-from sharpy.combat import MoveType
 from sharpy.interfaces import IZoneManager
 from sharpy.plans.acts import *
 from sharpy.plans.acts.terran import *
 from sharpy.plans.require import *
 from sharpy.plans import BuildOrder, Step
-from sc2.position import Point2
 
-from sharpy.knowledges import KnowledgeBot
+from sharpy.knowledges import Knowledge, KnowledgeBot
 from sharpy.utils import select_build_index
 
 # 1. 引入定义好的外部战术模块
 from SKILL.terran.marine_rush.base_tactics import TerranBaseTactics
-
-class DodgeRampAttack(PlanZoneAttack):
-    async def execute(self) -> bool:
-        base_ramp = self.zone_manager.expansion_zones[-1].ramp
-        for effect in self.ai.state.effects:
-            if effect.id != "FORCEFIELD":
-                continue
-            pos: Point2 = base_ramp.bottom_center
-            for epos in effect.positions:
-                if pos.distance_to_point2(epos) < 5:
-                    return await self.small_retreat()
-
-        return await super().execute()
-
-    async def small_retreat(self):
-        attacking_units = self.roles.attacking_units
-        natural = self.zone_manager.expansion_zones[-2]
-
-        for unit in attacking_units:
-            self.combat.add_unit(unit)
-
-        self.combat.execute(natural.gather_point, MoveType.DefensiveRetreat)
-        return False
 
 # 2. 动态战术包装器：用于支持中途无缝切换战术
 class DynamicTacticsWrapper(ActBase):
@@ -47,7 +22,7 @@ class DynamicTacticsWrapper(ActBase):
         super().__init__()
         self.current_tactics = initial_tactics
 
-    async def start(self, knowledge: 'Knowledge'):
+    async def start(self, knowledge: Knowledge):
         await super().start(knowledge)
         await self.current_tactics.start(knowledge)
 
@@ -94,7 +69,7 @@ class TestBot(KnowledgeBot):
 
         if self.tactic_index == 0:
             self.knowledge.print("Proxy 2 rax bunker rush", "Build")
-            self.attack = DodgeRampAttack(3)
+            attack_marines = 3
             zone = self.zone_manager.expansion_zones[-random.randint(3, 5)]
             natural = self.zone_manager.expansion_zones[-2]
             chunk = [
@@ -126,7 +101,7 @@ class TestBot(KnowledgeBot):
             ]
         elif self.tactic_index == 1:
             self.knowledge.print("20 marine all in", "Build")
-            self.attack = DodgeRampAttack(20)
+            attack_marines = 20
             chunk = [
                 Step(Supply(14), GridBuilding(UnitTypeId.SUPPLYDEPOT, 1)),
                 Step(UnitReady(UnitTypeId.SUPPLYDEPOT, 1), GridBuilding(UnitTypeId.BARRACKS, 1)),
@@ -135,7 +110,7 @@ class TestBot(KnowledgeBot):
             ]
         else:
             self.knowledge.print("10 marine proxy rax", "Build")
-            self.attack = DodgeRampAttack(10)
+            attack_marines = 10
             zone = self.zone_manager.expansion_zones[-random.randint(3, 5)]
             chunk = [
                 Step(Supply(14), GridBuilding(UnitTypeId.SUPPLYDEPOT, 1)),
@@ -154,8 +129,7 @@ class TestBot(KnowledgeBot):
         empty = BuildOrder([])
 
         # 3. 实例化外部战术并挂载到包装器上
-        # 注意：TerranBaseTactics 需要 bot 参数 (self)，并且它内部依赖 bot.attack (上方已经赋值了 self.attack)
-        base_tactics = TerranBaseTactics(self)
+        base_tactics = TerranBaseTactics(attack_marines)
         self.dynamic_tactics = DynamicTacticsWrapper(base_tactics)
 
         return BuildOrder(
@@ -164,7 +138,7 @@ class TestBot(KnowledgeBot):
             [Step(None, ActUnit(UnitTypeId.SCV, UnitTypeId.COMMANDCENTER, 20))],
             chunk,
             ActUnit(UnitTypeId.MARINE, UnitTypeId.BARRACKS, 200),
-            self.dynamic_tactics, # 这里不再使用死代码，而是使用我们的动态战术执行器
+            self.dynamic_tactics,  # 这里不再使用死代码，而是使用我们的动态战术执行器
         )
 
 
