@@ -108,3 +108,6 @@ version.txt
 games/
 Bots/
 tools/build_order.json
+
+# Local data directory
+data/
