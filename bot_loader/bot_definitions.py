@@ -11,6 +11,8 @@ from dummies.zerg import *
 from dummies.debug import *
 from sc2.player import Human, Bot, Computer, AbstractPlayer
 
+from dummies.terran.test_bot import TestBot
+
 races = {
     "protoss": Race.Protoss,
     "zerg": Race.Zerg,
@@ -298,6 +300,7 @@ class BotDefinitions:
             DummyBuilder("terranturtle", "RustyOneBaseTurtle", Race.Terran, "one_base_turtle.py", OneBaseTurtle),
             DummyBuilder("saferaven", "SafeRaven", Race.Terran, "safe_tvt_raven.py", TerranSafeTvT),
             DummyBuilder("silverbio", "TerranSilverBio", Race.Terran, "terran_silver_bio.py", TerranSilverBio),
+            DummyBuilder("test_bot", "TestBot", Race.Terran, "test_bot.py", TestBot, params_count=1), # <== 新增这一行
         ]
 
         for bot in bots:
