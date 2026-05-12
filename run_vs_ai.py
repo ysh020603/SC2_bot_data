@@ -14,7 +14,7 @@ def main():
     # 1. 你的 Bot 配置
     # ==========================================
     # 填写 dummies 目录下 bot 的注册名称 (例如: "lings", "adept_allin", "marine_rush" 等)
-    my_bot_name = "llm_bot"  
+    my_bot_name = "llm_bot"
     
     # ==========================================
     # 2. 游戏与地图配置

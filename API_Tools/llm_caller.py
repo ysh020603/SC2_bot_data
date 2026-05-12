@@ -2,8 +2,9 @@
 
 封装对 OpenAI 兼容协议的底层调用，三大职责：
 
-1. **配置加载**：从 ``API_config/llm_settings.json`` 读取静态参数（model / base_url / api_key
-   等），上层只需传业务级开关（``is_reasoning``、``profile``、消息体等）。
+1. **配置加载**：默认从 ``API_config/llm_settings.json`` 读取静态参数（model / base_url / api_key
+   等）；可通过 ``load_llm_settings(settings_path=...)`` / ``call_openai(..., settings_path=...)``
+   指定其它 JSON（如 ``llm_settings2.json``）。上层只需传业务级开关（``is_reasoning``、``profile``、消息体等）。
 2. **多厂商分发**：根据模型名子串命中 ``vendor_dispatch.rules`` 中的规则，把
    ``is_reasoning`` 翻译成各家的私有字段（GLM 的 ``extra_body.thinking.type``，
    Kimi/DeepSeek/Qwen 的 ``extra_body.enable_thinking`` 等）。Fallback 走 OpenAI 兼容
@@ -15,7 +16,7 @@
 
 - ``call_openai(...)`` —— 主入口，签名兼容 OpenAI SDK 的 ``chat.completions.create``，
   同时增加 ``is_reasoning`` / ``profile`` 等业务参数。
-- ``load_llm_settings()`` —— 给调试 / 单元测试用的纯加载函数。
+- ``load_llm_settings()`` —— 给调试 / 单元测试用的纯加载函数；支持多配置文件按路径分别缓存。
 
 设计取舍：
 
@@ -44,8 +45,8 @@ _THINK_BLOCK_RE = re.compile(r"<think\b[^>]*>.*?</think>", re.IGNORECASE | re.DO
 # 悬挂 think（如 <think>...</think> 没闭合的开头一段）：从首个 <think> 一直吃到串尾。
 _DANGLING_THINK_RE = re.compile(r"<think\b[^>]*>.*", re.IGNORECASE | re.DOTALL)
 
-# 进程级缓存：避免每次调用都打开文件解析 JSON。
-_settings_cache: Optional[Dict[str, Any]] = None
+# 进程级缓存：按「解析后的绝对路径」分文件缓存，避免每次调用都打开 JSON。
+_settings_cache: Dict[str, Dict[str, Any]] = {}
 _settings_cache_lock = threading.Lock()
 
 
@@ -54,29 +55,59 @@ def _repo_root() -> str:
     return os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 
 
-def load_llm_settings(force_reload: bool = False) -> Dict[str, Any]:
-    """加载 ``API_config/llm_settings.json``。
+def _resolve_settings_abs_path(settings_path: Optional[str]) -> str:
+    """把 ``settings_path`` 解析为绝对路径。
 
-    采用进程级缓存避免反复 IO；如需在运行时热更新（例如 LLM key 改了），把
-    ``force_reload=True`` 即可。
+    * ``None`` / 空串：仓库根下默认 ``API_config/llm_settings.json``。
+    * 无目录分隔符的文件名：视为 ``API_config/<文件名>``（便于写 ``llm_settings2.json``）。
+    * 含 ``/`` 的相对路径：相对仓库根（如 ``API_config/foo.json``）。
+    * 绝对路径：原样规范化后使用。
     """
-    global _settings_cache
-    if _settings_cache is not None and not force_reload:
-        return _settings_cache
+    root = _repo_root()
+    raw = (settings_path or "").strip()
+    if not raw:
+        rel = _CONFIG_REL_PATH
+    else:
+        norm = raw.replace("\\", "/")
+        if os.path.isabs(raw):
+            return os.path.abspath(os.path.normpath(raw))
+        if "/" not in norm:
+            rel = os.path.join("API_config", norm)
+        else:
+            rel = norm
+    return os.path.abspath(os.path.join(root, rel))
 
-    config_path = os.path.join(_repo_root(), _CONFIG_REL_PATH)
+
+def load_llm_settings(
+    force_reload: bool = False,
+    settings_path: Optional[str] = None,
+) -> Dict[str, Any]:
+    """加载 LLM 静态配置 JSON。
+
+    默认文件为 ``API_config/llm_settings.json``；``settings_path`` 非空时按
+    :func:`_resolve_settings_abs_path` 规则解析。多路径各自缓存；``force_reload=True``
+    时只刷新当前路径对应条目。
+    """
+    abs_path = _resolve_settings_abs_path(settings_path)
+
+    with _settings_cache_lock:
+        if not force_reload and abs_path in _settings_cache:
+            return _settings_cache[abs_path]
+        if force_reload and abs_path in _settings_cache:
+            del _settings_cache[abs_path]
+
     try:
-        with open(config_path, "r", encoding="utf-8") as handle:
+        with open(abs_path, "r", encoding="utf-8") as handle:
             data = json.load(handle)
     except FileNotFoundError:
-        logger.warning("llm_settings.json not found at %s; using empty defaults.", config_path)
+        logger.warning("LLM settings not found at %s; using empty defaults.", abs_path)
         data = {"profiles": {}, "vendor_dispatch": {"rules": []}, "post_processing": {}}
     except Exception as exc:  # JSON 损坏等
-        logger.warning("Failed to parse llm_settings.json (%s); using empty defaults.", exc)
+        logger.warning("Failed to parse LLM settings %s (%s); using empty defaults.", abs_path, exc)
         data = {"profiles": {}, "vendor_dispatch": {"rules": []}, "post_processing": {}}
 
     with _settings_cache_lock:
-        _settings_cache = data
+        _settings_cache[abs_path] = data
     return data
 
 
@@ -175,6 +206,7 @@ def call_openai(
     timeout: Optional[float] = None,
     response_format: Optional[Dict[str, Any]] = None,
     extra_body: Optional[Dict[str, Any]] = None,
+    settings_path: Optional[str] = None,
     **passthrough: Any,
 ) -> str:
     """同步调用 OpenAI 兼容协议的 chat completion，返回清洗后的纯文本。
@@ -182,7 +214,7 @@ def call_openai(
     使用顺序：调用方显式参数 > ``profile`` 中的字段 > 不传/默认。
 
     :param messages: 标准 OpenAI ``messages``，例如 ``[{"role": "system", ...}, ...]``。
-    :param profile: 走哪个 profile（见 ``llm_settings.json``）。不传则用 ``default_profile``。
+    :param profile: 走哪个 profile（见对应 settings JSON）。不传则用 ``default_profile``。
     :param model: 覆盖 profile 中的 model；同时驱动 vendor_dispatch 命中。
     :param temperature: 覆盖 profile 中的 temperature。
     :param max_tokens: 覆盖 profile 中的 max_tokens。
@@ -197,14 +229,16 @@ def call_openai(
         ``{"type": "json_object"}``。第二阶段建议传入以约束输出格式。
     :param extra_body: 显式注入的 ``extra_body``；与 vendor_dispatch 自动注入字段会合并，
         显式优先。
+    :param settings_path: 非空时从该文件加载配置（规则同 :func:`load_llm_settings`）；
+        ``None`` 则使用默认 ``API_config/llm_settings.json``。
     :param passthrough: 透传给 SDK 的其它 keyword 参数（如 ``top_p`` 等）。
     :return: 已经剥离 ``<think>`` 段、调用方可直接消费的字符串。失败时返回空串。
     """
-    settings = load_llm_settings()
+    settings = load_llm_settings(settings_path=settings_path)
     profile_name = profile or settings.get("default_profile") or "stage1_reasoning"
     profile_cfg: Dict[str, Any] = (settings.get("profiles") or {}).get(profile_name, {})
 
-    final_model = model or profile_cfg.get("model")
+    final_model = model or profile_cfg.get("model") or profile_cfg.get("model_name")
     final_temperature = (
         temperature if temperature is not None else profile_cfg.get("temperature")
     )
@@ -223,6 +257,7 @@ def call_openai(
     final_base_url = (
         base_url
         or profile_cfg.get("base_url")
+        or profile_cfg.get("api_url")
         or os.environ.get("LLM_BASE_URL")
         or os.environ.get("OPENAI_BASE_URL")
     )

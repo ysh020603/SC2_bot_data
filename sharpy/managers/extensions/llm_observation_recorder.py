@@ -91,6 +91,7 @@ class LLMObservationRecorder(ManagerBase):
         # In-memory buffer of all captured snapshots. Flushed to JSON once on
         # ``on_end`` to avoid I/O stalls during the game.
         self.record_history: List[Dict] = []
+        self.llm_interactions: List[Dict] = []
 
         # Optional override: when set, the JSON file is written next to the
         # SC2Replay using exactly the same prefix (replay path with ``.json``
@@ -212,8 +213,14 @@ class LLMObservationRecorder(ManagerBase):
         # Nothing to render in-game.
         pass
 
+    def record_llm_interaction(self, record: Dict) -> None:
+        """Append one LLM response and the action history at response time."""
+        if not self.enabled:
+            return
+        self.llm_interactions.append(record)
+
     async def on_end(self, game_result: Result):
-        if not self.enabled or not self.record_history:
+        if not self.enabled or (not self.record_history and not self.llm_interactions):
             return
 
         try:
@@ -225,6 +232,7 @@ class LLMObservationRecorder(ManagerBase):
             payload = {
                 "metadata": self._build_metadata(game_result),
                 "records": self.record_history,
+                "llm_interactions": self.llm_interactions,
             }
 
             with open(output_path, "w", encoding="utf-8") as handle:
@@ -232,7 +240,8 @@ class LLMObservationRecorder(ManagerBase):
 
             self.print(
                 f"LLM observations saved to {output_path} "
-                f"({len(self.record_history)} snapshots).",
+                f"({len(self.record_history)} snapshots, "
+                f"{len(self.llm_interactions)} LLM interactions).",
                 stats=False,
             )
         except Exception as exc:
@@ -755,6 +764,7 @@ class LLMObservationRecorder(ManagerBase):
             "result": game_result.name if game_result is not None else "Unknown",
             "interval_seconds": self.interval_seconds,
             "record_count": len(self.record_history),
+            "llm_interaction_count": len(self.llm_interactions),
         }
 
     def _resolve_output_path(self) -> str:

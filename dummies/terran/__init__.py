@@ -9,4 +9,4 @@ from .terran_random import RandomTerranBot
 from .one_base_turtle import OneBaseTurtle
 from .safe_tvt_raven import TerranSafeTvT
 from .terran_silver_bio import TerranSilverBio
-from .llm_bot import LLMBot
+from .llm_bot import LLMBot, MyLLMBot

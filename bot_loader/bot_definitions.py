@@ -12,7 +12,7 @@ from dummies.debug import *
 from sc2.player import Human, Bot, Computer, AbstractPlayer
 
 from dummies.terran.test_bot import TestBot
-from dummies.terran.llm_bot import LLMBot
+from dummies.terran.llm_bot import LLMBot, MyLLMBot
 
 races = {
     "protoss": Race.Protoss,
@@ -58,13 +58,29 @@ def race_selector(race: str) -> Race:
 
 
 class DummyBuilder:
-    def __init__(self, key: str, name: str, race: Race, file_name: str, bot_type: type, params_count: int = 0) -> None:
+    def __init__(
+        self,
+        key: str,
+        name: str,
+        race: Race,
+        file_name: str,
+        bot_type: type,
+        params_count: int = 0,
+        param_defaults: Optional[Tuple[str, ...]] = None,
+    ) -> None:
         self.key = key
         self.name = name
         self.race: Race = race
         self.file_name = file_name
         self.bot_type = bot_type
         self.params_count = params_count
+        self.param_defaults = param_defaults
+
+    def _param_default_at(self, index: int) -> str:
+        """ladder 参数缺省时的占位字符串；未配置则统一为 ``\"default\"``。"""
+        if self.param_defaults and index < len(self.param_defaults):
+            return self.param_defaults[index]
+        return "default"
 
     def build_definition(self) -> Tuple[Callable[[List[str]], AbstractPlayer], Optional[LadderZip]]:
         race: str = self.race.name
@@ -74,7 +90,10 @@ class DummyBuilder:
             return (lambda params: Bot(self.race, self.bot_type()), zip_builder)
         if self.params_count == 1:
             return (
-                lambda params: Bot(self.race, self.bot_type(BotDefinitions.index_check(params, 0, "default"))),
+                lambda params: Bot(
+                    self.race,
+                    self.bot_type(BotDefinitions.index_check(params, 0, self._param_default_at(0))),
+                ),
                 zip_builder,
             )
         if self.params_count == 2:
@@ -82,8 +101,8 @@ class DummyBuilder:
                 lambda params: Bot(
                     self.race,
                     self.bot_type(
-                        BotDefinitions.index_check(params, 0, "default"),
-                        BotDefinitions.index_check(params, 1, "default"),
+                        BotDefinitions.index_check(params, 0, self._param_default_at(0)),
+                        BotDefinitions.index_check(params, 1, self._param_default_at(1)),
                     ),
                 ),
                 zip_builder,
@@ -93,9 +112,9 @@ class DummyBuilder:
                 lambda params: Bot(
                     self.race,
                     self.bot_type(
-                        BotDefinitions.index_check(params, 0, "default"),
-                        BotDefinitions.index_check(params, 1, "default"),
-                        BotDefinitions.index_check(params, 2, "default"),
+                        BotDefinitions.index_check(params, 0, self._param_default_at(0)),
+                        BotDefinitions.index_check(params, 1, self._param_default_at(1)),
+                        BotDefinitions.index_check(params, 2, self._param_default_at(2)),
                     ),
                 ),
                 zip_builder,
@@ -302,7 +321,23 @@ class BotDefinitions:
             DummyBuilder("saferaven", "SafeRaven", Race.Terran, "safe_tvt_raven.py", TerranSafeTvT),
             DummyBuilder("silverbio", "TerranSilverBio", Race.Terran, "terran_silver_bio.py", TerranSilverBio),
             DummyBuilder("test_bot", "TestBot", Race.Terran, "test_bot.py", TestBot, params_count=1), # <== 新增这一行
-            DummyBuilder("llm_bot", "LLMBot", Race.Terran, "llm_bot.py", LLMBot, params_count=1),
+            DummyBuilder(
+                "llm_bot",
+                "LLMBot",
+                Race.Terran,
+                "llm_bot.py",
+                LLMBot,
+                params_count=2,
+                param_defaults=("default", ""),
+            ),
+            DummyBuilder(
+                "llm_bot2",
+                "MyLLMBot",
+                Race.Terran,
+                "llm_bot.py",
+                MyLLMBot,
+                params_count=1,
+            ),
         ]
 
         for bot in bots:
