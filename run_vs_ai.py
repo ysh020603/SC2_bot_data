@@ -1,11 +1,19 @@
 import os
 import sys
+from datetime import datetime
 
 # 确保能正确导入 python-sc2 和 sharpy 相关模块
 sys.path.insert(1, "python-sc2")
 
 from bot_loader import GameStarter, BotDefinitions
 from version import update_version_txt
+
+OUTPUT_BASE_DIR = "./game_records"
+
+
+def _safe_match_part(value: str) -> str:
+    return "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in value)
+
 
 def main():
     update_version_txt()
@@ -32,7 +40,7 @@ def main():
     enemy_race = "terran" 
     
     # 难度可选: veryeasy, easy, medium, mediumhard, hard, harder, veryhard, cheatvision, cheatmoney, cheatinsane
-    enemy_difficulty = "hard" 
+    enemy_difficulty = "veryhard" 
     
     # 风格可选: randombuild, rush, timing, power, macro, air
     enemy_build = "macro"
@@ -42,9 +50,37 @@ def main():
     # ==========================================
     # sharpy 框架解析 ai 的格式为 "ai.种族.难度.风格"
     p2_string = f"ai.{enemy_race}.{enemy_difficulty}.{enemy_build}"
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    match_id = "_".join(
+        _safe_match_part(part)
+        for part in (
+            timestamp,
+            my_bot_name,
+            "vs",
+            enemy_race,
+            enemy_difficulty,
+            enemy_build,
+            map_name,
+        )
+    )
+    output_base_dir = os.path.abspath(OUTPUT_BASE_DIR)
+    record_dir = os.path.join(output_base_dir, match_id)
+    os.makedirs(record_dir, exist_ok=True)
 
     # 使用 sys.argv 模拟命令行参数，从而复用 GameStarter 极其完善的日志和初始化流程
-    args = ["run_custom.py", "-m", map_name, "-p1", my_bot_name, "-p2", p2_string]
+    args = [
+        "run_custom.py",
+        "-m",
+        map_name,
+        "-p1",
+        my_bot_name,
+        "-p2",
+        p2_string,
+        "--record-dir",
+        record_dir,
+        "--match-id",
+        match_id,
+    ]
     if real_time:
         args.append("-rt")
     sys.argv = args
@@ -54,6 +90,7 @@ def main():
     print(f" 你的 Bot: {my_bot_name}")
     print(f" 对手 AI : {enemy_race.upper()} | 难度: {enemy_difficulty} | 风格: {enemy_build}")
     print(f" 比赛地图: {map_name}")
+    print(f" 输出目录: {record_dir}")
     print(f"==================================================")
 
     root_dir = os.path.dirname(os.path.abspath(__file__))

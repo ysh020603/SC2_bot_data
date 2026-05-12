@@ -47,7 +47,7 @@ import json
 import logging
 import re
 import time as _wall_time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from sc2.data import Race
 from sc2.ids.unit_typeid import UnitTypeId
@@ -67,16 +67,6 @@ from SKILL.terran.Action import (
 from SKILL.terran.two_base_tanks.base_tactics import TwoBaseTanksTactics
 
 logger = logging.getLogger("LLMBot")
-
-# 从 Stage 1 自然语言里抽取"新增任务"行的正则。允许中英文/全角半角冒号 + 任意空白前缀。
-_NEW_TASK_RE = re.compile(
-    r"(?:新增任务|new\s*task)\s*[:：]\s*(.+)",
-    re.IGNORECASE,
-)
-
-# 只把最近的动作历史塞进 LLM prompt，避免上下文越来越长；执行层仍保留全量 active_tasks。
-LLM_ACTION_HISTORY_PROMPT_LIMIT = 15
-
 
 # ======================================================================
 # 动态运营层执行器
@@ -192,7 +182,7 @@ class LLMBot(KnowledgeBot):
     "等 LLM 决定后再走下一步"的强一致性语义。
     """
 
-    LLM_POLL_INTERVAL_SECONDS: float = 5.0
+    LLM_POLL_INTERVAL_SECONDS: float = 12.0
     """两次 LLM 轮询之间的最小游戏时间间隔。"""
 
     LLM_SETTINGS_FILE: Optional[str] = None
@@ -207,9 +197,15 @@ class LLMBot(KnowledgeBot):
 
     zone_manager: IZoneManager
 
-    def __init__(self, build_name: str = "default", llm_settings_file: str = ""):
+    def __init__(
+        self,
+        build_name: str = "default",
+        llm_settings_file: str = "",
+        record_dir: str = "",
+    ):
         super().__init__("LLM Bot")
         self.build_name = build_name
+        self.record_dir = record_dir.strip()
         explicit = (llm_settings_file or "").strip()
         if explicit:
             self._llm_settings_path: Optional[str] = explicit
@@ -226,12 +222,16 @@ class LLMBot(KnowledgeBot):
         #       "_started": bool,           # 是否已 start_component
         #   }
         self.active_tasks: List[Dict[str, Any]] = []
+        self.current_natural_tasks: List[str] = []
 
         # 触发节流：初始化为 -interval 让游戏一开局即可触发首次 LLM 调用。
         self._last_llm_time: float = -self.LLM_POLL_INTERVAL_SECONDS
 
         # action_space 是一份 description 字典，缓存以避免每次重新构造。
         self._action_space_cache: Optional[Dict[str, str]] = None
+
+        if self.record_dir:
+            self.llm_observation_recorder.output_folder = self.record_dir
 
     # ------------------------------------------------------------------
     # 生命周期
@@ -241,12 +241,11 @@ class LLMBot(KnowledgeBot):
         await super().on_start()
         self.zone_manager = self.knowledge.get_required_manager(IZoneManager)
         self._action_space_cache = get_action_space()
+        self.llm_observation_recorder.interval_seconds = self.LLM_POLL_INTERVAL_SECONDS
+        if self.record_dir:
+            self.llm_observation_recorder.output_folder = self.record_dir
 
-        # 给一个最小 bootstrap，保证 LLM 还没返回的"冷启动"窗口里 Bot 不会原地不动：
-        #   先把工人补满到 16；再确保第一个补给站不缺。LLM 介入后会接管。
-        if not self.active_tasks:
-            # self.active_tasks.append({"action": "train_scv", "to_count": 16})
-            self._append_action_to_history({"action": "build_supply_depot", "to_count": 1})
+        # 首轮 LLM 会在 t=0 附近触发；补给链由 BuildOrder 的 empty.depots 自动管理。
 
     async def pre_step_execute(self):
         """每帧 Tick 入口，由 ``CustomFuncManager`` 触发。
@@ -276,39 +275,31 @@ class LLMBot(KnowledgeBot):
     # ------------------------------------------------------------------
 
     def _run_llm_pipeline_blocking(self, *, trigger_reason: str = "unknown") -> None:
-        """同步执行 Stage1→Stage2 双阶段 LLM 调用，**阻塞** SC2 环境。
-
-        本方法刻意写成同步函数：``call_openai`` 是 OpenAI SDK 的同步入口，整
-        个调用期间事件循环被占住，python-sc2 在非实时模式下也不会推进游戏帧。
-        这是 "等 LLM 决定后再走下一步" 的语义体现。
-
-        失败兜底：任何阶段异常都吞掉并降级为 "本轮不新增任务"，绝不能因为
-        LLM 接口抖动而炸掉游戏循环。
-
-        :param trigger_reason: 触发来源，便于在控制台与 ``games/*.log`` 中分辨本次推理。
-        """
+        """同步执行 Stage1→Stage2 双阶段 LLM 调用，并全量刷新当前任务队列。"""
         game_time = self.time
         pipeline_start = _wall_time.monotonic()
         obs_text: str = ""
-        action_history_summary: str = ""
+        obs_snapshot: Optional[Dict[str, Any]] = None
+        previous_natural_tasks = list(self.current_natural_tasks)
         stage1_text: str = ""
-        stage2_text: str = ""
-        new_task_desc: Optional[str] = None
-        parsed_task: Optional[Dict[str, Any]] = None
-        appended_task: Optional[Dict[str, Any]] = None
+        stage1_tasks: List[str] = []
+        stage2_translations: List[Dict[str, Any]] = []
+        parsed_tasks: List[Dict[str, Any]] = []
         error_text: Optional[str] = None
 
         self._llm_infer_emit(
             f">>> START (trigger={trigger_reason}, game_time={game_time:.1f}s, "
-            f"action_history_count={len(self.active_tasks)})",
-            include_action_history=True,
+            f"active_task_count={len(self.active_tasks)})",
+            include_active_tasks=True,
         )
 
         try:
-            obs_text = self._capture_observation_text()
-            action_history_summary = self._summarise_action_history()
+            obs_text, obs_snapshot = self._capture_observation_bundle()
+            self._llm_infer_emit(
+                f"observation_at_decision_time (game_time={game_time:.1f}s):\n{obs_text}"
+            )
 
-            # ===================== Stage 1: Reasoning =====================
+            # ===================== Stage 1: Planning ======================
             _s1_prof = "stage1_reasoning"
             _s1_reasoning = (
                 load_llm_settings(settings_path=self._llm_settings_path)
@@ -318,7 +309,7 @@ class LLMBot(KnowledgeBot):
                 f"    calling Stage1 (profile={_s1_prof}, is_reasoning={_s1_reasoning})..."
             )
             s1_start = _wall_time.monotonic()
-            stage1_text = self._call_stage1(obs_text, action_history_summary)
+            stage1_text = self._call_stage1(obs_text, previous_natural_tasks)
             s1_elapsed = _wall_time.monotonic() - s1_start
             if not stage1_text:
                 self._llm_infer_emit(
@@ -331,48 +322,70 @@ class LLMBot(KnowledgeBot):
             )
             self._llm_infer_emit(f"    Stage1 output: {stage1_text.strip()!r}")
 
-            new_task_desc = self._extract_new_task_from_stage1(stage1_text)
-            if new_task_desc is None:
-                # 包含 `none` 或没有提取到新任务 —— 提前终止，不进入第二阶段。
-                self._llm_infer_emit("    Stage1 verdict: `none` (no new task).")
+            parsed_stage1_tasks = self._parse_stage1_tasks_json(stage1_text)
+            if parsed_stage1_tasks is None:
+                error_text = "invalid_stage1_json"
+                self._llm_infer_emit("    Stage1 output failed JSON validation; keeping current active_tasks.")
                 return
+            stage1_tasks = parsed_stage1_tasks
             self._llm_infer_emit(
-                f"    Stage1 extracted task desc: {new_task_desc!r}"
+                f"    Stage1 parsed {len(stage1_tasks)} natural-language tasks."
             )
 
             # ===================== Stage 2: Translation ===================
-            self._llm_infer_emit(
-                "    calling Stage2 (translation, is_reasoning=False)..."
-            )
-            s2_start = _wall_time.monotonic()
-            stage2_text = self._call_stage2(new_task_desc, obs_text, action_history_summary)
-            s2_elapsed = _wall_time.monotonic() - s2_start
-            if not stage2_text:
+            for index, natural_task in enumerate(stage1_tasks, start=1):
                 self._llm_infer_emit(
-                    f"    Stage2 returned EMPTY ({s2_elapsed:.2f}s)."
+                    f"    calling Stage2 #{index}/{len(stage1_tasks)} for task={natural_task!r}..."
                 )
-                logger.warning("[LLMBot] Stage2 returned empty content.")
-                return
-            self._llm_infer_emit(
-                f"    Stage2 done in {s2_elapsed:.2f}s, raw={stage2_text.strip()!r}"
-            )
+                translation_record: Dict[str, Any] = {
+                    "raw": natural_task,
+                    "response": "",
+                    "parsed": None,
+                }
+                s2_start = _wall_time.monotonic()
+                try:
+                    stage2_text = self._call_stage2(natural_task, obs_text)
+                    translation_record["response"] = stage2_text
+                    s2_elapsed = _wall_time.monotonic() - s2_start
+                    if not stage2_text:
+                        translation_record["error"] = "empty_response"
+                        self._llm_infer_emit(
+                            f"    Stage2 #{index} returned EMPTY ({s2_elapsed:.2f}s); dropping."
+                        )
+                        continue
 
-            parsed_task = self._parse_stage2_json(stage2_text)
-            if parsed_task is None:
-                self._llm_infer_emit(
-                    "    Stage2 output failed validation; no task appended."
-                )
-                logger.warning(
-                    "[LLMBot] Stage2 output is not valid action JSON: %r",
-                    stage2_text,
-                )
-                return
+                    parsed_task = self._parse_stage2_json(stage2_text)
+                    if parsed_task is None:
+                        translation_record["error"] = "invalid_json_or_action"
+                        self._llm_infer_emit(
+                            f"    Stage2 #{index} failed validation; dropping."
+                        )
+                        logger.warning(
+                            "[LLMBot] Stage2 output is not valid action JSON: %r",
+                            stage2_text,
+                        )
+                        continue
 
-            # 合法非法都已过滤。直接入队。
-            appended_task = self._append_action_to_history(parsed_task)
+                    translation_record["parsed"] = self._slim_action(parsed_task)
+                    parsed_tasks.append(parsed_task)
+                    self._llm_infer_emit(
+                        f"    Stage2 #{index} accepted in {s2_elapsed:.2f}s: "
+                        f"{translation_record['parsed']}"
+                    )
+                except Exception as exc:
+                    translation_record["error"] = repr(exc)
+                    self._llm_infer_emit(
+                        f"    Stage2 #{index} EXCEPTION; dropping task: {exc!r}"
+                    )
+                    logger.warning("[LLMBot] Stage2 translation failed: %s", exc)
+                finally:
+                    stage2_translations.append(translation_record)
+
+            self._replace_active_tasks(parsed_tasks)
+            self.current_natural_tasks = list(stage1_tasks)
             self._llm_infer_emit(
-                "    APPENDED action: "
-                f"action={appended_task.get('action')} to_count={appended_task.get('to_count')}"
+                f"    REFRESHED active_tasks with {len(parsed_tasks)} parsed actions "
+                f"from {len(stage1_tasks)} Stage1 tasks."
             )
         except Exception as exc:
             # 任何异常都吞掉——LLM 失败绝不能炸掉游戏循环。
@@ -383,52 +396,59 @@ class LLMBot(KnowledgeBot):
             total_elapsed = _wall_time.monotonic() - pipeline_start
             self._record_llm_interaction(
                 {
-                    "game_time_seconds": round(game_time, 2),
-                    "game_time_formatted": getattr(self, "time_formatted", ""),
+                    "game_time": round(game_time, 2),
                     "trigger_reason": trigger_reason,
                     "wall_elapsed_seconds": round(total_elapsed, 3),
-                    "stage1_output": stage1_text,
-                    "extracted_task_description": new_task_desc,
-                    "stage2_output": stage2_text,
-                    "parsed_action": self._slim_action(parsed_task) if parsed_task else None,
-                    "appended_action": self._slim_action(appended_task) if appended_task else None,
+                    "observation_at_this_moment": obs_text,
+                    "observation_structured": obs_snapshot,
+                    "stage1_input_previous_tasks": previous_natural_tasks,
+                    "stage1_raw_response": stage1_text,
+                    "stage1_output_new_tasks": stage1_tasks,
+                    "stage2_translations": stage2_translations,
+                    "active_tasks_after_refresh": self._serialise_active_tasks(),
                     "error": error_text,
-                    "action_history_at_response": self._serialise_action_history(),
                 }
             )
             self._llm_infer_emit(
                 f"<<< END (total {total_elapsed:.2f}s wall, "
-                f"action_history_count={len(self.active_tasks)})"
+                f"active_task_count={len(self.active_tasks)})"
             )
 
     # --- 观测注入 ------------------------------------------------------
 
-    def _capture_observation_text(self) -> str:
-        """从 ``LLMObservationRecorder`` 即时构造一份英文文本观测。
+    def _capture_observation_bundle(self) -> Tuple[str, Optional[Dict[str, Any]]]:
+        """从 ``LLMObservationRecorder`` 即时构造 (英文文本观测, 结构化快照)。
 
         Recorder 自身是周期性记录（默认 20 秒一次），但其 ``_build_snapshot`` 与
         ``_generate_english_text_obs`` 都是无副作用的纯函数，我们这里直接复用，
-        避免另写一套数据提取逻辑。
+        避免另写一套数据提取逻辑。双返回值保证 LLM 与日志共用同一次快照。
         """
         recorder = getattr(self, "llm_observation_recorder", None)
         if recorder is None:
-            return "(LLMObservationRecorder unavailable)"
+            return "(LLMObservationRecorder unavailable)", None
         try:
             snapshot = recorder._build_snapshot()
-            return recorder._generate_english_text_obs(snapshot)
+            return recorder._generate_english_text_obs(snapshot), snapshot
         except Exception as exc:
             logger.warning("[LLMBot] failed to build observation: %s", exc)
-            return "(observation unavailable)"
+            return "(observation unavailable)", None
 
-    def _append_action_to_history(self, task: Dict[str, Any]) -> Dict[str, Any]:
-        """把 LLM 动作按生成顺序放进历史，并返回实际入队对象。"""
-        item = {
-            "sequence": len(self.active_tasks) + 1,
-            "action": task.get("action"),
-            "to_count": task.get("to_count"),
-        }
-        self.active_tasks.append(item)
-        return item
+    def _capture_observation_text(self) -> str:
+        """仅文本观测；内部与 :meth:`_capture_observation_bundle` 共用构建逻辑。"""
+        text, _ = self._capture_observation_bundle()
+        return text
+
+    def _replace_active_tasks(self, tasks: List[Dict[str, Any]]) -> None:
+        """原地全量刷新当前执行目标，保持执行器持有的 list 引用不变。"""
+        self.active_tasks.clear()
+        for idx, task in enumerate(tasks, start=1):
+            self.active_tasks.append(
+                {
+                    "sequence": idx,
+                    "action": task.get("action"),
+                    "to_count": task.get("to_count"),
+                }
+            )
 
     @staticmethod
     def _slim_action(task: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
@@ -439,9 +459,9 @@ class LLMBot(KnowledgeBot):
             slim["sequence"] = task.get("sequence")
         return slim
 
-    def _serialise_action_history(self) -> List[Dict[str, Any]]:
-        """返回可写入 prompt/log/json 的动作历史，不包含运行时 Act 对象。"""
-        history: List[Dict[str, Any]] = []
+    def _serialise_active_tasks(self) -> List[Dict[str, Any]]:
+        """返回可写入 log/json 的当前执行任务，不包含运行时 Act 对象。"""
+        tasks: List[Dict[str, Any]] = []
         for idx, task in enumerate(self.active_tasks, start=1):
             item: Dict[str, Any] = {
                 "sequence": task.get("sequence", idx),
@@ -452,45 +472,18 @@ class LLMBot(KnowledgeBot):
                 item["disabled"] = True
                 if task.get("_error"):
                     item["error"] = task.get("_error")
-            history.append(item)
-        return history
+            tasks.append(item)
+        return tasks
 
-    def _serialise_recent_action_history(
-        self, limit: int = LLM_ACTION_HISTORY_PROMPT_LIMIT
-    ) -> List[Dict[str, Any]]:
-        """返回给 LLM prompt 使用的最近动作历史；执行层仍使用完整 active_tasks。"""
-        history = self._serialise_action_history()
-        if limit <= 0:
-            return history
-        return history[-limit:]
-
-    def _summarise_action_history(
-        self, limit: int = LLM_ACTION_HISTORY_PROMPT_LIMIT
-    ) -> str:
-        """把最近动作历史按生成顺序渲染成 LLM 易消化的多行文本摘要。"""
-        history = self._serialise_recent_action_history(limit)
-        if not history:
-            return "(empty)"
-        lines: List[str] = []
-        omitted_count = len(self.active_tasks) - len(history)
-        if omitted_count > 0:
-            lines.append(f"(older {omitted_count} issued actions omitted)")
-        for item in history:
-            lines.append(
-                f"- #{item.get('sequence')}: action={item.get('action')!r}, "
-                f"to_count={item.get('to_count')}"
-            )
-        return "\n".join(lines)
-
-    def _action_history_snapshot(self) -> str:
-        """当前动作历史的 JSON，便于控制台与文件日志同一格式。"""
-        history = self._serialise_action_history()
-        if not history:
+    def _active_tasks_snapshot(self) -> str:
+        """当前执行任务的 JSON，便于控制台与文件日志同一格式。"""
+        tasks = self._serialise_active_tasks()
+        if not tasks:
             return "[]"
-        return json.dumps(history, ensure_ascii=False)
+        return json.dumps(tasks, ensure_ascii=False)
 
     def _record_llm_interaction(self, record: Dict[str, Any]) -> None:
-        """把每次 LLM 响应与响应时刻动作历史挂到 observation recorder。"""
+        """把每次决策的完整交互对象挂到 observation recorder。"""
         recorder = getattr(self, "llm_observation_recorder", None)
         if recorder is None:
             return
@@ -502,11 +495,11 @@ class LLMBot(KnowledgeBot):
         except Exception as exc:
             logger.warning("[LLMBot] failed to record LLM interaction: %s", exc)
 
-    def _llm_infer_emit(self, message: str, *, include_action_history: bool = False) -> None:
+    def _llm_infer_emit(self, message: str, *, include_active_tasks: bool = False) -> None:
         """LLM 流水线进度：写入 logger（进入 games/*.log）。"""
         line = f"[LLMBot][LLM-INFER] {message}"
-        if include_action_history:
-            line += f" | action_history={self._action_history_snapshot()}"
+        if include_active_tasks:
+            line += f" | active_tasks={self._active_tasks_snapshot()}"
         try:
             self.knowledge.print(line, stats=False)
         except Exception:
@@ -514,103 +507,51 @@ class LLMBot(KnowledgeBot):
 
     # --- Stage 1: reasoning -------------------------------------------
 
-    def _call_stage1(self, obs_text: str, action_history_summary: str) -> str:
-        """构造 Prompt 并调用 reasoning profile。
+    def _call_stage1(self, obs_text: str, previous_tasks: List[str]) -> str:
+        """构造全局规划 Prompt，并要求 Stage 1 返回 reasoning + tasks JSON。"""
+        previous_tasks_json = json.dumps(previous_tasks, ensure_ascii=False, indent=2)
+        system_msg = """You are a senior StarCraft II strategist controlling a Terran bot.
+This is a macro Planning Task. You are the global plan manager for the next 20 seconds.
 
-        Prompt 设计要点：
+Execution model:
+* Your output list will be translated and executed concurrently by the lower layer.
+* A blocked task does NOT block later tasks.
+* The order of the list dictates absolute resource priority: earlier tasks claim minerals, gas, and workers first. Therefore, you MUST place urgent, important, and short-term tasks at the very front of the list. Less urgent, long-term goals must be placed at the back.
+* Tasks that act as tech-tree bottlenecks (e.g., the opening Supply Depot or the first Barracks) MUST be prioritized at the absolute front. To guarantee their immediate execution, you can even issue them as a single isolated task for that cycle.
+* The lower layer is declarative: if you ask for "Train Marines to 20", it will keep training until the absolute target count is reached.
 
-        * 强制模型只输出 ``新增任务：xxx`` 或 ``none``，方便正则抽取并缩短响应。
-        * 任务描述用 **自然语言** 而非动作 key —— Stage 2 才负责映射，这样减少
-          Stage 1 对动作空间细节的依赖，让模型更专注于战略推理。
-        """
-#         system_msg = """You are a senior StarCraft II strategist controlling a Terran bot.
-# Given the current game observation and the recent ordered history of build-order actions already issued, decide whether to issue ONE additional action.
-
-# Your overall strategy is a Marine and Siege Tank macro build:
-
-# Build a Supply Depot at 13 supply.
-# When the first Supply Depot is almost ready, build a Barracks, followed by your first gas Refinery at 16 supply.
-# Immediately expand to a second base and build a second Supply Depot.
-# Once the Barracks is finished, morph your Command Centers into Orbital Commands and build a Factory.
-# Attach a Tech Lab to the Factory as soon as it finishes to start producing Siege Tanks.
-# Train a couple of initial Marines for defense, then grab your second gas Refinery.
-# Expand to a third and fourth base when it is safe to do so, constantly building Supply Depots to avoid supply blocks.
-# Research the Shield Wall (Combat Shield) upgrade to strengthen your infantry.
-# Scale up your production heavily by building up to 3 Factories (all with Tech Labs) and 5 Barracks (with a mix of Reactors and a Tech Lab).
-# Continually train units non-stop from these structures until you reach a cap of 20 Siege Tanks and 100 Marines, supported by a strong economy of up to 44 SCVs.
-# Execute this strategy dynamically based on the current state.
-
-# Respond in natural language with your concise reasoning.
-# Your reply MUST end with EXACTLY one of the following final lines:
-#   New Task: <a concise natural-language description of one new task>
-#   none
-
-# Output `none` if the situation is stable, the action history already covers what is needed, or any new task would be premature.
-# Examples of valid final lines:
-#   New Task: Train more marines, target 20
-#   New Task: Build a second barracks
-#   none"""
-
-#         system_msg = """You are a senior StarCraft II strategist controlling a Terran bot.
-# Given the current game observation and the recent ordered history of build-order actions already issued, decide whether to issue ONE additional action.
-
-# Your overall strategy is a Marine and Siege Tank macro build:
-
-# Opening: Build a Barracks, followed by your first gas Refinery. Immediately expand to a second base.
-# Tech & Early Factory: Once the Barracks is finished, morph your Command Centers into Orbital Commands and build a Factory.
-# Tank Priority (Rule Update): As soon as the Factory is finished, attach a Tech Lab. Prioritize Siege Tank production above all else. Aggressively scale up to 3 Factories (all with Tech Labs) as early as possible to accelerate Tank development.
-# Marine Buffer (Rule Update): Synchronously train Marines to maintain a solid defensive buffer. Grab your second gas Refinery.
-# Expansion: Expand to a third and fourth base when it is safe to do so.
-# Mid-Game Production: Research the Combat Shield upgrade to strengthen your infantry. Scale your infantry production by building up to 5 Barracks (with a mix of Reactors and a Tech Lab).
-# Production Shift (Rule Update): Once you have accumulated a sufficient number of Marines to act as a safe buffer, shift your primary focus and resources entirely toward mass-producing Siege Tanks.
-# End Goal: Continually train units non-stop until you reach a cap of 20 Siege Tanks and 100 Marines, supported by a strong economy of up to 44 SCVs.
-# Execution: Execute this strategy dynamically based on the current state. (Note: All supply depot construction is auto-managed and can be ignored).
-
-# Respond in natural language with your concise reasoning.
-# Your reply MUST end with EXACTLY one of the following final lines:
-#   New Task: <a concise natural-language description of one new task>
-#   none
-
-# Output `none` if the situation is stable, the action history already covers what is needed, or any new task would be premature.
-# Examples of valid final lines:
-#   New Task: Train more marines, target 20
-#   New Task: Build a second barracks
-#   none"""
-
-        system_msg = """You are a senior StarCraft II strategist controlling a Terran bot. This is a planning task: your objective is to set strategic goals and actions for the near future.
-Given the current game observation and the recent ordered history of build-order actions already issued, decide whether to issue ONE additional action.
+Your job each cycle:
+* Compare the current observation with the previous natural-language task list.
+* Remove tasks that are already complete or no longer appropriate.
+* Update tasks whose target count should increase or decrease.
+* Add new tasks needed for the current stage.
+* Describe each task clearly: Each natural-language task MUST contain only ONE single plan or action. Do not combine multiple actions in one sentence. While there is no limit on the total number of tasks, you must strictly maintain the priority order. Key bottleneck actions can still be issued as a single isolated task for that cycle to guarantee focus.
 
 Your overall strategy is a Marine and Siege Tank macro build, with a strict emphasis on the developmental sequence between Barracks/Factories and Marines/Tanks:
 
-*   **Opening & Tech:** Build a Barracks, followed by your first gas Refinery. Immediately expand to a second base. Once the Barracks finishes, morph Command Centers to Orbital Commands and start your first Factory.
-*   **Early Marine Buffer & Setup:** Train a couple of initial Marines for defense. Grab your second gas Refinery. Begin scaling your infantry infrastructure up to 5 Barracks (utilizing a mix of 1 Tech Lab to research Combat Shield, and Reactors for the rest). Rapidly pump out a solid number of Marines early on to serve as a defensive buffer.
-*   **Simultaneous Factory & Tank Push:** While building the initial Marine buffer, aggressively push Factory development. As soon as the first Factory finishes, attach a Tech Lab and start Siege Tanks. Prioritize scaling up to 3 Factories (all with Tech Labs) as early as possible.
-*   **Production Shift:** Once you have accumulated enough Marines to secure your defense, shift your primary focus and resources toward mass-producing Siege Tanks, while maintaining steady Marine reinforcement.
-*   **Expansion:** Expand to a third and fourth base dynamically when it is safe to do so.
-*   **End Goal:** Continually train units non-stop until you reach a cap of 20 Siege Tanks and 100 Marines, supported by a strong economy of up to 44 SCVs.
-*   **Execution:** Execute this strategy dynamically based on the current state. (Note: All supply depot construction and supply management are fully automated and MUST be ignored).
+* Opening & Tech: At the very beginning of the game, issue a single, isolated task to build a Supply Depot. Then build a Barracks, followed by your first gas Refinery. Immediately expand to a second base. Once the Barracks finishes, morph Command Centers to Orbital Commands and start your first Factory.
+* Early Marine Buffer & Setup: Train a couple of initial Marines for defense. Grab your second gas Refinery. Begin scaling your infantry infrastructure up to 5 Barracks, using a mix of 1 Tech Lab to research Combat Shield and Reactors for the rest. Rapidly pump out a solid number of Marines early on to serve as a defensive buffer.
+* Simultaneous Factory & Tank Push: While building the initial Marine buffer, aggressively push Factory development. As soon as the first Factory finishes, attach a Tech Lab and start Siege Tanks. Prioritize scaling up to 3 Factories, all with Tech Labs, as early as possible.
+* Production Shift: Once you have accumulated enough Marines to secure your defense, shift your primary focus and resources toward mass-producing Siege Tanks, while maintaining steady Marine reinforcement.
+* Expansion: Expand to a third and fourth base dynamically when it is safe to do so.
+* End Goal: Continually train units non-stop until you reach a cap of 20 Siege Tanks and 100 Marines, supported by a strong economy of up to 44 SCVs.
 
-Respond in natural language with your concise reasoning.
-Your reply MUST end with EXACTLY one of the following final lines:
-  New Task: <a concise natural-language description of one new task>
-  none
+Output format:
+1. First write one concise reasoning paragraph outside JSON.
+2. Then output one JSON object with this exact schema:
+{"tasks":["natural-language task 1","natural-language task 2"]}
 
-Output `none` if the situation is stable, the action history already covers what is needed, or any new task would be premature.
-Examples of valid final lines:
-  New Task: Train more marines, target 20
-  New Task: Build a second factory
-  none"""
+Do not output markdown, comments, or action keys. The JSON object itself must contain only the tasks field."""
 
         user_msg = f"""[Current Observation]
 {obs_text}
 
-[Action History]
-{action_history_summary}"""
+[Previous Natural-Language Tasks]
+{previous_tasks_json}"""
         messages = [
             {"role": "system", "content": system_msg},
             {"role": "user", "content": user_msg},
         ]
-        # 不传 is_reasoning：沿用当前 settings 文件里 stage1_reasoning 的 is_reasoning。
         return call_openai(
             messages,
             profile="stage1_reasoning",
@@ -618,46 +559,38 @@ Examples of valid final lines:
         )
 
     @staticmethod
-    def _extract_new_task_from_stage1(text: str) -> Optional[str]:
-        """从 Stage 1 输出中抽取"新增任务"自然语言描述。
-
-        约定：模型按 prompt 指令输出，最后一行非空内容应为 ``新增任务：…`` 或 ``none``。
-        为了对模型不完全守规则做兜底：
-        * 倒序扫描行；
-        * 行首是 ``none``（或单独一行 ``none``）就视为无新任务；
-        * 否则匹配 ``新增任务[:：]`` 取冒号后文本；
-        * 全部失败也回退到 ``None``（视作 ``none``，避免误生成）。
-        """
+    def _parse_stage1_tasks_json(text: str) -> Optional[List[str]]:
+        """解析 Stage 1 的 ``{"tasks": [...]}`` 输出；格式错误返回 ``None``。"""
         if not text:
             return None
         cleaned = text.strip()
-        if not cleaned:
-            return None
-        # 整体清洗后等于 `none`（区分大小写无关）：
-        if cleaned.lower() == "none":
-            return None
+        if cleaned.startswith("```"):
+            cleaned = re.sub(r"^```[a-zA-Z]*\s*", "", cleaned)
+            cleaned = re.sub(r"\s*```$", "", cleaned).strip()
 
-        # 倒序扫描每一行，找到首条匹配项。
-        for raw_line in reversed(cleaned.splitlines()):
-            line = raw_line.strip()
-            if not line:
-                continue
-            if line.lower() == "none":
+        try:
+            data = json.loads(cleaned)
+        except Exception:
+            match = re.search(r"\{[\s\S]*\}", cleaned)
+            if not match:
+                logger.warning("[LLMBot] Stage1 output is not valid JSON: %r", text)
                 return None
-            match = _NEW_TASK_RE.search(line)
-            if match:
-                desc = match.group(1).strip()
-                # 兜底：模型偶尔会把句号/中文标点带进来，原样返回交给 Stage 2 解决即可。
-                return desc or None
+            try:
+                data = json.loads(match.group(0))
+            except Exception:
+                logger.warning("[LLMBot] Stage1 output is not valid JSON: %r", text)
+                return None
 
-        # 没匹配到任何"新增任务/none"——保守起见视为无新任务，避免乱来。
-        return None
+        if not isinstance(data, dict):
+            return None
+        raw_tasks = data.get("tasks")
+        if not isinstance(raw_tasks, list):
+            return None
+        return [task.strip() for task in raw_tasks if isinstance(task, str) and task.strip()]
 
     # --- Stage 2: translation -----------------------------------------
 
-    def _call_stage2(
-        self, task_description: str, obs_text: str, action_history_summary: str
-    ) -> str:
+    def _call_stage2(self, task_description: str, obs_text: str) -> str:
         """构造 Stage 2 Prompt，强制模型只输出严格 JSON。
 
         关键点：
@@ -665,7 +598,7 @@ Examples of valid final lines:
         * ``is_reasoning=False`` 让 :mod:`API_Tools.llm_caller` 对应厂商关闭思考字段。
         * profile=``stage2_translation`` 同时附带 ``response_format=json_object``
           （在当前选用的 LLM settings JSON 中配置），让支持 JSON Mode 的厂商把输出钳进 JSON。
-        * Prompt 中明确列出合法 action key + 描述，并附上当前 obs / action history 作为上下文。
+        * Prompt 中明确列出合法 action key + 描述，并附上当前 obs 作为上下文。
         """
         action_space_lines = [
             f'  - "{key}": {desc}'
@@ -682,7 +615,7 @@ Schema:
 Constraints:
   * <action_key> MUST be one of the legal keys listed below.
   * <to_count> is the ABSOLUTE target count on the field (including under-construction).
-  * Use [Action History] to avoid contradicting or pointlessly duplicating actions already issued.
+  * Translate only the single task provided by the planner.
 
 [Legal Action Space]
 {action_space_text}"""
@@ -691,10 +624,7 @@ Constraints:
 {task_description}
 
 [Current Observation]
-{obs_text}
-
-[Action History]
-{action_history_summary}"""
+{obs_text}"""
         messages = [
             {"role": "system", "content": system_msg},
             {"role": "user", "content": user_msg},

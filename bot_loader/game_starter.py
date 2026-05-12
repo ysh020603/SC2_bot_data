@@ -130,6 +130,14 @@ Builds:
         parser.add_argument(
             "--requirewin", help="Requires victory for the specified player number (1 or 2) or raise exception."
         )
+        parser.add_argument(
+            "--record-dir",
+            help="Directory where the log, replay, and LLM JSON for this match are written.",
+        )
+        parser.add_argument(
+            "--match-id",
+            help="File prefix for this match's log, replay, and LLM JSON.",
+        )
 
         args = parser.parse_args()
 
@@ -175,15 +183,18 @@ Builds:
 
         player1_bot: AbstractPlayer = self.players[player1_type](player1_split)
 
-        folder = "games"
+        folder = os.path.abspath(args.record_dir) if args.record_dir else "games"
         if not os.path.isdir(folder):
-            os.mkdir(folder)
+            os.makedirs(folder, exist_ok=True)
 
-        time = datetime.now().strftime("%Y-%m-%d %H_%M_%S")
-        randomizer = random.randint(0, 999999)
-        # Randomizer is to make it less likely that games started at the same time have same name
-        file_name = f"{player2}_{map_name}_{time}_{randomizer}"
-        path = f"{folder}/{file_name}.log"
+        if args.match_id:
+            file_name = args.match_id
+        else:
+            time = datetime.now().strftime("%Y-%m-%d %H_%M_%S")
+            randomizer = random.randint(0, 999999)
+            # Randomizer is to make it less likely that games started at the same time have same name
+            file_name = f"{player2}_{map_name}_{time}_{randomizer}"
+        path = os.path.join(folder, f"{file_name}.log")
 
         if self.config.getboolean("general", "log_file"):
             LoggingUtility.set_logger_file(log_level=self.config["general"]["log_level"], path=path)
@@ -196,7 +207,7 @@ Builds:
         print(f"Starting game in {map_name}.")
         print(f"{player1} vs {player2}")
 
-        replay_path = f"{folder}/{file_name}.SC2Replay"
+        replay_path = os.path.join(folder, f"{file_name}.SC2Replay")
         # Tell each bot's LLMObservationRecorder where the replay will land so
         # that the JSON observation file is written with the exact same prefix
         # in the exact same folder.
@@ -231,6 +242,13 @@ Builds:
             my_bot.opponent_id = bot_code + "-" + enemy_text
             my_bot.run_custom = True
             my_bot.raw_affects_selection = args.raw_selection
+            if getattr(args, "record_dir", None):
+                record_dir = os.path.abspath(args.record_dir)
+                if hasattr(my_bot, "record_dir"):
+                    my_bot.record_dir = record_dir
+                recorder = getattr(my_bot, "llm_observation_recorder", None)
+                if recorder is not None:
+                    recorder.output_folder = record_dir
             if args.release:
                 my_bot.config = get_config(False)
 

@@ -41,10 +41,70 @@ _ACTION_REGISTRY: Dict[str, Dict] = {
         "type": "unit",
         "action_func": lambda *args, **kw: ActUnit(UnitTypeId.MARINE, UnitTypeId.BARRACKS, *args, **kw),
     },
+    "train_marauder": {
+        "description": "Train Marauder from Barracks (requires TechLab)",
+        "type": "unit",
+        "action_func": lambda *args, **kw: ActUnit(UnitTypeId.MARAUDER, UnitTypeId.BARRACKS, *args, **kw),
+    },
+    "train_reaper": {
+        "description": "Train Reaper from Barracks",
+        "type": "unit",
+        "action_func": lambda *args, **kw: ActUnit(UnitTypeId.REAPER, UnitTypeId.BARRACKS, *args, **kw),
+    },
+    "train_ghost": {
+        "description": "Train Ghost from Barracks (requires TechLab and Ghost Academy)",
+        "type": "unit",
+        "action_func": lambda *args, **kw: ActUnit(UnitTypeId.GHOST, UnitTypeId.BARRACKS, *args, **kw),
+    },
+    "train_hellion": {
+        "description": "Train Hellion from Factory",
+        "type": "unit",
+        "action_func": lambda *args, **kw: ActUnit(UnitTypeId.HELLION, UnitTypeId.FACTORY, *args, **kw),
+    },
+    "train_cyclone": {
+        "description": "Train Cyclone from Factory",
+        "type": "unit",
+        "action_func": lambda *args, **kw: ActUnit(UnitTypeId.CYCLONE, UnitTypeId.FACTORY, *args, **kw),
+    },
     "train_siege_tank": {
-        "description": "Train Siege Tank from Factory",
+        "description": "Train Siege Tank from Factory (requires TechLab)",
         "type": "unit",
         "action_func": lambda *args, **kw: ActUnit(UnitTypeId.SIEGETANK, UnitTypeId.FACTORY, *args, **kw),
+    },
+    "train_thor": {
+        "description": "Train Thor from Factory (requires TechLab and Armory)",
+        "type": "unit",
+        "action_func": lambda *args, **kw: ActUnit(UnitTypeId.THOR, UnitTypeId.FACTORY, *args, **kw),
+    },
+    "train_viking": {
+        "description": "Train Viking from Starport",
+        "type": "unit",
+        "action_func": lambda *args, **kw: ActUnit(UnitTypeId.VIKINGFIGHTER, UnitTypeId.STARPORT, *args, **kw),
+    },
+    "train_medivac": {
+        "description": "Train Medivac from Starport",
+        "type": "unit",
+        "action_func": lambda *args, **kw: ActUnit(UnitTypeId.MEDIVAC, UnitTypeId.STARPORT, *args, **kw),
+    },
+    "train_liberator": {
+        "description": "Train Liberator from Starport",
+        "type": "unit",
+        "action_func": lambda *args, **kw: ActUnit(UnitTypeId.LIBERATOR, UnitTypeId.STARPORT, *args, **kw),
+    },
+    "train_raven": {
+        "description": "Train Raven from Starport (requires TechLab)",
+        "type": "unit",
+        "action_func": lambda *args, **kw: ActUnit(UnitTypeId.RAVEN, UnitTypeId.STARPORT, *args, **kw),
+    },
+    "train_banshee": {
+        "description": "Train Banshee from Starport (requires TechLab)",
+        "type": "unit",
+        "action_func": lambda *args, **kw: ActUnit(UnitTypeId.BANSHEE, UnitTypeId.STARPORT, *args, **kw),
+    },
+    "train_battlecruiser": {
+        "description": "Train Battlecruiser from Starport (requires TechLab and Fusion Core)",
+        "type": "unit",
+        "action_func": lambda *args, **kw: ActUnit(UnitTypeId.BATTLECRUISER, UnitTypeId.STARPORT, *args, **kw),
     },
 
     # ==========================
@@ -65,15 +125,55 @@ _ACTION_REGISTRY: Dict[str, Dict] = {
         "type": "building",
         "action_func": lambda *args, **kw: GridBuilding(UnitTypeId.FACTORY, *args, **kw),
     },
+    "build_starport": {
+        "description": "Build Starport",
+        "type": "building",
+        "action_func": lambda *args, **kw: GridBuilding(UnitTypeId.STARPORT, *args, **kw),
+    },
     "build_gas": {
         "description": "Build Refinery for gas",
         "type": "building",
         "action_func": lambda *args, **kw: BuildGas(*args, **kw),
     },
     "expand": {
-        "description": "Expand to new base",
+        "description": "Expand to new base (Command Center)",
         "type": "building",
         "action_func": lambda *args, **kw: Expand(*args, **kw),
+    },
+    "build_engineering_bay": {
+        "description": "Build Engineering Bay for infantry upgrades and turrets",
+        "type": "building",
+        "action_func": lambda *args, **kw: GridBuilding(UnitTypeId.ENGINEERINGBAY, *args, **kw),
+    },
+    "build_armory": {
+        "description": "Build Armory for vehicle/ship upgrades and Thors",
+        "type": "building",
+        "action_func": lambda *args, **kw: GridBuilding(UnitTypeId.ARMORY, *args, **kw),
+    },
+    "build_ghost_academy": {
+        "description": "Build Ghost Academy for Ghosts and nukes",
+        "type": "building",
+        "action_func": lambda *args, **kw: GridBuilding(UnitTypeId.GHOSTACADEMY, *args, **kw),
+    },
+    "build_fusion_core": {
+        "description": "Build Fusion Core for Battlecruisers and advanced upgrades",
+        "type": "building",
+        "action_func": lambda *args, **kw: GridBuilding(UnitTypeId.FUSIONCORE, *args, **kw),
+    },
+    "build_bunker": {
+        "description": "Build Defensive Bunker",
+        "type": "building",
+        # DefensiveBuilding(unit, position, to_base_index, to_count)；get_action 只传 to_count
+        "action_func": lambda *args, **kw: DefensiveBuilding(
+            UnitTypeId.BUNKER, DefensePosition.Entrance, None, args[0] if args else 1
+        ),
+    },
+    "build_missile_turret": {
+        "description": "Build Missile Turret for anti-air and detection",
+        "type": "building",
+        "action_func": lambda *args, **kw: DefensiveBuilding(
+            UnitTypeId.MISSILETURRET, DefensePosition.Entrance, None, args[0] if args else 1
+        ),
     },
 
     # ==========================
@@ -94,6 +194,21 @@ _ACTION_REGISTRY: Dict[str, Dict] = {
         "type": "building",
         "action_func": lambda *args, **kw: BuildAddon(UnitTypeId.FACTORYTECHLAB, UnitTypeId.FACTORY, *args, **kw),
     },
+    "build_factory_reactor": {
+        "description": "Build Reactor on Factory",
+        "type": "building",
+        "action_func": lambda *args, **kw: BuildAddon(UnitTypeId.FACTORYREACTOR, UnitTypeId.FACTORY, *args, **kw),
+    },
+    "build_starport_techlab": {
+        "description": "Build TechLab on Starport",
+        "type": "building",
+        "action_func": lambda *args, **kw: BuildAddon(UnitTypeId.STARPORTTECHLAB, UnitTypeId.STARPORT, *args, **kw),
+    },
+    "build_starport_reactor": {
+        "description": "Build Reactor on Starport",
+        "type": "building",
+        "action_func": lambda *args, **kw: BuildAddon(UnitTypeId.STARPORTREACTOR, UnitTypeId.STARPORT, *args, **kw),
+    },
 
     # ==========================
     # 4. 科技与升级 (Tech & Upgrades)
@@ -105,10 +220,45 @@ _ACTION_REGISTRY: Dict[str, Dict] = {
         # 等 positional/keyword 占位参数，避免把 to_count 当成 from_building 传入。
         "action_func": lambda *args, **kw: Tech(UpgradeId.SHIELDWALL),
     },
+    "research_stimpack": {
+        "description": "Research Stimpack for Marines and Marauders",
+        "type": "tech",
+        "action_func": lambda *args, **kw: Tech(UpgradeId.STIMPACK),
+    },
+    "research_concussive_shells": {
+        "description": "Research Concussive Shells for Marauders",
+        "type": "tech",
+        "action_func": lambda *args, **kw: Tech(UpgradeId.PUNISHERGRENADES),
+    },
+    "research_infantry_weapons": {
+        "description": "Upgrade Infantry Weapons (Engineering Bay)",
+        "type": "tech",
+        "action_func": lambda *args, **kw: Tech(UpgradeId.TERRANINFANTRYWEAPONSLEVEL1),
+    },
+    "research_infantry_armor": {
+        "description": "Upgrade Infantry Armor (Engineering Bay)",
+        "type": "tech",
+        "action_func": lambda *args, **kw: Tech(UpgradeId.TERRANINFANTRYARMORSLEVEL1),
+    },
+    "research_vehicle_weapons": {
+        "description": "Upgrade Vehicle Weapons (Armory)",
+        "type": "tech",
+        "action_func": lambda *args, **kw: Tech(UpgradeId.TERRANVEHICLEWEAPONSLEVEL1),
+    },
+    "research_ship_weapons": {
+        "description": "Upgrade Ship Weapons (Armory)",
+        "type": "tech",
+        "action_func": lambda *args, **kw: Tech(UpgradeId.TERRANSHIPWEAPONSLEVEL1),
+    },
     "morph_orbital_command": {
         "description": "Morph Command Center into Orbital Command",
         "type": "building",
         "action_func": lambda *args: MorphOrbitals(*args),
+    },
+    "morph_planetary_fortress": {
+        "description": "Morph Command Center into Planetary Fortress (requires Engineering Bay)",
+        "type": "building",
+        "action_func": lambda *args: MorphPlanetary(*args),
     },
 }
 

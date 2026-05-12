@@ -229,11 +229,16 @@ class LLMObservationRecorder(ManagerBase):
             if output_dir:
                 os.makedirs(output_dir, exist_ok=True)
 
-            payload = {
-                "metadata": self._build_metadata(game_result),
-                "records": self.record_history,
-                "llm_interactions": self.llm_interactions,
-            }
+            if self.llm_interactions:
+                payload = {
+                    "metadata": self._build_metadata(game_result),
+                    "interactions": self.llm_interactions,
+                }
+            else:
+                payload = {
+                    "metadata": self._build_metadata(game_result),
+                    "records": self.record_history,
+                }
 
             with open(output_path, "w", encoding="utf-8") as handle:
                 json.dump(payload, handle, ensure_ascii=False, indent=2)

@@ -111,3 +111,6 @@ tools/build_order.json
 
 # Local data directory
 data/
+
+# Game records
+game_records/

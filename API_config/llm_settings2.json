@@ -4,9 +4,9 @@
     "profiles": {
         "stage1_reasoning": {
             "_comment": "第一阶段：意图分析。",
-            "api_url": "https://open.bigmodel.cn/api/paas/v4",
-            "api_key": "df2af4f04d184c8cae1e0c70bbed26e0.5yVd73IGL743VEsF",
-            "model_name": "glm-4.7",
+            "api_url": "http://172.18.30.162:8808/v1",
+            "api_key": "EMPTY",
+            "model_name": "Qwen-32B",
             "temperature": 0.6,
             "max_tokens": 8192,
             "timeout_seconds": 60,
@@ -14,9 +14,9 @@
         },
         "stage2_translation": {
             "_comment": "第二阶段：动作映射。",
-            "api_url": "https://open.bigmodel.cn/api/paas/v4",
-            "api_key": "df2af4f04d184c8cae1e0c70bbed26e0.5yVd73IGL743VEsF",
-            "model_name": "glm-4.7",
+            "api_url": "http://172.18.30.162:8808/v1",
+            "api_key": "EMPTY",
+            "model_name": "Qwen-32B",
             "temperature": 0.0,
             "max_tokens": 256,
             "timeout_seconds": 30,
