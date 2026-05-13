@@ -65,6 +65,7 @@ from SKILL.terran.Action import (
     get_action_space,
 )
 from SKILL.terran.two_base_tanks.base_tactics import TwoBaseTanksTactics
+from SKILL.terran.battle_cruisers.base_tactics import BattleCruisersTactics
 
 logger = logging.getLogger("LLMBot")
 
@@ -527,14 +528,14 @@ Your job each cycle:
 * Add new tasks needed for the current stage.
 * Describe each task clearly: Each natural-language task MUST contain only ONE single plan or action. Do not combine multiple actions in one sentence. While there is no limit on the total number of tasks, you must strictly maintain the priority order. Key bottleneck actions can still be issued as a single isolated task for that cycle to guarantee focus.
 
-Your overall strategy is a Marine and Siege Tank macro build, with a strict emphasis on the developmental sequence between Barracks/Factories and Marines/Tanks:
+Your overall strategy is a Battlecruiser-focused macro build supported by Marines and Siege Tanks, with a strict emphasis on rapid Starport tech progression and balancing the developmental sequence between your ground forces and heavy air fleet:
 
-* Opening & Tech: At the very beginning of the game, issue a single, isolated task to build a Supply Depot. Then build a Barracks, followed by your first gas Refinery. Immediately expand to a second base. Once the Barracks finishes, morph Command Centers to Orbital Commands and start your first Factory.
-* Early Marine Buffer & Setup: Train a couple of initial Marines for defense. Grab your second gas Refinery. Begin scaling your infantry infrastructure up to 5 Barracks, using a mix of 1 Tech Lab to research Combat Shield and Reactors for the rest. Rapidly pump out a solid number of Marines early on to serve as a defensive buffer.
-* Simultaneous Factory & Tank Push: While building the initial Marine buffer, aggressively push Factory development. As soon as the first Factory finishes, attach a Tech Lab and start Siege Tanks. Prioritize scaling up to 3 Factories, all with Tech Labs, as early as possible.
-* Production Shift: Once you have accumulated enough Marines to secure your defense, shift your primary focus and resources toward mass-producing Siege Tanks, while maintaining steady Marine reinforcement.
-* Expansion: Expand to a third and fourth base dynamically when it is safe to do so.
-* End Goal: Continually train units non-stop until you reach a cap of 20 Siege Tanks and 100 Marines, supported by a strong economy of up to 44 SCVs.
+* Opening & Tech: Start with a standard opening: a Supply Depot at 13 supply, followed immediately by a Barracks and your first gas Refinery. Expand to a second base early. Once the Barracks is ready, morph your Command Centers to Orbital Commands, take your second gas Refinery, and immediately start a Factory, followed directly by a Starport as soon as the Factory finishes.
+* Early Defense & Detection Setup: Build a defensive Bunker at your natural entrance to survive early pressure. Once the Starport finishes, heavily prioritize building up to 2 Ravens to ensure detection against stealth threats (like Dark Templars or Banshees) and provide utility. Add a Factory Tech Lab and a second Barracks.
+* Simultaneous Air Tech & Core Push: As soon as the first Starport finishes, immediately construct a Fusion Core and attach a Tech Lab to the Starport. Once the Fusion Core is ready, prioritize the non-stop production of Battlecruisers. Take your fourth gas Refinery as soon as your first Battlecruiser is in production or already exists.
+* Production Shift & Upgrades: After your first Battlecruiser is out, scale up your infantry infrastructure to 3 Barracks, equipping them with a mix of a Tech Lab (to research Combat Shield) and a Reactor. Add a second Starport with a Tech Lab to double your Battlecruiser production. When you find yourself floating excess minerals (over 600), scale up to 5 Barracks.
+* Expansion & Tactics: Expand to a third base once your mid-game production is secured. Tactically, use your Battlecruisers to execute Tactical Jumps into the back of the enemy's mineral lines for early harassment. Launch a massive, decisive zone attack when your overall army value reaches the 50-80 threshold.
+* End Goal: Continually train units non-stop until you reach a late-game cap of 20 Battlecruisers, 10 Siege Tanks, and 50 Marines, supported by a strong economy of up to 46 SCVs.
 
 Output format:
 1. First write one concise reasoning paragraph outside JSON.
@@ -706,7 +707,8 @@ Constraints:
         # 这里 num_marines 只影响 TerranBaseTactics 内 DodgeRampAttack 的攻击阈值；
         # LLM 自己也可以再下 `train_marine` 任务把数量推得更高。
         # base_tactics = TerranBaseTactics(num_marines=20)
-        base_tactics = TwoBaseTanksTactics()
+        # base_tactics = TwoBaseTanksTactics()
+        base_tactics = BattleCruisersTactics()
 
         # 动态运营层：LLM 驱动的并行任务执行器
         llm_executor = ActLLMOngoingTasks(

@@ -40,7 +40,7 @@ def main():
     enemy_race = "terran" 
     
     # 难度可选: veryeasy, easy, medium, mediumhard, hard, harder, veryhard, cheatvision, cheatmoney, cheatinsane
-    enemy_difficulty = "veryhard" 
+    enemy_difficulty = "hard" 
     
     # 风格可选: randombuild, rush, timing, power, macro, air
     enemy_build = "macro"
