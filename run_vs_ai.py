@@ -8,7 +8,6 @@ import sys
 from datetime import datetime
 from typing import List, Optional, Sequence
 
-# 确保能正确导入 python-sc2 和 sharpy 相关模块
 sys.path.insert(1, "python-sc2")
 
 from bot_loader import GameStarter, BotDefinitions
@@ -16,10 +15,8 @@ from version import update_version_txt
 
 OUTPUT_BASE_DIR = "./game_records"
 
-
 def _safe_match_part(value: str) -> str:
     return "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in str(value))
-
 
 def build_match_id(
     *,
@@ -48,11 +45,10 @@ def build_match_id(
         _safe_match_part(mid_model or "no_mid"),
         _safe_match_part(down_model or "no_down"),
     )
-    mid = "_".join(_safe_match_part(p) for p in parts)
+    match_str = "_".join(_safe_match_part(p) for p in parts)
     if run_index is not None:
-        mid = f"{mid}_run{run_index}"
-    return mid
-
+        match_str = f"{match_str}_run{run_index}"
+    return match_str
 
 def play_vs_ai(
     *,
@@ -72,7 +68,6 @@ def play_vs_ai(
     output_base_dir: str = OUTPUT_BASE_DIR,
     skip_version_update: bool = False,
 ) -> None:
-    """组装参数并启动一局游戏。"""
     root_dir = os.path.dirname(os.path.abspath(__file__))
     os.chdir(root_dir)
 
@@ -98,26 +93,24 @@ def play_vs_ai(
     )
 
     base = os.path.abspath(output_base_dir)
+    # 如果指定了 batch_name，则归档到单独的批次文件夹下面
     if batch_name:
         batch_slug = _safe_match_part(batch_name)
         record_dir = os.path.join(base, batch_slug, match_id)
     else:
         record_dir = os.path.join(base, match_id)
+        
     os.makedirs(record_dir, exist_ok=True)
 
     args: List[str] = [
         "run_custom.py",
-        "-m",
-        map_name,
-        "-p1",
-        p1_string,
-        "-p2",
-        p2_string,
-        "--record-dir",
-        record_dir,
-        "--match-id",
-        match_id,
+        "-m", map_name,
+        "-p1", p1_string,
+        "-p2", p2_string,
+        "--record-dir", record_dir,
+        "--match-id", match_id,
     ]
+    
     if real_time:
         args.append("-rt")
     if bot_instruct:
@@ -128,26 +121,19 @@ def play_vs_ai(
         args.extend(["--mid-model", mid_model])
     if down_model:
         args.extend(["--down-model", down_model])
+        
     sys.argv = args
 
     print("==================================================")
-    print(" 正在启动 SC2 对战...")
-    print(f" 你的 Bot : {my_bot_name} ({bot_race})")
-    print(f" 对手 AI  : {enemy_race.upper()} | 难度: {enemy_difficulty} | 风格: {enemy_build}")
-    print(f" 比赛地图 : {map_name}")
-    print(f" 输出目录 : {record_dir}")
+    print(" 正在启动 SC2 Agent 对战...")
+    print(f" ▷ 我方阵营 : {my_bot_name} ({bot_race})")
+    print(f" ▷ 对手 AI  : {enemy_race.upper()} | 难度: {enemy_difficulty} | 风格: {enemy_build}")
+    print(f" ▷ 比赛地图 : {map_name}")
+    print(f" ▷ 战术指令 : {bot_instruct}")
+    print(f" ▷ 大模型簇 : Top=[{top_model}], Mid=[{mid_model}], Down=[{down_model}]")
     if batch_name:
-        print(f" 批次名称 : {batch_name}")
-    if run_index is not None:
-        print(f" 批次序号 : {run_index}")
-    if bot_instruct:
-        print(f" 战术指令 : {bot_instruct}")
-    if top_model:
-        print(f" Top Model: {top_model}")
-    if mid_model:
-        print(f" Mid Model: {mid_model}")
-    if down_model:
-        print(f" Down Model: {down_model}")
+        print(f" ▷ 批次名称 : {batch_name} (任务序号: {run_index})")
+    print(f" ▷ 记录目录 : {record_dir}")
     print("==================================================")
 
     ladder_bots_path = os.path.join(root_dir, "Bots")
@@ -156,46 +142,28 @@ def play_vs_ai(
     starter = GameStarter(definitions)
     starter.play()
 
-
 def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(
-        description="与内置 AI 对战；无参数时沿用默认配置。批量并发请用 run_vs_ai_batch.sh 或 run_vs_ai_batch_env.sh。",
+        description="与 SC2 内置 AI 对战。支持单跑或被批处理脚本调用。",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     p.add_argument("--my-bot-name", default="universal_llm", help="Bot 名称")
     p.add_argument("--map-name", default="KairosJunctionLE", help="地图名")
-    p.add_argument("--real-time", action="store_true", help="实时模式")
+    p.add_argument("--real-time", action="store_true", help="实时模式(人类观测)")
     p.add_argument("--enemy-race", default="terran", help="对手种族")
     p.add_argument("--enemy-difficulty", default="hard", help="对手难度")
     p.add_argument("--enemy-build", default="macro", help="对手 AI 风格")
     p.add_argument("--bot-instruct", default="打一波 以 大和为主的攻击", help="战术指令")
     p.add_argument("--bot-race", default="terran", help="我方种族")
-    p.add_argument("--top-model", default="DeepSeek-V4-pro-reasoning", help="Top Agent 模型 key")
-    p.add_argument("--mid-model", default="DeepSeek-V4-pro-reasoning", help="Mid Agent 模型 key")
-    p.add_argument("--down-model", default="DeepSeek-V4-flash", help="Down Agent 模型 key")
-    p.add_argument(
-        "--batch-name",
-        default="",
-        help="非空时日志写入 game_records/<batch-name>/...，便于批量区分",
-    )
-    p.add_argument(
-        "--run-index",
-        type=int,
-        default=None,
-        help="批量运行时序号，写入 match_id 避免同秒冲突",
-    )
-    p.add_argument(
-        "--output-base-dir",
-        default=OUTPUT_BASE_DIR,
-        help="记录根目录（默认 game_records）",
-    )
-    p.add_argument(
-        "--skip-version-update",
-        action="store_true",
-        help="批跑时由外层已更新 version 时可跳过",
-    )
+    p.add_argument("--top-model", default="DeepSeek-V4-pro-reasoning", help="Top Agent")
+    p.add_argument("--mid-model", default="DeepSeek-V4-pro-reasoning", help="Mid Agent")
+    p.add_argument("--down-model", default="DeepSeek-V4-flash", help="Down Agent")
+    p.add_argument("--batch-name", default="", help="记录写入 game_records/<batch-name>/ 归档")
+    p.add_argument("--run-index", type=int, default=None, help="批处理序号以防并发冲突")
+    p.add_argument("--output-base-dir", default=OUTPUT_BASE_DIR, help="记录根目录")
+    p.add_argument("--skip-version-update", action="store_true", help="跳过版本更新防止 IO 锁")
+    
     return p.parse_args(argv)
-
 
 def main(argv: Optional[Sequence[str]] = None) -> None:
     ns = _parse_args(argv)
@@ -216,7 +184,6 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         output_base_dir=ns.output_base_dir,
         skip_version_update=ns.skip_version_update,
     )
-
 
 if __name__ == "__main__":
     main()

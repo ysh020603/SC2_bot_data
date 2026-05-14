@@ -114,3 +114,6 @@ data/
 
 # Game records
 game_records/
+
+# LLM API keys (copy from API_config/config.example.json)
+API_config/config.json
