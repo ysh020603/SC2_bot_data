@@ -1,13 +1,26 @@
+# === SC2 核心与底层通讯依赖 ===
 s2clientprotocol==4.10.3.76114.0
+burnysc2>=5.0.0            # 社区活跃维护的 python-sc2 分支，替代原来的 sc2
+mpyq                       # 用于解析 SC2 录像文件
 portpicker==1.4.0
-numpy<2.0.0
+
+# === LLM 接口调用依赖 ===
+openai>=1.0.0              # 必须！llm_caller.py 依赖此包进行 API 通讯
+
+# === 网络请求与异步 ===
 requests==2.23.0
 aiohttp==3.7.4
+
+# === 数据科学与数学计算 ===
+numpy<2.0.0
 scipy==1.10.0
-six==1.16.0
+scikit-learn<2.0.0
+
+# === 图像处理与工具 ===
 opencv-python
 more-itertools
-mpyq
-scikit-learn<2.0.0
-loguru
+six==1.16.0
 protobuf<4.0.0
+
+# === 终端与日志输出 ===
+loguru                     # 必须！用于美观且线程安全的异步日志记录
