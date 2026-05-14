@@ -13,6 +13,7 @@ from sc2.player import Human, Bot, Computer, AbstractPlayer
 
 from dummies.terran.test_bot import TestBot
 from dummies.terran.llm_bot import LLMBot, MyLLMBot
+from dummies.generic.universal_llm_bot import UniversalLLMBot
 
 races = {
     "protoss": Race.Protoss,
@@ -342,6 +343,13 @@ class BotDefinitions:
 
         for bot in bots:
             bot_dict[bot.key] = bot.build_definition()
+
+        def _make_universal_llm(params):
+            race_str = BotDefinitions.index_check(params, 0, "terran")
+            race = races.get(race_str, Race.Terran)
+            return Bot(race, UniversalLLMBot(race_name=race_str))
+
+        bot_dict["universal_llm"] = (_make_universal_llm, None)
 
         not_buildable = {
             "lingflood": (lambda params: Bot(Race.Zerg, LingFlood(False))),

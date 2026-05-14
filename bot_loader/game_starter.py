@@ -138,6 +138,26 @@ Builds:
             "--match-id",
             help="File prefix for this match's log, replay, and LLM JSON.",
         )
+        parser.add_argument(
+            "--instruct",
+            help="Natural-language tactical instruction for the LLM bot.",
+            default="",
+        )
+        parser.add_argument(
+            "--top-model",
+            help="Model key from config.json for Top Agent.",
+            default="",
+        )
+        parser.add_argument(
+            "--mid-model",
+            help="Model key from config.json for Mid Agent.",
+            default="",
+        )
+        parser.add_argument(
+            "--down-model",
+            help="Model key from config.json for Down Agent.",
+            default="",
+        )
 
         args = parser.parse_args()
 
@@ -249,6 +269,14 @@ Builds:
                 recorder = getattr(my_bot, "llm_observation_recorder", None)
                 if recorder is not None:
                     recorder.output_folder = record_dir
+            if getattr(args, "instruct", None) and hasattr(my_bot, "instruct"):
+                my_bot.instruct = args.instruct
+            if getattr(args, "top_model", None) and hasattr(my_bot, "top_model_key"):
+                my_bot.top_model_key = args.top_model
+            if getattr(args, "mid_model", None) and hasattr(my_bot, "mid_model_key"):
+                my_bot.mid_model_key = args.mid_model
+            if getattr(args, "down_model", None) and hasattr(my_bot, "down_model_key"):
+                my_bot.down_model_key = args.down_model
             if args.release:
                 my_bot.config = get_config(False)
 

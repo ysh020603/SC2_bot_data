@@ -1,29 +1,29 @@
 """LLM Caller.
 
-封装对 OpenAI 兼容协议的底层调用，三大职责：
+封装对 OpenAI 兼容协议的底层调用，四大职责：
 
-1. **配置加载**：默认从 ``API_config/llm_settings.json`` 读取静态参数（model / base_url / api_key
-   等）；可通过 ``load_llm_settings(settings_path=...)`` / ``call_openai(..., settings_path=...)``
-   指定其它 JSON（如 ``llm_settings2.json``）。上层只需传业务级开关（``is_reasoning``、``profile``、消息体等）。
-2. **多厂商分发**：根据模型名子串命中 ``vendor_dispatch.rules`` 中的规则，把
-   ``is_reasoning`` 翻译成各家的私有字段（GLM 的 ``extra_body.thinking.type``，
-   Kimi/DeepSeek/Qwen 的 ``extra_body.enable_thinking`` 等）。Fallback 走 OpenAI 兼容
-   透传，本地 VLLM 也走这条路径。
-3. **输出清洗**：对返回 ``content`` 截掉 ``<think>...</think>``（含未闭合的悬挂
-   ``<think>`` 段），让两阶段流水线下游拿到的都是"已经收尾"的纯输出。
+1. **配置加载**：
+   - ``load_llm_settings()``：从 ``API_config/llm_settings.json`` 加载 profile 配置。
+   - ``load_agent_pool()``：从 ``API_config/config.json`` 加载 ``llm_agents_pool`` 模型池。
+2. **多入口调用**：
+   - ``profile`` 方式（向后兼容）：按 profile 名从 ``llm_settings.json`` 取参。
+   - ``model_key`` 方式（新）：按 key 从 ``config.json`` 的 ``llm_agents_pool`` 取参。
+   两种方式互斥，``model_key`` 优先。
+3. **多厂商分发**：根据模型名子串命中 ``vendor_dispatch.rules``，把
+   ``is_reasoning`` 翻译成各家私有字段。
+4. **输出清洗**：截掉 ``<think>...</think>``（含悬挂 think）。
 
-模块对外只暴露两个函数：
+模块对外暴露：
 
-- ``call_openai(...)`` —— 主入口，签名兼容 OpenAI SDK 的 ``chat.completions.create``，
-  同时增加 ``is_reasoning`` / ``profile`` 等业务参数。
-- ``load_llm_settings()`` —— 给调试 / 单元测试用的纯加载函数；支持多配置文件按路径分别缓存。
+- ``call_openai(...)`` —— 主入口。
+- ``load_llm_settings()`` —— profile 配置加载。
+- ``load_agent_pool()`` —— 模型池配置加载。
+- ``strip_think_tags()`` —— 输出清洗工具函数。
 
 设计取舍：
 
-- 同步实现（基于 ``openai.OpenAI`` 客户端）。上层 Bot 在 asyncio 事件循环里通过
-  ``asyncio.to_thread`` 调度本函数，避免阻塞游戏帧。
-- 失败回退到字面级降级（返回 ``""``），调用方决定是否重试，**记录器层面绝不抛异常打断
-  游戏循环**。
+- 同步实现（基于 ``openai.OpenAI`` 客户端）。
+- 失败回退到字面级降级（返回 ``""``），**绝不抛异常打断游戏循环**。
 """
 
 from __future__ import annotations
@@ -40,14 +40,17 @@ logger = logging.getLogger("API_Tools.llm_caller")
 
 # 默认配置文件路径：相对于本仓库根目录。
 _CONFIG_REL_PATH = os.path.join("API_config", "llm_settings.json")
+_AGENT_POOL_REL_PATH = os.path.join("API_config", "config.json")
 
 _THINK_BLOCK_RE = re.compile(r"<think\b[^>]*>.*?</think>", re.IGNORECASE | re.DOTALL)
-# 悬挂 think（如 <think>...</think> 没闭合的开头一段）：从首个 <think> 一直吃到串尾。
 _DANGLING_THINK_RE = re.compile(r"<think\b[^>]*>.*", re.IGNORECASE | re.DOTALL)
 
 # 进程级缓存：按「解析后的绝对路径」分文件缓存，避免每次调用都打开 JSON。
 _settings_cache: Dict[str, Dict[str, Any]] = {}
 _settings_cache_lock = threading.Lock()
+
+_agent_pool_cache: Dict[str, Dict[str, Any]] = {}
+_agent_pool_cache_lock = threading.Lock()
 
 
 def _repo_root() -> str:
@@ -112,6 +115,76 @@ def load_llm_settings(
 
 
 # ----------------------------------------------------------------------
+# Agent Pool (config.json)
+# ----------------------------------------------------------------------
+
+
+def _resolve_agent_pool_abs_path(config_path: Optional[str]) -> str:
+    """把 ``config_path`` 解析为绝对路径（规则同 settings，默认指向 config.json）。"""
+    root = _repo_root()
+    raw = (config_path or "").strip()
+    if not raw:
+        rel = _AGENT_POOL_REL_PATH
+    else:
+        norm = raw.replace("\\", "/")
+        if os.path.isabs(raw):
+            return os.path.abspath(os.path.normpath(raw))
+        if "/" not in norm:
+            rel = os.path.join("API_config", norm)
+        else:
+            rel = norm
+    return os.path.abspath(os.path.join(root, rel))
+
+
+def load_agent_pool(
+    config_path: Optional[str] = None,
+    force_reload: bool = False,
+) -> Dict[str, Any]:
+    """加载 ``API_config/config.json`` 中的 ``llm_agents_pool``。
+
+    返回整个 JSON（顶层含 ``llm_agents_pool`` 字段）。
+    """
+    abs_path = _resolve_agent_pool_abs_path(config_path)
+
+    with _agent_pool_cache_lock:
+        if not force_reload and abs_path in _agent_pool_cache:
+            return _agent_pool_cache[abs_path]
+        if force_reload and abs_path in _agent_pool_cache:
+            del _agent_pool_cache[abs_path]
+
+    try:
+        with open(abs_path, "r", encoding="utf-8") as handle:
+            data = json.load(handle)
+    except FileNotFoundError:
+        logger.warning("Agent pool config not found at %s; using empty.", abs_path)
+        data = {"llm_agents_pool": {}}
+    except Exception as exc:
+        logger.warning("Failed to parse agent pool %s (%s); using empty.", abs_path, exc)
+        data = {"llm_agents_pool": {}}
+
+    with _agent_pool_cache_lock:
+        _agent_pool_cache[abs_path] = data
+    return data
+
+
+def _resolve_model_from_pool(
+    model_key: str,
+    config_path: Optional[str] = None,
+) -> Dict[str, Any]:
+    """根据 ``model_key`` 从 ``llm_agents_pool`` 中取出单条模型配置。
+
+    返回 pool 中的原始 dict；找不到时返回空 dict。
+    """
+    pool_data = load_agent_pool(config_path=config_path)
+    pool = pool_data.get("llm_agents_pool") or {}
+    cfg = pool.get(model_key)
+    if cfg is None:
+        logger.warning("model_key=%r not found in llm_agents_pool.", model_key)
+        return {}
+    return cfg
+
+
+# ----------------------------------------------------------------------
 # Vendor dispatch
 # ----------------------------------------------------------------------
 
@@ -170,6 +243,27 @@ def _apply_vendor_dispatch(
 
 
 # ----------------------------------------------------------------------
+# Identity injection
+# ----------------------------------------------------------------------
+
+
+def _inject_identity_prompt(
+    messages: List[Dict[str, str]],
+    identity_prompt: str,
+) -> List[Dict[str, str]]:
+    """将 identity_prompt 注入到第一条 system 消息前面（如有）。"""
+    messages = list(messages)
+    if messages and messages[0].get("role") == "system":
+        messages[0] = {
+            **messages[0],
+            "content": f"{identity_prompt}\n\n{messages[0]['content']}",
+        }
+    else:
+        messages.insert(0, {"role": "system", "content": identity_prompt})
+    return messages
+
+
+# ----------------------------------------------------------------------
 # Content cleaning
 # ----------------------------------------------------------------------
 
@@ -196,6 +290,7 @@ def strip_think_tags(text: str) -> str:
 def call_openai(
     messages: List[Dict[str, str]],
     *,
+    model_key: Optional[str] = None,
     profile: Optional[str] = None,
     model: Optional[str] = None,
     temperature: Optional[float] = None,
@@ -207,62 +302,77 @@ def call_openai(
     response_format: Optional[Dict[str, Any]] = None,
     extra_body: Optional[Dict[str, Any]] = None,
     settings_path: Optional[str] = None,
+    config_path: Optional[str] = None,
     **passthrough: Any,
 ) -> str:
     """同步调用 OpenAI 兼容协议的 chat completion，返回清洗后的纯文本。
 
-    使用顺序：调用方显式参数 > ``profile`` 中的字段 > 不传/默认。
+    参数解析优先级：调用方显式参数 > ``model_key`` 池 > ``profile`` 字段 > 不传/默认。
 
-    :param messages: 标准 OpenAI ``messages``，例如 ``[{"role": "system", ...}, ...]``。
-    :param profile: 走哪个 profile（见对应 settings JSON）。不传则用 ``default_profile``。
-    :param model: 覆盖 profile 中的 model；同时驱动 vendor_dispatch 命中。
-    :param temperature: 覆盖 profile 中的 temperature。
-    :param max_tokens: 覆盖 profile 中的 max_tokens。
-    :param is_reasoning: 覆盖 profile 的 is_reasoning。两阶段流水线**第二阶段强制传 False**，
-        让本函数把 ``thinking={"type": "disabled"}`` 注入到 GLM 这类厂商。
-    :param api_key: 覆盖 profile 的 api_key；不传则用 profile，最终回退到环境变量
-        ``OPENAI_API_KEY`` / ``LLM_API_KEY``。
-    :param base_url: 覆盖 profile 的 base_url；同时支持环境变量 ``OPENAI_BASE_URL`` /
-        ``LLM_BASE_URL`` 兜底。
-    :param timeout: 单次调用超时（秒）。
-    :param response_format: OpenAI 的 ``response_format`` 字段，例如
-        ``{"type": "json_object"}``。第二阶段建议传入以约束输出格式。
-    :param extra_body: 显式注入的 ``extra_body``；与 vendor_dispatch 自动注入字段会合并，
-        显式优先。
-    :param settings_path: 非空时从该文件加载配置（规则同 :func:`load_llm_settings`）；
-        ``None`` 则使用默认 ``API_config/llm_settings.json``。
-    :param passthrough: 透传给 SDK 的其它 keyword 参数（如 ``top_p`` 等）。
-    :return: 已经剥离 ``<think>`` 段、调用方可直接消费的字符串。失败时返回空串。
+    两种模式互斥，``model_key`` 优先于 ``profile``：
+
+    * **model_key 模式**：从 ``config.json`` 的 ``llm_agents_pool[model_key]`` 取参。
+    * **profile 模式**（向后兼容）：从 ``llm_settings.json`` 的 ``profiles[profile]`` 取参。
+
+    :param model_key:       从 ``config.json`` 模型池查找的 key（新接口）。
+    :param config_path:     model_key 对应的配置文件路径；默认 ``API_config/config.json``。
+    :param profile:         走哪个 profile（见 llm_settings JSON）。
+    :param settings_path:   profile 对应的配置文件路径。
+    :return: 已经剥离 ``<think>`` 段的字符串。失败时返回空串。
     """
-    settings = load_llm_settings(settings_path=settings_path)
-    profile_name = profile or settings.get("default_profile") or "stage1_reasoning"
-    profile_cfg: Dict[str, Any] = (settings.get("profiles") or {}).get(profile_name, {})
+    # --- 从 model_key（池）或 profile 解析基础参数 ---
+    pool_cfg: Dict[str, Any] = {}
+    if model_key:
+        pool_cfg = _resolve_model_from_pool(model_key, config_path)
 
-    final_model = model or profile_cfg.get("model") or profile_cfg.get("model_name")
-    final_temperature = (
-        temperature if temperature is not None else profile_cfg.get("temperature")
+    settings = load_llm_settings(settings_path=settings_path)
+
+    profile_name = profile or settings.get("default_profile") or "stage1_reasoning"
+    if model_key and pool_cfg:
+        profile_cfg: Dict[str, Any] = {}
+    else:
+        profile_cfg = (settings.get("profiles") or {}).get(profile_name, {})
+
+    def _pick(explicit, pool_key, profile_key, env_keys=(), default=None):
+        """按优先级选值：显式 > 池 > profile > 环境变量 > 默认。"""
+        if explicit is not None:
+            return explicit
+        pool_keys = [pool_key] if isinstance(pool_key, str) else (pool_key or [])
+        for k in pool_keys:
+            v = pool_cfg.get(k)
+            if v is not None:
+                return v
+        prof_keys = [profile_key] if isinstance(profile_key, str) else (profile_key or [])
+        for k in prof_keys:
+            v = profile_cfg.get(k)
+            if v is not None:
+                return v
+        for ek in env_keys:
+            v = os.environ.get(ek)
+            if v:
+                return v
+        return default
+
+    final_model = _pick(model, "model_name", ["model", "model_name"])
+    final_temperature = _pick(temperature, "temperature", "temperature")
+    final_max_tokens = _pick(max_tokens, "max_tokens", "max_tokens")
+    final_is_reasoning = _pick(is_reasoning, "is_reasoning", "is_reasoning", default=False)
+    if final_is_reasoning is None:
+        final_is_reasoning = False
+    final_api_key = _pick(
+        api_key, "api_key", "api_key",
+        env_keys=("LLM_API_KEY", "OPENAI_API_KEY"),
     )
-    final_max_tokens = (
-        max_tokens if max_tokens is not None else profile_cfg.get("max_tokens")
+    final_base_url = _pick(
+        base_url, "api_url", ["base_url", "api_url"],
+        env_keys=("LLM_BASE_URL", "OPENAI_BASE_URL"),
     )
-    final_is_reasoning = (
-        is_reasoning if is_reasoning is not None else profile_cfg.get("is_reasoning", False)
-    )
-    final_api_key = (
-        api_key
-        or profile_cfg.get("api_key")
-        or os.environ.get("LLM_API_KEY")
-        or os.environ.get("OPENAI_API_KEY")
-    )
-    final_base_url = (
-        base_url
-        or profile_cfg.get("base_url")
-        or profile_cfg.get("api_url")
-        or os.environ.get("LLM_BASE_URL")
-        or os.environ.get("OPENAI_BASE_URL")
-    )
-    final_timeout = timeout if timeout is not None else profile_cfg.get("timeout_seconds")
-    final_response_format = response_format or profile_cfg.get("response_format")
+    final_timeout = _pick(timeout, "timeout_seconds", "timeout_seconds")
+    final_response_format = _pick(response_format, "response_format", "response_format")
+
+    # identity_prompt 注入（仅 model_key 模式支持）
+    if pool_cfg.get("enable_identity") and pool_cfg.get("identity_prompt"):
+        messages = _inject_identity_prompt(messages, pool_cfg["identity_prompt"])
 
     if not final_model:
         logger.warning("call_openai: no model configured for profile=%s", profile_name)
@@ -336,4 +446,4 @@ def call_openai(
     return content
 
 
-__all__ = ["call_openai", "load_llm_settings", "strip_think_tags"]
+__all__ = ["call_openai", "load_llm_settings", "load_agent_pool", "strip_think_tags"]
