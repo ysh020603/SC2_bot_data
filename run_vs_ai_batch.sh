@@ -84,6 +84,8 @@ if [[ "${1:-}" == "worker" ]]; then
     local idx="$1"
     local rt=()
     [[ "${REAL_TIME:-0}" == "1" ]] && rt=(--real-time)
+    
+    # 这里的 $PYTHON 就是我们在 start_experiments.sh 里配置的绝对路径
     "$PYTHON" "$RUN_SCRIPT" \
       --my-bot-name "$MY_BOT_NAME" \
       --map-name "$MAP_NAME" \
@@ -134,7 +136,7 @@ echo " 单局录像   : $RECORD_ROOT/$BATCH_NAME/"
 echo " 终端日志   : $LOG_DIR"
 echo "=================================================="
 
-# 提前更新 version 避免多进程读写冲突
+# 提前更新 version 避免多进程读写冲突 (同样使用绝对路径 Python)
 $PYTHON -c "import sys; sys.path.insert(0, '.'); from version import update_version_txt; update_version_txt()" || true
 
 run_tmux() {
@@ -151,7 +153,7 @@ run_tmux() {
   qscript=$(printf '%q' "$0")
 
   for ((w = 0; w < CONCURRENCY; w++)); do
-    # 修复了这里的 BUG：使用 bash 执行 shell 脚本，而不是 python
+    # 这里的 bash $qscript 会正确调用本脚本的 worker 逻辑
     local inner
     inner="export BATCH_ENV_FILE=$bf BATCH_TOTAL=$TOTAL BATCH_CONC=$CONCURRENCY LOG_DIR=$(printf '%q' "$LOG_DIR"); cd $qroot && bash $qscript worker $w; echo '[Worker $w] 全部任务完成。'; read -r _"
     
@@ -167,7 +169,7 @@ run_tmux() {
 
 case "$MODE" in
   tmux) run_tmux ;;
-  fg)   # ... fg 保留原始回退逻辑即可 ...
+  fg)   
     echo "使用后台 Jobs 模式..."
     for ((i = 0; i < TOTAL; i++)); do
       while ((($(jobs -r | wc -l) + 0) >= CONCURRENCY)); do wait -n || true; done

@@ -44,6 +44,17 @@
         "enable_identity": false,
         "identity_prompt": ""
       },
+      "DeepSeek-V4-pro": {
+        "api_url": "https://api.deepseek.com/v1",
+        "api_key": "sk-a81d0b1ef1cb4ad687c7a14f100113e3",
+        "model_name": "deepseek-v4-pro",
+        "temperature": 0.7,
+        "top_p": null,
+        "max_tokens": null,
+        "is_reasoning": false,
+        "enable_identity": false,
+        "identity_prompt": ""
+      },
       "GLM-4.7":{
         "api_url": "https://open.bigmodel.cn/api/paas/v4",
         "api_key": "df2af4f04d184c8cae1e0c70bbed26e0.5yVd73IGL743VEsF",
