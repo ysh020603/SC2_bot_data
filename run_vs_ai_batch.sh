@@ -118,7 +118,7 @@ MODE="${3:-fg}"
 
 if [[ -z "$BATCH_NAME" ]]; then
   TS="$(date +%Y%m%d_%H%M)"
-  BATCH_NAME="batch_${TS}_${MAP_NAME}_${BOT_RACE}v${ENEMY_RACE}_${ENEMY_DIFFICULTY}_$(slug_part "$TOP_MODEL")"
+  BATCH_NAME="batch_${TS}_${MAP_NAME}_${BOT_RACE}V${ENEMY_RACE}_${ENEMY_DIFFICULTY}_$(slug_part "$TOP_MODEL")"
 fi
 
 RECORD_ROOT="${RECORD_ROOT:-./game_records}"

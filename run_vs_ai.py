@@ -15,6 +15,11 @@ from version import update_version_txt
 
 OUTPUT_BASE_DIR = "./game_records"
 
+# 分层 LLM 模型默认值：改此处即可；CLI（python run_vs_ai.py）与 play_vs_ai() 均生效
+DEFAULT_TOP_MODEL = "Kimi-k2.5_base"
+DEFAULT_MID_MODEL = "Kimi-k2.5_base"
+DEFAULT_DOWN_MODEL = "Kimi-k2.5_base"
+
 def _safe_match_part(value: str) -> str:
     return "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in str(value))
 
@@ -60,9 +65,9 @@ def play_vs_ai(
     enemy_build: str = "macro",
     bot_instruct: str = "打一波 以 大和为主的攻击",
     bot_race: str = "terran",
-    top_model: str = "DeepSeek-V4-pro-reasoning",
-    mid_model: str = "DeepSeek-V4-pro-reasoning",
-    down_model: str = "DeepSeek-V4-flash",
+    top_model: str = DEFAULT_TOP_MODEL,
+    mid_model: str = DEFAULT_MID_MODEL,
+    down_model: str = DEFAULT_DOWN_MODEL,
     batch_name: Optional[str] = None,
     run_index: Optional[int] = None,
     output_base_dir: str = OUTPUT_BASE_DIR,
@@ -155,9 +160,9 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     p.add_argument("--enemy-build", default="macro", help="对手 AI 风格")
     p.add_argument("--bot-instruct", default="打一波 以 大和为主的攻击", help="战术指令")
     p.add_argument("--bot-race", default="terran", help="我方种族")
-    p.add_argument("--top-model", default="DeepSeek-V4-pro-reasoning", help="Top Agent")
-    p.add_argument("--mid-model", default="DeepSeek-V4-pro-reasoning", help="Mid Agent")
-    p.add_argument("--down-model", default="DeepSeek-V4-flash", help="Down Agent")
+    p.add_argument("--top-model", default=DEFAULT_TOP_MODEL, help="Top Agent")
+    p.add_argument("--mid-model", default=DEFAULT_MID_MODEL, help="Mid Agent")
+    p.add_argument("--down-model", default=DEFAULT_DOWN_MODEL, help="Down Agent")
     p.add_argument("--batch-name", default="", help="记录写入 game_records/<batch-name>/ 归档")
     p.add_argument("--run-index", type=int, default=None, help="批处理序号以防并发冲突")
     p.add_argument("--output-base-dir", default=OUTPUT_BASE_DIR, help="记录根目录")

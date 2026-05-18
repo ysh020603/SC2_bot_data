@@ -50,7 +50,7 @@ from sharpy.plans.acts.terran import MorphOrbitals
 from sharpy.plans.require import UnitReady
 from sharpy.plans.sequential_list import SequentialList
 
-from API_Tools.llm_caller import call_openai, load_llm_settings
+from API_Tools.llm_caller import call_openai
 from SC2_Agent.top_agent import (
     build_initial_strategy_messages,
     build_phase_assessment_messages,
@@ -556,17 +556,14 @@ class UniversalLLMBot(KnowledgeBot):
         }
         model_key = key_map.get(agent, "")
 
-        kwargs: Dict[str, Any] = {"messages": messages}
-        if model_key:
-            kwargs["model_key"] = model_key
-        else:
-            kwargs["profile"] = (
-                "stage1_reasoning" if agent in ("top", "mid") else "stage2_translation"
+        if not model_key:
+            logger.warning(
+                "[UniversalLLMBot] No model_key for agent=%r; set top/mid/down_model_key.",
+                agent,
             )
-        if agent == "down":
-            kwargs["is_reasoning"] = False
+            return ""
 
-        return call_openai(**kwargs)
+        return call_openai(messages=messages, model_key=model_key)
 
     def _call_mid_agent(self, obs_text: str, previous_tasks: List[str]) -> str:
         """构造 Mid Agent Prompt 并调用 LLM。"""

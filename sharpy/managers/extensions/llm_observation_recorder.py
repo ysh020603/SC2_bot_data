@@ -28,6 +28,13 @@ from sc2.ids.upgrade_id import UpgradeId
 
 from sharpy.managers.core.manager_base import ManagerBase
 
+# v3 (2026-05-15): a small denylist of upgrades that have negligible
+# tactical/macro impact and therefore add only noise to the LLM prompt. The
+# default ``state.upgrades`` set on a real game rarely contains anything
+# outside of combat/macro upgrades, but we keep this list as the single
+# tuning point for "ignore basic gathering / cosmetic upgrades, if any".
+_UPGRADE_BLOCKLIST: Set[UpgradeId] = set()
+
 if TYPE_CHECKING:
     from sharpy.knowledges import Knowledge
 
@@ -120,6 +127,13 @@ class LLMObservationRecorder(ManagerBase):
         self._train_ability_to_unit: Dict[AbilityId, UnitTypeId] = {}
         self._research_ability_to_upgrade: Dict[AbilityId, UpgradeId] = {}
 
+        # v3: timestamp (in-game seconds) of the most recent step in which we
+        # had at least one *mobile* enemy unit in our vision. We deliberately
+        # ignore static-only sightings (enemy structures) because the LLM-
+        # useful semantic is "how stale is my read on the enemy army?". Stays
+        # ``None`` until first contact with a mobile enemy unit.
+        self.last_enemy_seen_at: Optional[float] = None
+
     # ------------------------------------------------------------------
     # Manager lifecycle
     # ------------------------------------------------------------------
@@ -186,6 +200,11 @@ class LLMObservationRecorder(ManagerBase):
     async def update(self):
         if not self.enabled:
             return
+
+        # v3: refresh enemy-sighting freshness on every tick (not just on the
+        # ``interval_seconds`` cadence) so that a 12s snapshot interval cannot
+        # quantise the "last seen X seconds ago" reading to a multiple of 12.
+        self._refresh_enemy_seen_timestamp()
 
         if self.ai.time - self.last_recorded_time < self.interval_seconds:
             return
@@ -271,10 +290,13 @@ class LLMObservationRecorder(ManagerBase):
             "map_control": self._extract_map_control(),
             "combat": self._extract_combat_analysis(),
             "memory_flags": self._extract_memory_flags(),
+            # v3: top-level list of completed upgrades, so the LLM can spot
+            # "qualitative" power spikes (Warp Gate, Stim, +1 attack, ...).
+            "upgrades": self._extract_upgrades(),
         }
 
     def _extract_economy_state(self) -> Dict:
-        """Current resources, supply usage and per-minute incomes."""
+        """Current resources, supply usage, per-minute incomes and saturation."""
         mineral_per_min = 0.0
         gas_per_min = 0.0
         if self._income_calculator is not None:
@@ -282,6 +304,8 @@ class LLMObservationRecorder(ManagerBase):
             # are easier to reason about with per-minute numbers.
             mineral_per_min = round(self._income_calculator.mineral_income * 60, 1)
             gas_per_min = round(self._income_calculator.gas_income * 60, 1)
+
+        ideal_worker_count = self._calculate_ideal_worker_count()
 
         return {
             "minerals": int(self.ai.minerals),
@@ -293,7 +317,35 @@ class LLMObservationRecorder(ManagerBase):
             "supply_army": int(self.ai.supply_army),
             "minerals_per_min": mineral_per_min,
             "vespene_per_min": gas_per_min,
+            # v3: economic saturation. Pairs with ``supply_workers`` so the
+            # LLM can tell "I'm at 22/30 ideal -> keep producing SCVs" from
+            # "I'm at 22/22 ideal -> stop, build more bases / cut workers".
+            "ideal_worker_count": ideal_worker_count,
         }
+
+    def _calculate_ideal_worker_count(self) -> int:
+        """Sum ``ideal_harvesters`` across all ready townhalls and gas buildings.
+
+        A finished Command Center / Nexus / Hatchery reports ``2 * <mineral
+        patches in that base>`` (so 16 for a fresh main with 8 patches), and
+        a finished Refinery / Assimilator / Extractor reports ``3``. Adding
+        these gives the total "ideal worker slot count" the bot should aim
+        for. We deliberately skip *under-construction* bases / gas because
+        their ideal count is reported as 0 until the structure completes,
+        which would over-state how saturated the economy already is.
+        """
+        total = 0
+        try:
+            for townhall in self.ai.townhalls.ready:
+                total += max(0, int(getattr(townhall, "ideal_harvesters", 0) or 0))
+            for gas in self.ai.gas_buildings.ready:
+                total += max(0, int(getattr(gas, "ideal_harvesters", 0) or 0))
+        except Exception:
+            # ``townhalls`` / ``gas_buildings`` may not exist in some test
+            # stubs; bail out with whatever we accumulated so the snapshot
+            # still renders.
+            return total
+        return total
 
     def _extract_own_forces_infrastructure(self) -> Dict[str, Dict[str, int]]:
         """Classify own units / structures into four tiers.
@@ -478,18 +530,97 @@ class LLMObservationRecorder(ManagerBase):
         except Exception:
             return None
 
-    def _extract_enemy_intelligence(self) -> Dict[str, int]:
-        """Aggregated counts of enemy units/buildings ever observed."""
-        composition: Dict[str, int] = {}
-        if self._enemy_units_manager is None:
-            return composition
+    def _refresh_enemy_seen_timestamp(self) -> None:
+        """Stamp ``last_enemy_seen_at`` if any mobile enemy unit is visible now.
 
-        # ``unit_types`` is a KeysView, materialise to avoid mutation issues.
-        for unit_type in list(self._enemy_units_manager.unit_types):
-            count = self._enemy_units_manager.unit_count(unit_type)
-            if count > 0:
-                composition[unit_type.name] = count
-        return composition
+        We intentionally look at :pyattr:`BotAI.enemy_units` (currently-visible
+        non-structure enemies) rather than the cumulative
+        :class:`IEnemyUnitsManager` set. The manager keeps every unit it has
+        *ever* observed, so checking it for "non-empty" would return ``True``
+        forever after first contact and the staleness metric would always read
+        ~0s. Using the live ``enemy_units`` collection makes the timestamp
+        actually mean "the last frame our vision contained an enemy soldier".
+
+        Structures are skipped on purpose: a once-scouted Nexus is "always
+        known to be there" even outside of vision, so its presence does not
+        tell the LLM anything about the freshness of its read on the enemy
+        army composition.
+        """
+        try:
+            visible_mobile = self.ai.enemy_units
+        except Exception:
+            return
+        if visible_mobile:
+            self.last_enemy_seen_at = float(self.ai.time)
+
+    def _extract_enemy_intelligence(self) -> Dict:
+        """Aggregated counts of enemy units/buildings ever observed.
+
+        v3 shape::
+
+            {
+                "composition": {<UnitTypeId.name>: count, ...},
+                "last_observation_time": <float seconds | None>,
+                "seconds_since_last_seen": <float seconds | None>,
+            }
+
+        ``last_observation_time`` / ``seconds_since_last_seen`` are ``None``
+        when we have never had any mobile enemy unit in vision. The LLM
+        prompt formatter is responsible for rendering the ``None`` case
+        gracefully (no "Last seen: ..." suffix).
+        """
+        composition: Dict[str, int] = {}
+        if self._enemy_units_manager is not None:
+            # ``unit_types`` is a KeysView, materialise to avoid mutation
+            # issues if the manager updates while we iterate.
+            for unit_type in list(self._enemy_units_manager.unit_types):
+                count = self._enemy_units_manager.unit_count(unit_type)
+                if count > 0:
+                    composition[unit_type.name] = count
+
+        last_seen = self.last_enemy_seen_at
+        if last_seen is None:
+            seconds_since = None
+        else:
+            seconds_since = round(max(0.0, float(self.ai.time) - last_seen), 1)
+            last_seen = round(last_seen, 2)
+
+        return {
+            "composition": composition,
+            "last_observation_time": last_seen,
+            "seconds_since_last_seen": seconds_since,
+        }
+
+    def _extract_upgrades(self) -> List[str]:
+        """Return a sorted list of completed-upgrade names for the LLM.
+
+        Reads :pyattr:`BotAI.state.upgrades` (a ``set[UpgradeId]`` of
+        upgrades that finished researching this game) and translates each
+        entry to its uppercase :pyattr:`UpgradeId.name`. The blocklist is
+        applied here so the resulting list is "things the LLM should
+        actually consider when deciding the next action".
+
+        Output is sorted alphabetically for stable text formatting and
+        cheap diff-ability across consecutive snapshots.
+        """
+        names: List[str] = []
+        try:
+            upgrades = self.ai.state.upgrades
+        except Exception:
+            return names
+
+        for upgrade in upgrades:
+            if upgrade in _UPGRADE_BLOCKLIST:
+                continue
+            try:
+                names.append(upgrade.name)
+            except Exception:
+                # Defensive: an unknown numeric id snuck in. Render the int
+                # so the LLM at least sees *something*, rather than dropping.
+                names.append(str(upgrade))
+
+        names.sort()
+        return names
 
     def _extract_map_control(self) -> Dict:
         """Counts of own/enemy/neutral expansion zones."""
@@ -623,20 +754,32 @@ class LLMObservationRecorder(ManagerBase):
         mc = snapshot["map_control"]
         combat = snapshot["combat"]
         flags = snapshot["memory_flags"]
+        upgrades = snapshot.get("upgrades") or []
 
         # [Time]
         time_section = (
             f"[Time] {snapshot['time_formatted']} ({snapshot['time']:.1f}s)."
         )
 
-        # [Economy]
+        # [Economy] - v3: now includes worker saturation (X / ideal).
+        #
+        # The ``workers {current}/{ideal}`` notation is non-standard (SC2's
+        # built-in UI only ever shows ``used/cap``), so we annotate it
+        # inline with ``current/ideal`` to make the prompt self-explanatory
+        # for the downstream LLM. ``ideal`` is the sum of
+        # ``ideal_harvesters`` across all ready townhalls (2 * mineral
+        # patches per base, ~16 on a fresh main) and gas buildings (3 per
+        # refinery / assimilator / extractor), i.e. how many SCV/Drone/Probe
+        # the current economy can productively employ.
+        ideal_workers = eco.get("ideal_worker_count", 0)
         economy_section = (
             "[Economy] "
             f"{eco['minerals']} minerals, {eco['vespene']} vespene; "
             f"income {eco['minerals_per_min']:.0f} mins/min, "
             f"{eco['vespene_per_min']:.0f} gas/min. "
             f"Supply: {eco['supply_used']}/{eco['supply_cap']} "
-            f"(workers {eco['supply_workers']}, army {eco['supply_army']})."
+            f"(workers {eco['supply_workers']}/{ideal_workers} current/ideal, "
+            f"army {eco['supply_army']})."
         )
 
         # [Own Forces & Infrastructure] - the four-tier breakdown.
@@ -658,11 +801,8 @@ class LLMObservationRecorder(ManagerBase):
         )
         own_section = "\n".join(own_lines)
 
-        # [Enemy Intelligence]
-        enemy_section = (
-            "[Enemy Intelligence] "
-            f"{self._format_count_dict(enemy, empty='nothing scouted yet')}."
-        )
+        # [Enemy Intelligence] - v3: composition + freshness suffix.
+        enemy_section = self._format_enemy_section(enemy)
 
         # [Map Control]
         map_section = (
@@ -685,6 +825,12 @@ class LLMObservationRecorder(ManagerBase):
             f"enemy {combat['enemy_lost_minerals']} minerals/"
             f"{combat['enemy_lost_gas']} gas."
         )
+
+        # [Research & Technology] - v3.
+        if upgrades:
+            tech_section = "[Research & Technology] " + ", ".join(upgrades) + "."
+        else:
+            tech_section = "[Research & Technology] none."
 
         # [Threat Flags]
         flag_parts: List[str] = []
@@ -709,9 +855,38 @@ class LLMObservationRecorder(ManagerBase):
                 enemy_section,
                 map_section,
                 combat_section,
+                tech_section,
                 threat_section,
             ]
         )
+
+    def _format_enemy_section(self, enemy: Dict) -> str:
+        """Render the ``[Enemy Intelligence]`` line with optional freshness.
+
+        ``enemy`` has the v3 shape produced by
+        :py:meth:`_extract_enemy_intelligence`. The structured snapshot still
+        carries ``last_observation_time`` / ``seconds_since_last_seen`` for
+        offline analysis and possible RL features, but the LLM-facing text
+        deliberately *omits* the ``(Last seen: Ns ago)`` suffix - in practice
+        the value mostly hovers at a small multiple of ``interval_seconds``
+        and rarely changes LLM decisions, so it just adds prompt noise.
+        """
+        composition = enemy.get("composition") or {}
+        units_text = self._format_count_dict(
+            composition, empty="nothing scouted yet"
+        )
+        return f"[Enemy Intelligence] {units_text}."
+
+        # --- v3 freshness suffix (disabled 2026-05-15) -----------------
+        # The structured fields are still populated; re-enable the lines
+        # below if you want the LLM to see staleness in the prompt.
+        # seconds_since = enemy.get("seconds_since_last_seen")
+        # if seconds_since is None:
+        #     return f"[Enemy Intelligence] {units_text}."
+        # return (
+        #     f"[Enemy Intelligence] {units_text}. "
+        #     f"(Last seen: {int(round(seconds_since))}s ago)."
+        # )
 
     @staticmethod
     def _format_count_dict(

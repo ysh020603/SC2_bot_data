@@ -17,8 +17,19 @@ export MY_BOT_NAME="universal_llm"
 export MAP_NAME="KairosJunctionLE"
 export REAL_TIME="0" # 1为实时模式，0为加速模式
 
+
+# "veryeasy",
+# "easy",
+# "medium",
+# "mediumhard",
+# "hard",
+# "harder",
+# "veryhard",
+# "cheatvision",
+# "cheatmoney",
+# "cheatinsane"
 # 对手配置
-export ENEMY_RACE="terran"
+export ENEMY_RACE="protoss"
 export ENEMY_DIFFICULTY="hard"
 export ENEMY_BUILD="macro"
 
@@ -29,15 +40,15 @@ export BOT_INSTRUCT="打一波，以大和战列巡洋舰为主的攻击"
 # =============================================================================
 # 2. 分层 LLM Agent 模型配置
 # =============================================================================
-export TOP_MODEL="qwen2.5_14B"
-export MID_MODEL="qwen2.5_14B"
-export DOWN_MODEL="DeepSeek-V4-flash"
+export TOP_MODEL="Kimi-k2.5_base"
+export MID_MODEL="Kimi-k2.5_base"
+export DOWN_MODEL="Kimi-k2.5_base"
 
 # =============================================================================
 # 3. 运行控制 (总局数 / 并发数 / 运行模式)
 # =============================================================================
-TOTAL_MATCHES=8     # 运行的总局数
-CONCURRENCY=2        # 并发执行的数量
+TOTAL_MATCHES=10     # 运行的总局数
+CONCURRENCY=5        # 并发执行的数量
 RUN_MODE="tmux"      # 选项: 'tmux' (推荐,每个窗口一个线程) 或 'fg' (当前终端后台运行)
 
 # 批次名称(可选)，留空则会自动根据上方配置生成带时间戳和模型信息的文件夹名
