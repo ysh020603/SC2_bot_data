@@ -72,6 +72,8 @@ def play_vs_ai(
     run_index: Optional[int] = None,
     output_base_dir: str = OUTPUT_BASE_DIR,
     skip_version_update: bool = False,
+    use_top_60_prompt: bool = False,
+    use_mid_prompt: bool = False,
 ) -> None:
     root_dir = os.path.dirname(os.path.abspath(__file__))
     os.chdir(root_dir)
@@ -126,7 +128,11 @@ def play_vs_ai(
         args.extend(["--mid-model", mid_model])
     if down_model:
         args.extend(["--down-model", down_model])
-        
+    if use_top_60_prompt:
+        args.append("--use-top-60-prompt")
+    if use_mid_prompt:
+        args.append("--use-mid-prompt")
+
     sys.argv = args
 
     print("==================================================")
@@ -136,6 +142,10 @@ def play_vs_ai(
     print(f" ▷ 比赛地图 : {map_name}")
     print(f" ▷ 战术指令 : {bot_instruct}")
     print(f" ▷ 大模型簇 : Top=[{top_model}], Mid=[{mid_model}], Down=[{down_model}]")
+    print(
+        f" ▷ Prompt 开关 : use_top_60_prompt={use_top_60_prompt}, "
+        f"use_mid_prompt={use_mid_prompt}"
+    )
     if batch_name:
         print(f" ▷ 批次名称 : {batch_name} (任务序号: {run_index})")
     print(f" ▷ 记录目录 : {record_dir}")
@@ -167,7 +177,17 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     p.add_argument("--run-index", type=int, default=None, help="批处理序号以防并发冲突")
     p.add_argument("--output-base-dir", default=OUTPUT_BASE_DIR, help="记录根目录")
     p.add_argument("--skip-version-update", action="store_true", help="跳过版本更新防止 IO 锁")
-    
+    p.add_argument(
+        "--use-top-60-prompt",
+        action="store_true",
+        help="开启 t=60 阶段评估的 [Phase Guidance] 注入（读取 Top_agent_60.md）",
+    )
+    p.add_argument(
+        "--use-mid-prompt",
+        action="store_true",
+        help="开启 Mid Agent 规划的 [Execution Guidance] 注入（读取 mid_agent.md）",
+    )
+
     return p.parse_args(argv)
 
 def main(argv: Optional[Sequence[str]] = None) -> None:
@@ -188,6 +208,8 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         run_index=ns.run_index,
         output_base_dir=ns.output_base_dir,
         skip_version_update=ns.skip_version_update,
+        use_top_60_prompt=ns.use_top_60_prompt,
+        use_mid_prompt=ns.use_mid_prompt,
     )
 
 if __name__ == "__main__":

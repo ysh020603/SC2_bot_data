@@ -52,10 +52,13 @@ from sharpy.plans.sequential_list import SequentialList
 
 from API_Tools.llm_caller import call_openai
 from SC2_Agent.top_agent import (
+    CUSTOM_STRATEGY_NAME,
     build_initial_strategy_messages,
     build_phase_assessment_messages,
-    parse_strategy_selection,
+    build_view_followup_user_message,
+    parse_initial_action,
     parse_phase_assessment,
+    parse_top_agent_0_md,
 )
 from SC2_Agent.mid_agent import (
     build_planning_messages,
@@ -179,6 +182,8 @@ class UniversalLLMBot(KnowledgeBot):
 
     TOP_AGENT_POLL_INTERVAL: float = 60.0
     MID_AGENT_POLL_INTERVAL: float = 12.0
+    #: t=0 多轮交互式策略选择的最大轮次，防止 LLM 死循环 VIEW。
+    TOP_AGENT_INITIAL_MAX_TURNS: int = 5
 
     zone_manager: IZoneManager
 
@@ -190,6 +195,8 @@ class UniversalLLMBot(KnowledgeBot):
         mid_model_key: str = "",
         down_model_key: str = "",
         record_dir: str = "",
+        use_top_60_prompt: bool = False,
+        use_mid_prompt: bool = False,
     ):
         super().__init__("Universal LLM Bot")
         self.race_name = race_name.strip().lower()
@@ -198,6 +205,8 @@ class UniversalLLMBot(KnowledgeBot):
         self.mid_model_key = mid_model_key.strip()
         self.down_model_key = down_model_key.strip()
         self.record_dir = record_dir.strip()
+        self.use_top_60_prompt: bool = bool(use_top_60_prompt)
+        self.use_mid_prompt: bool = bool(use_mid_prompt)
 
         # --- Top Agent 状态 ---
         self.selected_strategy: Optional[str] = None
@@ -216,7 +225,12 @@ class UniversalLLMBot(KnowledgeBot):
         self._get_action_fn: Optional[Callable] = None
         self._get_action_space_fn: Optional[Callable] = None
         self._action_space_cache: Optional[Dict[str, str]] = None
-        self._available_strategies: Dict[str, str] = {}
+        # 形如 ``{name: {"summary": str, "detail": str}}``。
+        self._available_strategies: Dict[str, Dict[str, str]] = {}
+
+        # --- 阶段性指导文件（t=60 与 mid agent） ---
+        self._top60_guidance_text: str = ""
+        self._mid_guidance_text: str = ""
 
         if self.record_dir:
             self.llm_observation_recorder.output_folder = self.record_dir
@@ -241,31 +255,103 @@ class UniversalLLMBot(KnowledgeBot):
             self._get_action_space_fn() if self._get_action_space_fn else {}
         )
 
-    def _discover_strategies(self) -> Dict[str, str]:
-        """遍历 ``SKILL/{race}/`` 目录，发现所有可用策略及其 prompt.md 描述。"""
-        skill_dir = os.path.join(
+    # ------------------------------------------------------------------
+    # SKILL 目录工具
+    # ------------------------------------------------------------------
+
+    @property
+    def _skill_race_dir(self) -> str:
+        """``SKILL/{race}/`` 绝对路径。"""
+        path = os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
             os.pardir, os.pardir,
             "SKILL", self.race_name,
         )
-        skill_dir = os.path.normpath(skill_dir)
-        strategies: Dict[str, str] = {}
+        return os.path.normpath(path)
+
+    def _discover_strategies(self) -> Dict[str, Dict[str, str]]:
+        """遍历 ``SKILL/{race}/`` 目录，发现所有 ``Top_agent_0.md`` 策略并解析。
+
+        :return: ``{策略名: {"summary": str, "detail": str}}``。
+                 不包含 ``generic/`` 目录（它仅为兜底指导文件载体）。
+        """
+        skill_dir = self._skill_race_dir
+        strategies: Dict[str, Dict[str, str]] = {}
         if not os.path.isdir(skill_dir):
             logger.info("SKILL directory %s not found.", skill_dir)
             return strategies
 
         for entry in sorted(os.listdir(skill_dir)):
+            if entry == "generic":
+                continue
             entry_path = os.path.join(skill_dir, entry)
             if not os.path.isdir(entry_path):
                 continue
-            prompt_path = os.path.join(entry_path, "prompt.md")
-            if os.path.isfile(prompt_path):
-                try:
-                    with open(prompt_path, "r", encoding="utf-8") as f:
-                        strategies[entry] = f.read().strip()
-                except Exception:
-                    strategies[entry] = "(description unavailable)"
+            top0_path = os.path.join(entry_path, "Top_agent_0.md")
+            if not os.path.isfile(top0_path):
+                continue
+            try:
+                with open(top0_path, "r", encoding="utf-8") as f:
+                    raw = f.read()
+            except Exception as exc:
+                logger.warning("Failed to read %s: %s", top0_path, exc)
+                continue
+            parsed = parse_top_agent_0_md(raw)
+            strategies[entry] = {
+                "summary": parsed["summary"] or "(no summary)",
+                "detail": parsed["detail"] or raw.strip(),
+            }
         return strategies
+
+    def _read_md(self, path: str) -> str:
+        """安全读取 markdown 文件，不存在/空内容/异常均返回空串。"""
+        if not path or not os.path.isfile(path):
+            return ""
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return f.read().strip()
+        except Exception as exc:
+            logger.warning("Failed to read %s: %s", path, exc)
+            return ""
+
+    def _resolve_phase_guidance(self) -> None:
+        """根据 ``selected_strategy`` 路由读取 ``Top_agent_60.md`` / ``mid_agent.md``。
+
+        路由规则：
+        * 若策略是已有策略（且对应文件存在/非空）：读取 ``SKILL/{race}/{strategy}/``。
+        * 否则（``Custom_Generated`` 或文件缺失/空）：读取 ``SKILL/{race}/generic/``。
+        """
+        skill_dir = self._skill_race_dir
+        generic_dir = os.path.join(skill_dir, "generic")
+
+        # Top_agent_60.md
+        self._top60_guidance_text = ""
+        # mid_agent.md
+        self._mid_guidance_text = ""
+
+        candidate_dirs: List[str] = []
+        if (
+            self.selected_strategy
+            and self.selected_strategy != CUSTOM_STRATEGY_NAME
+        ):
+            candidate_dirs.append(os.path.join(skill_dir, self.selected_strategy))
+        candidate_dirs.append(generic_dir)
+
+        for d in candidate_dirs:
+            if not self._top60_guidance_text:
+                self._top60_guidance_text = self._read_md(os.path.join(d, "Top_agent_60.md"))
+            if not self._mid_guidance_text:
+                self._mid_guidance_text = self._read_md(os.path.join(d, "mid_agent.md"))
+            if self._top60_guidance_text and self._mid_guidance_text:
+                break
+
+        self._llm_infer_emit(
+            "    Loaded phase guidance: top60=%d chars, mid=%d chars (use_top60=%s, use_mid=%s)",
+            len(self._top60_guidance_text),
+            len(self._mid_guidance_text),
+            self.use_top_60_prompt,
+            self.use_mid_prompt,
+        )
 
     # ------------------------------------------------------------------
     # 动态战术加载（importlib）
@@ -276,9 +362,14 @@ class UniversalLLMBot(KnowledgeBot):
 
         约定：``SKILL.{race}.{strategy}.base_tactics`` 模块中，
         第一个继承 ``SequentialList`` 的类即为战术执行器。
+        ``Custom_Generated`` 策略没有对应文件夹，直接使用兜底 EmptyTactics。
         """
         if not self.selected_strategy:
             logger.info("No strategy selected; using EmptyTactics.")
+            return EmptyTactics()
+
+        if self.selected_strategy == CUSTOM_STRATEGY_NAME:
+            logger.info("Custom-generated strategy has no base_tactics; using EmptyTactics.")
             return EmptyTactics()
 
         module_path = f"SKILL.{self.race_name}.{self.selected_strategy}.base_tactics"
@@ -320,6 +411,8 @@ class UniversalLLMBot(KnowledgeBot):
         self._load_race_action_module()
         self._available_strategies = self._discover_strategies()
         self._run_top_agent_initial_blocking()
+        # 选定策略后，根据策略路由加载阶段性指导文件（Top_agent_60.md / mid_agent.md）。
+        self._resolve_phase_guidance()
         self._top_agent_initialized = True
 
         await super().on_start()
@@ -346,39 +439,246 @@ class UniversalLLMBot(KnowledgeBot):
     # ------------------------------------------------------------------
 
     def _run_top_agent_initial_blocking(self) -> None:
-        """t=0 策略选择（同步阻塞）。"""
-        self._llm_infer_emit(">>> TOP AGENT: t=0 initial strategy selection")
+        """t=0 多轮交互式策略选择（SELECT / VIEW / GENERATE，同步阻塞）。
+
+        除日志外，会把完整流程作为一条 ``trigger_reason="top_agent_initial_t0"`` 的
+        记录追加进 ``llm_observation_recorder.llm_interactions``，便于事后回放。
+        """
+        pipeline_start = _wall_time.monotonic()
+        self._llm_infer_emit(">>> TOP AGENT: t=0 interactive strategy selection START")
+
+        # 即便没有任何预定义策略，依旧允许 LLM GENERATE 一套自定义策略。
         if not self._available_strategies:
-            logger.info("No strategies available; skipping Top Agent t=0.")
-            self._llm_infer_emit("    No strategies in SKILL/%s/; skip.", self.race_name)
-            return
+            self._llm_infer_emit(
+                "    No predefined strategies in SKILL/%s/; LLM will be asked to GENERATE.",
+                self.race_name,
+            )
+
+        summaries: Dict[str, str] = {
+            name: info.get("summary", "") for name, info in self._available_strategies.items()
+        }
+        self._llm_infer_emit(
+            f"    Top Agent t=0 inputs: race={self.race_name!r}, "
+            f"instruct={self.instruct!r}, "
+            f"available_strategies={list(summaries.keys())}"
+        )
 
         messages = build_initial_strategy_messages(
             race=self.race_name,
             instruct=self.instruct,
-            strategies=self._available_strategies,
+            strategy_summaries=summaries,
         )
 
-        try:
-            raw = self._call_llm(messages, agent="top")
-        except Exception as exc:
-            logger.warning("[TopAgent] LLM call failed: %s", exc)
-            self._llm_infer_emit(f"    Top Agent t=0 FAILED: {exc!r}")
-            return
-
         valid_names = list(self._available_strategies.keys())
-        strategy = parse_strategy_selection(raw, valid_names)
+        viewed: List[str] = []
+        max_turns = self.TOP_AGENT_INITIAL_MAX_TURNS
 
-        if strategy is None:
-            strategy = valid_names[0] if valid_names else None
+        turn_records: List[Dict[str, Any]] = []
+        final_action: str = "UNKNOWN"
+        final_error: Optional[str] = None
+
+        for turn in range(1, max_turns + 1):
+            turn_log: Dict[str, Any] = {
+                "turn": turn,
+                "messages_sent": [dict(m) for m in messages],
+                "raw_response": "",
+                "parsed_action": None,
+                "wall_elapsed_seconds": None,
+                "note": "",
+            }
             self._llm_infer_emit(
-                f"    Top Agent failed to parse strategy from: {raw!r}; "
-                f"fallback to '{strategy}'"
+                f"    >>> TOP AGENT t=0 turn {turn}/{max_turns} REQUEST "
+                f"({len(messages)} messages)"
             )
 
-        self.selected_strategy = strategy
-        self.strategy_description = self._available_strategies.get(strategy, "")
-        self._llm_infer_emit(f"    Top Agent selected strategy: '{strategy}'")
+            t_start = _wall_time.monotonic()
+            try:
+                raw = self._call_llm(messages, agent="top")
+            except Exception as exc:
+                turn_log["wall_elapsed_seconds"] = round(_wall_time.monotonic() - t_start, 3)
+                turn_log["note"] = f"llm_call_exception: {exc!r}"
+                turn_records.append(turn_log)
+                logger.warning("[TopAgent] LLM call failed (turn %d): %s", turn, exc)
+                self._llm_infer_emit(f"    Top Agent t=0 turn {turn} EXCEPTION: {exc!r}")
+                final_error = repr(exc)
+                final_action = "EXCEPTION"
+                break
+            turn_log["wall_elapsed_seconds"] = round(_wall_time.monotonic() - t_start, 3)
+            turn_log["raw_response"] = raw
+
+            if not raw:
+                turn_log["note"] = "empty_response"
+                turn_records.append(turn_log)
+                self._llm_infer_emit(f"    Top Agent t=0 turn {turn} returned EMPTY.")
+                final_action = "EMPTY"
+                break
+
+            self._llm_infer_emit(
+                f"    <<< TOP AGENT t=0 turn {turn} RESPONSE "
+                f"({turn_log['wall_elapsed_seconds']:.2f}s, {len(raw)} chars): "
+                f"{raw.strip()!r}"
+            )
+            action = parse_initial_action(raw)
+            turn_log["parsed_action"] = action
+            if action is None:
+                turn_log["note"] = "invalid_action_json"
+                turn_records.append(turn_log)
+                self._llm_infer_emit(
+                    f"    Top Agent turn {turn} produced invalid action JSON; aborting loop."
+                )
+                final_action = "INVALID_JSON"
+                break
+
+            self._llm_infer_emit(f"    Top Agent turn {turn} parsed action: {action}")
+            # 把 LLM 这一轮的原始输出作为 assistant 消息追加进历史。
+            messages.append({"role": "assistant", "content": raw})
+
+            if action["action"] == "SELECT":
+                resolved = self._resolve_strategy_name(action["strategy"], valid_names)
+                if resolved is None:
+                    turn_log["note"] = f"select_unknown:{action['strategy']!r}"
+                    turn_records.append(turn_log)
+                    self._llm_infer_emit(
+                        f"    SELECT target {action['strategy']!r} not in available list; "
+                        f"re-prompting LLM."
+                    )
+                    messages.append({
+                        "role": "user",
+                        "content": (
+                            f"Your SELECT target '{action['strategy']}' is not in the available list. "
+                            "Please choose strictly from the listed strategy names, or VIEW more "
+                            "detail, or GENERATE a custom strategy."
+                        ),
+                    })
+                    continue
+                self.selected_strategy = resolved
+                self.strategy_description = self._available_strategies[resolved]["detail"]
+                turn_log["note"] = f"selected:{resolved}"
+                turn_records.append(turn_log)
+                self._llm_infer_emit(
+                    f"    Top Agent SELECTED existing strategy: '{resolved}' (turn {turn})"
+                )
+                final_action = "SELECT"
+                break
+
+            if action["action"] == "VIEW":
+                requested = action["strategies"]
+                view_details: Dict[str, str] = {}
+                unknown: List[str] = []
+                for name in requested:
+                    resolved = self._resolve_strategy_name(name, valid_names)
+                    if resolved is None:
+                        unknown.append(name)
+                        continue
+                    view_details[resolved] = self._available_strategies[resolved]["detail"]
+                    if resolved not in viewed:
+                        viewed.append(resolved)
+
+                self._llm_infer_emit(
+                    f"    Top Agent VIEW requested {requested!r}; "
+                    f"resolved={list(view_details.keys())}, unknown={unknown}"
+                )
+                followup = build_view_followup_user_message(view_details)
+                if unknown:
+                    followup["content"] = (
+                        f"WARNING: these requested names were not found and ignored: {unknown}.\n\n"
+                        + followup["content"]
+                    )
+                messages.append(followup)
+                turn_log["note"] = (
+                    f"viewed:{list(view_details.keys())}; unknown:{unknown}"
+                )
+                turn_records.append(turn_log)
+                continue
+
+            if action["action"] == "GENERATE":
+                generated_text = action["strategy"].strip()
+                if not generated_text:
+                    turn_log["note"] = "generate_empty"
+                    turn_records.append(turn_log)
+                    self._llm_infer_emit("    GENERATE returned empty strategy text; aborting.")
+                    final_action = "GENERATE_EMPTY"
+                    break
+                self.selected_strategy = CUSTOM_STRATEGY_NAME
+                self.strategy_description = generated_text
+                turn_log["note"] = f"generated:{len(generated_text)}chars"
+                turn_records.append(turn_log)
+                self._llm_infer_emit(
+                    f"    Top Agent GENERATED a custom strategy ({len(generated_text)} chars, "
+                    f"turn {turn}); marked as '{CUSTOM_STRATEGY_NAME}'."
+                )
+                final_action = "GENERATE"
+                break
+
+            # 未知 action（理论上 parse_initial_action 已过滤）
+            turn_log["note"] = f"unknown_action:{action['action']!r}"
+            turn_records.append(turn_log)
+            self._llm_infer_emit(f"    Unknown action {action['action']!r}; aborting loop.")
+            final_action = "UNKNOWN_ACTION"
+            break
+        else:
+            # for-else: 5 轮全部跑完仍未 break -> 视为超过最大轮次
+            final_action = "MAX_TURNS_EXCEEDED"
+            self._llm_infer_emit(
+                f"    Top Agent t=0 reached max turns ({max_turns}) without decision."
+            )
+
+        # —— 未成功决策：fallback ——
+        fallback_used: Optional[str] = None
+        if not self.selected_strategy:
+            fallback = valid_names[0] if valid_names else None
+            if fallback is not None:
+                self.selected_strategy = fallback
+                self.strategy_description = self._available_strategies[fallback]["detail"]
+                fallback_used = fallback
+                self._llm_infer_emit(
+                    f"    Top Agent loop exhausted; fallback to first strategy '{fallback}'."
+                )
+            else:
+                self._llm_infer_emit(
+                    "    Top Agent loop exhausted with no available strategies; "
+                    "will run with EmptyTactics."
+                )
+
+        total_elapsed = _wall_time.monotonic() - pipeline_start
+        self._llm_infer_emit(
+            f"<<< TOP AGENT: t=0 END "
+            f"(final_action={final_action}, "
+            f"selected_strategy={self.selected_strategy!r}, "
+            f"turns={len(turn_records)}, "
+            f"wall={total_elapsed:.2f}s)"
+        )
+
+        # —— 追加 JSON 记录 ——
+        self._record_llm_interaction({
+            "game_time": 0.0,
+            "trigger_reason": "top_agent_initial_t0",
+            "wall_elapsed_seconds": round(total_elapsed, 3),
+            "top_agent_initial": {
+                "race": self.race_name,
+                "instruct": self.instruct,
+                "available_strategies": valid_names,
+                "strategy_summaries": summaries,
+                "max_turns": max_turns,
+                "turns": turn_records,
+                "viewed_strategies": viewed,
+                "final_action": final_action,
+                "fallback_used": fallback_used,
+                "selected_strategy": self.selected_strategy,
+                "strategy_description": self.strategy_description,
+                "error": final_error,
+            },
+        })
+
+    @staticmethod
+    def _resolve_strategy_name(name: str, valid_names: List[str]) -> Optional[str]:
+        """大小写不敏感地把 LLM 给出的策略名映射到合法名（找不到返回 None）。"""
+        if not name:
+            return None
+        if name in valid_names:
+            return name
+        lower_map = {n.lower(): n for n in valid_names}
+        return lower_map.get(name.lower())
 
     def _run_top_agent_poll_blocking(self) -> None:
         """每 60 秒阶段评估（同步阻塞）。"""
@@ -396,6 +696,8 @@ class UniversalLLMBot(KnowledgeBot):
             instruct=self.instruct,
             strategy_name=self.selected_strategy,
             strategy_description=self.strategy_description,
+            enable_phase_guidance=self.use_top_60_prompt,
+            phase_guidance_text=self._top60_guidance_text,
         )
 
         try:
@@ -574,6 +876,8 @@ class UniversalLLMBot(KnowledgeBot):
             strategy_description=self.strategy_description,
             phase=self.current_phase,
             focus=self.current_focus,
+            enable_execution_guidance=self.use_mid_prompt,
+            execution_guidance_text=self._mid_guidance_text,
         )
         return self._call_llm(messages, agent="mid")
 
@@ -664,8 +968,25 @@ class UniversalLLMBot(KnowledgeBot):
         line = f"[UniversalLLMBot][LLM-INFER] {message}"
         if include_active_tasks:
             line += f" | active_tasks={self._active_tasks_snapshot()}"
+
+        # 优先经由 knowledge.print (loguru, 进 .log 文件) 输出。
+        # ★ 关键：在 ``super().on_start()`` 之前（即 Top Agent t=0 流程中），
+        #   ``self.knowledge`` 尚未初始化；此时回退到直接写 ``sc2.main.logger``。
+        #   游戏 ``.log`` 文件的 loguru sink 用 ``filter="sharpy"`` 筛选，因此我们
+        #   通过 ``logger.patch`` 把 record name 改成以 ``sharpy.`` 开头，保证
+        #   t=0 多轮交互的日志也能落到同一份 ``.log`` 文件中、格式与游戏中一致。
         try:
             self.knowledge.print(line, stats=False)
+            return
+        except Exception:
+            pass
+
+        try:
+            from sc2.main import logger as _loguru_logger
+
+            _loguru_logger.patch(
+                lambda r: r.update(name="sharpy.universal_llm_bot")
+            ).opt(depth=1).info(line)
         except Exception:
             logger.info("%s", line)
 

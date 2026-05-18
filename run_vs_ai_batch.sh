@@ -22,6 +22,8 @@ BOT_RACE="${BOT_RACE:-terran}"
 TOP_MODEL="${TOP_MODEL:-DeepSeek-V4-pro-reasoning}"
 MID_MODEL="${MID_MODEL:-DeepSeek-V4-pro-reasoning}"
 DOWN_MODEL="${DOWN_MODEL:-DeepSeek-V4-flash}"
+USE_TOP_60_PROMPT="${USE_TOP_60_PROMPT:-1}"
+USE_MID_PROMPT="${USE_MID_PROMPT:-1}"
 BATCH_NAME="${BATCH_NAME:-}"
 
 slug_part() {
@@ -52,6 +54,8 @@ write_batch_env_file() {
     printf '%s\n' "TOP_MODEL=$(printf '%q' "$TOP_MODEL")"
     printf '%s\n' "MID_MODEL=$(printf '%q' "$MID_MODEL")"
     printf '%s\n' "DOWN_MODEL=$(printf '%q' "$DOWN_MODEL")"
+    printf '%s\n' "USE_TOP_60_PROMPT=$(printf '%q' "$USE_TOP_60_PROMPT")"
+    printf '%s\n' "USE_MID_PROMPT=$(printf '%q' "$USE_MID_PROMPT")"
     printf '%s\n' "BATCH_NAME=$(printf '%q' "$BATCH_NAME")"
     printf '%s\n' "RECORD_ROOT=$(printf '%q' "$RECORD_ROOT")"
     printf '%s\n' "LOG_DIR=$(printf '%q' "$LOG_DIR")"
@@ -84,7 +88,12 @@ if [[ "${1:-}" == "worker" ]]; then
     local idx="$1"
     local rt=()
     [[ "${REAL_TIME:-0}" == "1" ]] && rt=(--real-time)
-    
+
+    # 阶段性 Prompt 注入开关 -> 长参数
+    local prompt_flags=()
+    [[ "${USE_TOP_60_PROMPT:-0}" == "1" ]] && prompt_flags+=(--use-top-60-prompt)
+    [[ "${USE_MID_PROMPT:-0}"   == "1" ]] && prompt_flags+=(--use-mid-prompt)
+
     # 这里的 $PYTHON 就是我们在 start_experiments.sh 里配置的绝对路径
     "$PYTHON" "$RUN_SCRIPT" \
       --my-bot-name "$MY_BOT_NAME" \
@@ -98,6 +107,7 @@ if [[ "${1:-}" == "worker" ]]; then
       --top-model "$TOP_MODEL" \
       --mid-model "$MID_MODEL" \
       --down-model "$DOWN_MODEL" \
+      "${prompt_flags[@]}" \
       --batch-name "$BATCH_NAME" \
       --run-index "$idx" \
       --output-base-dir "$RECORD_ROOT" \

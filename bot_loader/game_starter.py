@@ -158,6 +158,16 @@ Builds:
             help="Model key from config.json for Down Agent.",
             default="",
         )
+        parser.add_argument(
+            "--use-top-60-prompt",
+            help="Enable [Phase Guidance] injection in Top Agent t=60 prompt (reads Top_agent_60.md).",
+            action="store_true",
+        )
+        parser.add_argument(
+            "--use-mid-prompt",
+            help="Enable [Execution Guidance] injection in Mid Agent prompt (reads mid_agent.md).",
+            action="store_true",
+        )
 
         args = parser.parse_args()
 
@@ -277,6 +287,10 @@ Builds:
                 my_bot.mid_model_key = args.mid_model
             if getattr(args, "down_model", None) and hasattr(my_bot, "down_model_key"):
                 my_bot.down_model_key = args.down_model
+            if hasattr(my_bot, "use_top_60_prompt"):
+                my_bot.use_top_60_prompt = bool(getattr(args, "use_top_60_prompt", False))
+            if hasattr(my_bot, "use_mid_prompt"):
+                my_bot.use_mid_prompt = bool(getattr(args, "use_mid_prompt", False))
             if args.release:
                 my_bot.config = get_config(False)
 

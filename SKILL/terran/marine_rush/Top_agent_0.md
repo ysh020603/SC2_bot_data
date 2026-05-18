@@ -1,3 +1,9 @@
+# 摘要
+
+All-in Marine rush: mineral-only economy capped at 20 SCVs, 6 Barracks producing Marines non-stop. Skip gas, skip second base, launch a 20-Marine zone attack across the map. Designed to end the game in the early phases.
+
+# 详细内容
+
 Your overall strategy is a highly aggressive Marine all-in rush, with a strict emphasis on sacrificing long-term macro development to overwhelm the opponent with an early, massive tier-one infantry swarm:
 
 * Opening & Economy: Start with a Supply Depot at 14 supply. As soon as the depot finishes, construct your first Barracks. Keep this a strictly mineral-only economy (do not take any gas Refineries). Halt SCV production exactly at 20 workers to channel all available resources directly into your army.

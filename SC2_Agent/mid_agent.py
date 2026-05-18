@@ -45,16 +45,20 @@ def build_planning_messages(
     strategy_description: str,
     phase: str,
     focus: str,
+    *,
+    enable_execution_guidance: bool = False,
+    execution_guidance_text: str = "",
 ) -> List[Dict[str, str]]:
     """构建 Mid Agent 规划 Prompt。
 
-    :param race:                  当前种族名。
-    :param obs_text:              当前观测文本。
-    :param previous_tasks:        上一轮自然语言任务列表。
-    :param strategy_description:  从 prompt.md 读取的策略正文（或空串）。
-    :param phase:                 Top Agent 判定的当前阶段 (early/mid/late)。
-    :param focus:                 Top Agent 判定的当前焦点描述。
-    :return:                      OpenAI messages 格式列表。
+    :param race:                       当前种族名。
+    :param obs_text:                   当前观测文本。
+    :param previous_tasks:             上一轮自然语言任务列表。
+    :param strategy_description:       从 ``Top_agent_0.md`` 读取的策略正文（或空串）。
+    :param phase:                      Top Agent 判定的当前阶段 (early/mid/late)。
+    :param focus:                      Top Agent 判定的当前焦点描述。
+    :param enable_execution_guidance:  是否启用 ``[Execution Guidance]`` 区块注入。
+    :param execution_guidance_text:    ``mid_agent.md`` 文件内容（专属或 generic）。
     """
     race_cap = race.capitalize()
 
@@ -68,6 +72,13 @@ def build_planning_messages(
     strategy_block = strategy_description.strip() if strategy_description else (
         f"(No pre-defined strategy loaded. Use general {race_cap} best practices.)"
     )
+
+    execution_guidance_block = ""
+    if enable_execution_guidance and execution_guidance_text and execution_guidance_text.strip():
+        execution_guidance_block = (
+            "\n\n[Execution Guidance]\n"
+            f"{execution_guidance_text.strip()}"
+        )
 
     system_msg = f'''You are a senior StarCraft II strategist controlling a {race_cap} bot.
 This is a macro Planning Task. You are the global plan manager for the next 20 seconds.
@@ -86,7 +97,7 @@ Your job each cycle:
 {top_context_block}
 
 [Strategy]
-{strategy_block}
+{strategy_block}{execution_guidance_block}
 
 {_OUTPUT_FORMAT}'''
 
