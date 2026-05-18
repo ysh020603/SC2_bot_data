@@ -49,12 +49,29 @@ export MID_MODEL="Kimi-k2.5_base"
 export DOWN_MODEL="Kimi-k2.5_base"
 
 # =============================================================================
-# 2.1 阶段性 Prompt 注入开关（1=开启，0=关闭）
+# 2.1 阶段性 Prompt 注入开关（1=开启，0=关闭）—— 仅在两段式 Skill 路由被关闭时生效。
 #  - USE_TOP_60_PROMPT：t=60 阶段评估时是否拼接 Top_agent_60.md 作为 [Phase Guidance]。
 #  - USE_MID_PROMPT   ：Mid Agent 规划时是否拼接 mid_agent.md  作为 [Execution Guidance]。
 # =============================================================================
 export USE_TOP_60_PROMPT="1"
 export USE_MID_PROMPT="1"
+
+# =============================================================================
+# 2.2 两段式 Skill 路由 / 消融实验开关 (Module 3)
+#  - DISABLE_ALL_SKILLS              ：1 = 跳过 Phase 1 筛选；Phase 2 不注入 Skill。
+#                                      此时整体退化为原始基线（仅旧字段 USE_TOP_60_PROMPT
+#                                      / USE_MID_PROMPT 仍可生效）。
+#  - ENABLE_SKILL_LAYERS             ：哪一层启用两段式 Skill：
+#                                      all / top_only / mid_only / none。
+#  - DISABLE_SPECIFIC_SKILLS_LAYERS  ：哪一层禁用 Specific Skill（仅用 Generic）：
+#                                      all / top / mid / none。
+#  - FORCE_STRATEGY                  ：强制锁定的 t=0 策略名（如 marine_rush）。
+#                                      留空表示走正常 T=0 LLM 选择/生成流程。
+# =============================================================================
+export DISABLE_ALL_SKILLS="0"
+export ENABLE_SKILL_LAYERS="all"
+export DISABLE_SPECIFIC_SKILLS_LAYERS="none"
+export FORCE_STRATEGY=""
 
 # =============================================================================
 # 3. 运行控制 (总局数 / 并发数 / 运行模式)

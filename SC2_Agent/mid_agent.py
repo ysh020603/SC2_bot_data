@@ -48,8 +48,9 @@ def build_planning_messages(
     *,
     enable_execution_guidance: bool = False,
     execution_guidance_text: str = "",
+    selected_skills_block: str = "",
 ) -> List[Dict[str, str]]:
-    """构建 Mid Agent 规划 Prompt。
+    """构建 Mid Agent 规划 Prompt（Phase 2 of two-stage pipeline）。
 
     :param race:                       当前种族名。
     :param obs_text:                   当前观测文本。
@@ -57,8 +58,12 @@ def build_planning_messages(
     :param strategy_description:       从 ``Top_agent_0.md`` 读取的策略正文（或空串）。
     :param phase:                      Top Agent 判定的当前阶段 (early/mid/late)。
     :param focus:                      Top Agent 判定的当前焦点描述。
-    :param enable_execution_guidance:  是否启用 ``[Execution Guidance]`` 区块注入。
-    :param execution_guidance_text:    ``mid_agent.md`` 文件内容（专属或 generic）。
+    :param enable_execution_guidance:  是否启用 ``[Execution Guidance]`` 区块注入（旧字段，
+                                       兼容老配置；现已被两段式 Skill 注入替代，仅在没有
+                                       ``selected_skills_block`` 时作为兜底使用）。
+    :param execution_guidance_text:    ``mid_agent.md`` 全文。
+    :param selected_skills_block:      Phase 1 已筛选并渲染好的 Skill 约束块文本，
+                                       非空时直接覆盖旧的 Execution Guidance 注入。
     """
     race_cap = race.capitalize()
 
@@ -74,7 +79,9 @@ def build_planning_messages(
     )
 
     execution_guidance_block = ""
-    if enable_execution_guidance and execution_guidance_text and execution_guidance_text.strip():
+    if selected_skills_block and selected_skills_block.strip():
+        execution_guidance_block = "\n\n" + selected_skills_block.strip()
+    elif enable_execution_guidance and execution_guidance_text and execution_guidance_text.strip():
         execution_guidance_block = (
             "\n\n[Execution Guidance]\n"
             f"{execution_guidance_text.strip()}"

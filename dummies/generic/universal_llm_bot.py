@@ -36,6 +36,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import time as _wall_time
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
@@ -55,7 +56,10 @@ from SC2_Agent.top_agent import (
     CUSTOM_STRATEGY_NAME,
     build_initial_strategy_messages,
     build_phase_assessment_messages,
+    build_strategy_generation_messages,
     build_view_followup_user_message,
+    find_similar_strategies,
+    parse_generated_strategy,
     parse_initial_action,
     parse_phase_assessment,
     parse_top_agent_0_md,
@@ -67,6 +71,12 @@ from SC2_Agent.mid_agent import (
 from SC2_Agent.down_agent import (
     build_translation_messages,
     parse_translation_response,
+)
+from SC2_Agent.skill_loader import (
+    build_skill_selection_messages,
+    load_skill_library,
+    parse_skill_selection,
+    render_selected_skills_block,
 )
 
 logger = logging.getLogger("UniversalLLMBot")
@@ -184,6 +194,10 @@ class UniversalLLMBot(KnowledgeBot):
     MID_AGENT_POLL_INTERVAL: float = 12.0
     #: t=0 多轮交互式策略选择的最大轮次，防止 LLM 死循环 VIEW。
     TOP_AGENT_INITIAL_MAX_TURNS: int = 5
+    #: Phase 1 Skill 筛选时的最大选择数量上限（防止上下文污染）。
+    SKILL_SELECTION_MAX: int = 5
+    #: t=0 相似策略检索的 Top-K（用于 GENERATE 模式的参考样本）。
+    STRATEGY_GENERATION_TOPK: int = 3
 
     zone_manager: IZoneManager
 
@@ -197,6 +211,11 @@ class UniversalLLMBot(KnowledgeBot):
         record_dir: str = "",
         use_top_60_prompt: bool = False,
         use_mid_prompt: bool = False,
+        *,
+        disable_all_skills: bool = False,
+        enable_skill_layers: str = "all",
+        disable_specific_skills_layers: str = "none",
+        force_strategy: Optional[str] = None,
     ):
         super().__init__("Universal LLM Bot")
         self.race_name = race_name.strip().lower()
@@ -207,6 +226,15 @@ class UniversalLLMBot(KnowledgeBot):
         self.record_dir = record_dir.strip()
         self.use_top_60_prompt: bool = bool(use_top_60_prompt)
         self.use_mid_prompt: bool = bool(use_mid_prompt)
+
+        # --- 消融实验 / Skill 路由开关（cf. 模块三）---
+        self.disable_all_skills: bool = bool(disable_all_skills)
+        self.enable_skill_layers: str = (enable_skill_layers or "all").strip().lower()
+        self.disable_specific_skills_layers: str = (
+            disable_specific_skills_layers or "none"
+        ).strip().lower()
+        force = (force_strategy or "").strip()
+        self.force_strategy: Optional[str] = force if force and force.lower() != "none" else None
 
         # --- Top Agent 状态 ---
         self.selected_strategy: Optional[str] = None
@@ -228,9 +256,13 @@ class UniversalLLMBot(KnowledgeBot):
         # 形如 ``{name: {"summary": str, "detail": str}}``。
         self._available_strategies: Dict[str, Dict[str, str]] = {}
 
-        # --- 阶段性指导文件（t=60 与 mid agent） ---
+        # --- 阶段性指导文件（t=60 与 mid agent，旧字段，仍保留兜底）---
         self._top60_guidance_text: str = ""
         self._mid_guidance_text: str = ""
+
+        # --- 两段式 Skill 路由（new）---
+        self._top60_skill_library: Dict[str, List[Dict[str, str]]] = {"generic": [], "specific": []}
+        self._mid_skill_library: Dict[str, List[Dict[str, str]]] = {"generic": [], "specific": []}
 
         if self.record_dir:
             self.llm_observation_recorder.output_folder = self.record_dir
@@ -260,17 +292,132 @@ class UniversalLLMBot(KnowledgeBot):
     # ------------------------------------------------------------------
 
     @property
+    def _skill_root(self) -> str:
+        """``SKILL/`` 根目录绝对路径。"""
+        return os.path.normpath(
+            os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                os.pardir, os.pardir,
+                "SKILL",
+            )
+        )
+
+    @property
     def _skill_race_dir(self) -> str:
         """``SKILL/{race}/`` 绝对路径。"""
-        path = os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            os.pardir, os.pardir,
-            "SKILL", self.race_name,
+        return os.path.normpath(os.path.join(self._skill_root, self.race_name))
+
+    # ------------------------------------------------------------------
+    # 消融开关判定
+    # ------------------------------------------------------------------
+
+    def _skill_enabled_for(self, layer: str) -> bool:
+        """指定层是否启用两段式 Skill 路由（Phase 1 筛选 + Phase 2 注入）。
+
+        :param layer: ``"top"`` 或 ``"mid"``。
+        """
+        if self.disable_all_skills:
+            return False
+        mode = self.enable_skill_layers
+        if mode == "none":
+            return False
+        if mode == "all":
+            return True
+        if mode == "top_only":
+            return layer == "top"
+        if mode == "mid_only":
+            return layer == "mid"
+        # 兜底视为全部启用
+        return True
+
+    def _specific_skills_enabled_for(self, layer: str) -> bool:
+        """指定层是否允许使用 Specific Skill（``--disable_specific_skills_layers``）。
+
+        :param layer: ``"top"`` 或 ``"mid"``。
+        """
+        mode = self.disable_specific_skills_layers
+        if mode == "none":
+            return True
+        if mode == "all":
+            return False
+        if mode == "top":
+            return layer != "top"
+        if mode == "mid":
+            return layer != "mid"
+        return True
+
+    # ------------------------------------------------------------------
+    # SKILL 注册表 (registry.json)
+    # ------------------------------------------------------------------
+
+    @property
+    def _registry_path(self) -> str:
+        """``SKILL/{race}/registry.json`` 绝对路径。"""
+        return os.path.join(self._skill_race_dir, "registry.json")
+
+    def _load_registry(self) -> Optional[List[str]]:
+        """读取 ``registry.json`` 中的 ``registered_strategies`` 白名单。
+
+        :return: 已注册策略名列表；若文件不存在/损坏则返回 ``None``（表示"无注册表"）。
+        """
+        path = self._registry_path
+        if not os.path.isfile(path):
+            return None
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception as exc:
+            logger.warning("Failed to read registry %s: %s", path, exc)
+            return None
+        names = data.get("registered_strategies")
+        if not isinstance(names, list):
+            return None
+        return [n for n in names if isinstance(n, str) and n.strip()]
+
+    def _register_strategy(self, name: str) -> None:
+        """把新生成的策略名追加进 ``registry.json``。
+
+        若注册表文件不存在则自动创建。已存在的名称会被去重。
+        """
+        path = self._registry_path
+        existing: List[str] = []
+        data: Dict[str, Any] = {}
+        if os.path.isfile(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                raw = data.get("registered_strategies")
+                if isinstance(raw, list):
+                    existing = [n for n in raw if isinstance(n, str) and n.strip()]
+            except Exception as exc:
+                logger.warning("Failed to update registry %s: %s", path, exc)
+                data = {}
+
+        if name in existing:
+            return
+        existing.append(name)
+        data["registered_strategies"] = existing
+        data.setdefault(
+            "_comment",
+            "Whitelist of Terran strategy folders exposed to the T=0 LLM selection list. "
+            "Auto-updated by UniversalLLMBot._materialise_strategy_folder().",
         )
-        return os.path.normpath(path)
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+                f.write("\n")
+            self._llm_infer_emit(
+                f"    [registry] auto-registered new strategy '{name}' -> {path}"
+            )
+        except Exception as exc:
+            logger.warning("Failed to write registry %s: %s", path, exc)
 
     def _discover_strategies(self) -> Dict[str, Dict[str, str]]:
         """遍历 ``SKILL/{race}/`` 目录，发现所有 ``Top_agent_0.md`` 策略并解析。
+
+        **注册表过滤**：若同目录下存在 ``registry.json``，则仅返回其
+        ``registered_strategies`` 列表中的策略，未列入的目录即使物理存在也被忽略。
+        若注册表缺失/损坏，回退到旧行为（遍历所有含 ``Top_agent_0.md`` 的目录）。
 
         :return: ``{策略名: {"summary": str, "detail": str}}``。
                  不包含 ``generic/`` 目录（它仅为兜底指导文件载体）。
@@ -281,14 +428,40 @@ class UniversalLLMBot(KnowledgeBot):
             logger.info("SKILL directory %s not found.", skill_dir)
             return strategies
 
-        for entry in sorted(os.listdir(skill_dir)):
+        registry = self._load_registry()
+        if registry is None:
+            self._llm_infer_emit(
+                "    [registry] %s not found; falling back to filesystem scan.",
+                self._registry_path,
+            )
+            candidates = [
+                entry for entry in sorted(os.listdir(skill_dir))
+                if entry != "generic"
+                and os.path.isdir(os.path.join(skill_dir, entry))
+            ]
+        else:
+            self._llm_infer_emit(
+                "    [registry] loaded %d registered strategies: %s",
+                len(registry), registry,
+            )
+            candidates = registry
+
+        for entry in candidates:
             if entry == "generic":
                 continue
             entry_path = os.path.join(skill_dir, entry)
             if not os.path.isdir(entry_path):
+                self._llm_infer_emit(
+                    "    [registry] WARNING: registered strategy '%s' has no folder; skipped.",
+                    entry,
+                )
                 continue
             top0_path = os.path.join(entry_path, "Top_agent_0.md")
             if not os.path.isfile(top0_path):
+                self._llm_infer_emit(
+                    "    [registry] WARNING: '%s' missing Top_agent_0.md; skipped.",
+                    entry,
+                )
                 continue
             try:
                 with open(top0_path, "r", encoding="utf-8") as f:
@@ -315,18 +488,22 @@ class UniversalLLMBot(KnowledgeBot):
             return ""
 
     def _resolve_phase_guidance(self) -> None:
-        """根据 ``selected_strategy`` 路由读取 ``Top_agent_60.md`` / ``mid_agent.md``。
+        """根据 ``selected_strategy`` 路由读取 Phase Guidance 全文 + 两段式 Skill 库。
 
-        路由规则：
-        * 若策略是已有策略（且对应文件存在/非空）：读取 ``SKILL/{race}/{strategy}/``。
-        * 否则（``Custom_Generated`` 或文件缺失/空）：读取 ``SKILL/{race}/generic/``。
+        本方法做两件事：
+
+        1. **旧字段兼容**：读取 ``Top_agent_60.md`` / ``mid_agent.md`` 全文存入
+           ``self._top60_guidance_text`` / ``self._mid_guidance_text`` —— 仅当
+           两段式路由未启用时作为兜底注入。
+        2. **两段式 Skill 库**：调用 ``load_skill_library`` 解析 Generic + Specific
+           Skill，分别存入 ``self._top60_skill_library`` / ``self._mid_skill_library``。
+           Specific Skill 是否启用受 ``--disable_specific_skills_layers`` 控制。
         """
         skill_dir = self._skill_race_dir
         generic_dir = os.path.join(skill_dir, "generic")
 
-        # Top_agent_60.md
+        # ---- 旧字段（整文兜底） ----
         self._top60_guidance_text = ""
-        # mid_agent.md
         self._mid_guidance_text = ""
 
         candidate_dirs: List[str] = []
@@ -345,12 +522,42 @@ class UniversalLLMBot(KnowledgeBot):
             if self._top60_guidance_text and self._mid_guidance_text:
                 break
 
+        # ---- 两段式 Skill 库 ----
+        strategy_for_specific: Optional[str] = None
+        if (
+            self.selected_strategy
+            and self.selected_strategy != CUSTOM_STRATEGY_NAME
+        ):
+            strategy_for_specific = self.selected_strategy
+
+        self._top60_skill_library = load_skill_library(
+            race=self.race_name,
+            layer="top_60",
+            strategy_name=strategy_for_specific,
+            skill_root=self._skill_root,
+            enable_specific=self._specific_skills_enabled_for("top"),
+        )
+        self._mid_skill_library = load_skill_library(
+            race=self.race_name,
+            layer="mid",
+            strategy_name=strategy_for_specific,
+            skill_root=self._skill_root,
+            enable_specific=self._specific_skills_enabled_for("mid"),
+        )
+
         self._llm_infer_emit(
             "    Loaded phase guidance: top60=%d chars, mid=%d chars (use_top60=%s, use_mid=%s)",
             len(self._top60_guidance_text),
             len(self._mid_guidance_text),
             self.use_top_60_prompt,
             self.use_mid_prompt,
+        )
+        self._llm_infer_emit(
+            "    Loaded skill library: top60 generic=%d / specific=%d; mid generic=%d / specific=%d",
+            len(self._top60_skill_library.get("generic", [])),
+            len(self._top60_skill_library.get("specific", [])),
+            len(self._mid_skill_library.get("generic", [])),
+            len(self._mid_skill_library.get("specific", [])),
         )
 
     # ------------------------------------------------------------------
@@ -362,7 +569,7 @@ class UniversalLLMBot(KnowledgeBot):
 
         约定：``SKILL.{race}.{strategy}.base_tactics`` 模块中，
         第一个继承 ``SequentialList`` 的类即为战术执行器。
-        ``Custom_Generated`` 策略没有对应文件夹，直接使用兜底 EmptyTactics。
+        若策略文件夹不存在（例如旧版的 ``CUSTOM_STRATEGY_NAME`` 占位），直接使用兜底 EmptyTactics。
         """
         if not self.selected_strategy:
             logger.info("No strategy selected; using EmptyTactics.")
@@ -410,7 +617,13 @@ class UniversalLLMBot(KnowledgeBot):
         # 而 create_plan() 需要 self.selected_strategy 才能动态加载对应的 base_tactics。
         self._load_race_action_module()
         self._available_strategies = self._discover_strategies()
-        self._run_top_agent_initial_blocking()
+
+        # 模块三：``--force_strategy`` 优先级最高，直接绕过 t=0 LLM 选择/生成逻辑。
+        if self.force_strategy:
+            self._apply_forced_strategy(self.force_strategy)
+        else:
+            self._run_top_agent_initial_blocking()
+
         # 选定策略后，根据策略路由加载阶段性指导文件（Top_agent_60.md / mid_agent.md）。
         self._resolve_phase_guidance()
         self._top_agent_initialized = True
@@ -599,14 +812,42 @@ class UniversalLLMBot(KnowledgeBot):
                     self._llm_infer_emit("    GENERATE returned empty strategy text; aborting.")
                     final_action = "GENERATE_EMPTY"
                     break
-                self.selected_strategy = CUSTOM_STRATEGY_NAME
-                self.strategy_description = generated_text
-                turn_log["note"] = f"generated:{len(generated_text)}chars"
-                turn_records.append(turn_log)
-                self._llm_infer_emit(
-                    f"    Top Agent GENERATED a custom strategy ({len(generated_text)} chars, "
-                    f"turn {turn}); marked as '{CUSTOM_STRATEGY_NAME}'."
+
+                # 模块一：要求 LLM 输出标准化对象（Strategy_Name + Strategy_Description）
+                # 并将其作为新策略持久化到 ``SKILL/{race}/{name}/``。
+                persisted = self._persist_generated_strategy(
+                    initial_freeform_text=generated_text,
                 )
+                turn_log["persisted_strategy"] = persisted
+                if persisted is None:
+                    # 持久化失败 → 退化为旧版“匿名占位策略”。
+                    self.selected_strategy = CUSTOM_STRATEGY_NAME
+                    self.strategy_description = generated_text
+                    turn_log["note"] = (
+                        f"generated_fallback_custom:{len(generated_text)}chars"
+                    )
+                    turn_records.append(turn_log)
+                    self._llm_infer_emit(
+                        f"    Top Agent GENERATED a custom strategy ({len(generated_text)} chars, "
+                        f"turn {turn}); persistence failed, marked as '{CUSTOM_STRATEGY_NAME}'."
+                    )
+                else:
+                    self.selected_strategy = persisted["name"]
+                    self.strategy_description = persisted["description"]
+                    # 持久化成功的新策略加入 discovery 缓存，方便后续日志查询。
+                    self._available_strategies[persisted["name"]] = {
+                        "summary": persisted["description"].split("\n\n")[0][:500],
+                        "detail": persisted["description"],
+                    }
+                    turn_log["note"] = (
+                        f"generated_persisted:{persisted['name']}"
+                    )
+                    turn_records.append(turn_log)
+                    self._llm_infer_emit(
+                        f"    Top Agent GENERATED & PERSISTED a new strategy "
+                        f"'{persisted['name']}' (turn {turn}) → "
+                        f"{persisted['folder']}"
+                    )
                 final_action = "GENERATE"
                 break
 
@@ -680,43 +921,431 @@ class UniversalLLMBot(KnowledgeBot):
         lower_map = {n.lower(): n for n in valid_names}
         return lower_map.get(name.lower())
 
+    # ------------------------------------------------------------------
+    # 模块一：T=0 动态策略生成与持久化
+    # ------------------------------------------------------------------
+
+    def _persist_generated_strategy(
+        self,
+        *,
+        initial_freeform_text: str = "",
+    ) -> Optional[Dict[str, Any]]:
+        """让 LLM 输出 ``Strategy_Name + Strategy_Description`` 并落盘。
+
+        流程：
+        1. 用玩家指令 + 上一轮 freeform 草稿 + 开局观测构造查询，从 ``self._available_strategies``
+           中按相似度（Jaccard）取 ``STRATEGY_GENERATION_TOPK`` 个参考策略。
+        2. 调 LLM ``build_strategy_generation_messages``，要求标准化 JSON 输出。
+        3. 解析 + 校验名称（``parse_generated_strategy`` 会自动避免重名）。
+        4. 创建 ``SKILL/{race}/{name}/`` 目录，写入 ``Top_agent_0.md``，并把
+           ``SKILL/{race}/generic/base_tactics.py`` 拷贝过去（硬编码指令）。
+
+        :return: ``{"name": str, "description": str, "folder": str}`` 或 ``None``（失败）。
+        """
+        # 1) 检索相似策略
+        query_parts: List[str] = [self.instruct]
+        if initial_freeform_text:
+            # 取前 600 字作为相似度查询的浓缩语义。
+            query_parts.append(initial_freeform_text[:600])
+        try:
+            opening_obs = self._capture_observation_text()
+        except Exception:
+            opening_obs = ""
+        if opening_obs:
+            query_parts.append(opening_obs[:400])
+        query_text = "\n".join(p for p in query_parts if p)
+
+        similar = find_similar_strategies(
+            query_text=query_text,
+            available_strategies=self._available_strategies,
+            top_k=self.STRATEGY_GENERATION_TOPK,
+        )
+        self._llm_infer_emit(
+            "    [Strategy GENERATE] retrieved %d similar strategies: %s",
+            len(similar),
+            list(similar.keys()),
+        )
+
+        existing_names = list(self._available_strategies.keys())
+        messages = build_strategy_generation_messages(
+            race=self.race_name,
+            instruct=self.instruct,
+            similar_strategies=similar,
+            existing_strategy_names=existing_names,
+            obs_text=opening_obs,
+        )
+
+        # 2) 调 LLM
+        try:
+            raw = self._call_llm(messages, agent="top")
+        except Exception as exc:
+            self._llm_infer_emit(f"    [Strategy GENERATE] LLM call FAILED: {exc!r}")
+            return None
+        if not raw:
+            self._llm_infer_emit("    [Strategy GENERATE] LLM returned EMPTY response.")
+            return None
+
+        # 3) 解析
+        parsed = parse_generated_strategy(raw, existing_strategy_names=existing_names)
+        if parsed is None:
+            self._llm_infer_emit(
+                "    [Strategy GENERATE] failed to parse JSON; raw=%r",
+                raw[:300],
+            )
+            return None
+        name = parsed["name"]
+        description = parsed["description"]
+
+        # 4) 持久化到文件系统
+        try:
+            folder = self._materialise_strategy_folder(name=name, description=description)
+        except Exception as exc:
+            self._llm_infer_emit(
+                f"    [Strategy GENERATE] persistence FAILED for '{name}': {exc!r}"
+            )
+            return None
+
+        return {"name": name, "description": description, "folder": folder}
+
+    def _materialise_strategy_folder(self, *, name: str, description: str) -> str:
+        """在 ``SKILL/{race}/{name}/`` 下创建目录、写入 MD、拷贝 base_tactics、注册。"""
+        race_dir = self._skill_race_dir
+        target_dir = os.path.join(race_dir, name)
+        os.makedirs(target_dir, exist_ok=True)
+
+        # Top_agent_0.md (英文标题，与 parse_top_agent_0_md 兼容)
+        md_path = os.path.join(target_dir, "Top_agent_0.md")
+        md_body = (
+            "# Summary\n\n"
+            f"{description.split(chr(10) + chr(10))[0].strip()[:500]}\n\n"
+            "# Details\n\n"
+            f"{description.strip()}\n"
+        )
+        with open(md_path, "w", encoding="utf-8") as f:
+            f.write(md_body)
+
+        # base_tactics.py：硬编码从 generic 拷贝
+        src_tactics = os.path.join(race_dir, "generic", "base_tactics.py")
+        dst_tactics = os.path.join(target_dir, "base_tactics.py")
+        if os.path.isfile(src_tactics):
+            shutil.copyfile(src_tactics, dst_tactics)
+            self._llm_infer_emit(
+                f"    [Strategy GENERATE] copied base_tactics: {src_tactics} -> {dst_tactics}"
+            )
+        else:
+            self._llm_infer_emit(
+                f"    [Strategy GENERATE] WARNING: generic base_tactics not found at {src_tactics}; "
+                f"strategy '{name}' will fall back to EmptyTactics."
+            )
+
+        # 创建空的 Top_agent_60.md / mid_agent.md 占位（Skill 文件，可由后续手动填充）
+        for skill_md in ("Top_agent_60.md", "mid_agent.md"):
+            placeholder = os.path.join(target_dir, skill_md)
+            if not os.path.exists(placeholder):
+                with open(placeholder, "w", encoding="utf-8") as f:
+                    f.write("")
+
+        # 注册到 registry.json，下一次 _discover_strategies 即可被 SELECT/VIEW 看到
+        self._register_strategy(name)
+
+        return target_dir
+
+    # ------------------------------------------------------------------
+    # 模块三：``--force_strategy`` 跳过 t=0 LLM
+    # ------------------------------------------------------------------
+
+    def _apply_forced_strategy(self, name: str) -> None:
+        """强制把当前对局的策略锁定为 ``name``（绕过 LLM SELECT/VIEW/GENERATE）。"""
+        race_dir = self._skill_race_dir
+        target_dir = os.path.join(race_dir, name)
+        md_path = os.path.join(target_dir, "Top_agent_0.md")
+
+        if not os.path.isdir(target_dir):
+            self._llm_infer_emit(
+                f"    [force_strategy] ERROR: folder not found: {target_dir}; "
+                f"falling back to regular t=0 selection."
+            )
+            self._run_top_agent_initial_blocking()
+            return
+
+        detail = ""
+        if os.path.isfile(md_path):
+            try:
+                with open(md_path, "r", encoding="utf-8") as f:
+                    raw = f.read()
+                parsed = parse_top_agent_0_md(raw)
+                detail = parsed.get("detail") or raw.strip()
+            except Exception as exc:
+                self._llm_infer_emit(
+                    f"    [force_strategy] failed to read {md_path}: {exc!r}"
+                )
+
+        self.selected_strategy = name
+        self.strategy_description = detail
+        self._llm_infer_emit(
+            f">>> TOP AGENT: t=0 BYPASSED by --force_strategy='{name}' "
+            f"(description={len(detail)} chars)"
+        )
+
+        # 把强制路径也写入 LLM 交互记录，便于后续解析批量结果。
+        self._record_llm_interaction({
+            "game_time": 0.0,
+            "trigger_reason": "top_agent_initial_t0_forced",
+            "wall_elapsed_seconds": 0.0,
+            "top_agent_initial": {
+                "race": self.race_name,
+                "instruct": self.instruct,
+                "forced_strategy": name,
+                "selected_strategy": name,
+                "strategy_description": detail,
+                "final_action": "FORCED",
+            },
+        })
+
     def _run_top_agent_poll_blocking(self) -> None:
-        """每 60 秒阶段评估（同步阻塞）。"""
+        """每 60 秒阶段评估（同步阻塞）—— 两段式 Pipeline。
+
+        * Phase 1（可选）：基于 obs + 策略上下文 + Generic/Specific Skill 清单调一次 LLM，
+          产出 ``selected: [skill_title, ...]``（受 ``--disable_all_skills`` /
+          ``--enable_skill_layers`` / ``--disable_specific_skills_layers`` 控制）。
+        * Phase 2：用 *同一份 obs*（与 Phase 1 完全一致）+ 注入选中 Skill description 调
+          ``build_phase_assessment_messages``，得到最终 ``{phase, focus}``。
+
+        每次调用都会向 ``llm_observation_recorder`` 追加一条
+        ``trigger_reason="top_agent_poll_60"`` 的 JSON 记录，包含 Phase 1 的完整
+        Skill 选择追踪和 Phase 2 的 messages / raw / parsed。
+        """
         if not self.selected_strategy:
             return
 
+        pipeline_start = _wall_time.monotonic()
+        game_time = self.time
         self._llm_infer_emit(
-            f">>> TOP AGENT: phase assessment (game_time={self.time:.1f}s)"
+            f">>> TOP AGENT: phase assessment (game_time={game_time:.1f}s)"
         )
 
+        # 关键：obs 仅采样一次，Phase 1 / Phase 2 共享。
         obs_text = self._capture_observation_text()
+
+        selected_titles, selected_block, skill_trace = self._run_skill_selection(
+            layer="top",
+            obs_text=obs_text,
+        )
+
+        # 兼容：若两段式禁用且旧字段开关开启，仍按 Top_agent_60.md 整文注入。
+        enable_legacy_phase_guidance = (
+            self.use_top_60_prompt
+            and not self._skill_enabled_for("top")
+        )
+
         messages = build_phase_assessment_messages(
             race=self.race_name,
             obs_text=obs_text,
             instruct=self.instruct,
             strategy_name=self.selected_strategy,
             strategy_description=self.strategy_description,
-            enable_phase_guidance=self.use_top_60_prompt,
+            enable_phase_guidance=enable_legacy_phase_guidance,
             phase_guidance_text=self._top60_guidance_text,
+            selected_skills_block=selected_block,
         )
 
-        try:
-            raw = self._call_llm(messages, agent="top")
-        except Exception as exc:
-            logger.warning("[TopAgent] phase assessment failed: %s", exc)
-            self._llm_infer_emit(f"    Top Agent poll FAILED: {exc!r}")
-            return
-
-        result = parse_phase_assessment(raw)
-        if result:
-            self.current_phase = result["phase"]
-            self.current_focus = result["focus"]
+        # 验收：Phase 1/2 Prompt 一致性日志（确认 obs 在两段中相同 + Phase 2 已注入 skill）
+        if selected_titles:
             self._llm_infer_emit(
-                f"    Top Agent: phase={self.current_phase}, "
-                f"focus={self.current_focus!r}"
+                "    [Top Phase2] injected %d selected skills: %s",
+                len(selected_titles),
+                selected_titles,
             )
         else:
-            self._llm_infer_emit(f"    Top Agent parse failed: {raw!r}")
+            self._llm_infer_emit(
+                "    [Top Phase2] no skill injection (legacy_phase_guidance=%s)",
+                enable_legacy_phase_guidance,
+            )
+
+        phase2_raw: str = ""
+        phase2_parsed: Optional[Dict[str, str]] = None
+        phase2_error: Optional[str] = None
+        phase2_start = _wall_time.monotonic()
+        try:
+            phase2_raw = self._call_llm(messages, agent="top")
+        except Exception as exc:
+            phase2_error = repr(exc)
+            logger.warning("[TopAgent] phase assessment failed: %s", exc)
+            self._llm_infer_emit(f"    Top Agent poll FAILED: {exc!r}")
+
+        phase2_elapsed = round(_wall_time.monotonic() - phase2_start, 3)
+
+        if phase2_raw and phase2_error is None:
+            phase2_parsed = parse_phase_assessment(phase2_raw)
+            if phase2_parsed:
+                self.current_phase = phase2_parsed["phase"]
+                self.current_focus = phase2_parsed["focus"]
+                self._llm_infer_emit(
+                    f"    Top Agent: phase={self.current_phase}, "
+                    f"focus={self.current_focus!r}"
+                )
+            else:
+                self._llm_infer_emit(f"    Top Agent parse failed: {phase2_raw!r}")
+
+        total_elapsed = round(_wall_time.monotonic() - pipeline_start, 3)
+        self._record_llm_interaction({
+            "game_time": round(game_time, 2),
+            "trigger_reason": "top_agent_poll_60",
+            "wall_elapsed_seconds": total_elapsed,
+            "top_agent_strategy": self.selected_strategy,
+            "observation_at_this_moment": obs_text,
+            "top_agent_skill_selection": skill_trace,
+            "top_agent_phase_assessment": {
+                "messages_sent": [dict(m) for m in messages],
+                "raw_response": phase2_raw,
+                "parsed": phase2_parsed,
+                "legacy_phase_guidance_enabled": enable_legacy_phase_guidance,
+                "wall_elapsed_seconds": phase2_elapsed,
+                "error": phase2_error,
+            },
+            "top_agent_phase": self.current_phase,
+            "top_agent_focus": self.current_focus,
+        })
+
+    # ------------------------------------------------------------------
+    # 两段式 Skill Selection (Phase 1)
+    # ------------------------------------------------------------------
+
+    def _run_skill_selection(
+        self,
+        *,
+        layer: str,
+        obs_text: str,
+    ) -> Tuple[List[str], str, Dict[str, Any]]:
+        """*Phase 1 — Skill Selection*。
+
+        :param layer: ``"top"`` 或 ``"mid"``。
+        :param obs_text: 与 Phase 2 完全一致的观测文本（调用方传入）。
+        :return: 三元组 ``(selected_titles, rendered_block_text, trace_dict)``。
+
+                 ``trace_dict`` 始终非空，结构如下，供调用方写入 JSON 记录::
+
+                     {
+                       "layer": "top" | "mid",
+                       "enabled": bool,           # 该层是否启用 Skill 路由
+                       "skipped_reason": str,     # 跳过原因（"" 表示执行完成）
+                       "candidate_titles": [..],
+                       "generic_count": int,
+                       "specific_count": int,
+                       "max_selection": int,
+                       "messages_sent": [..],     # 发给 LLM 的 Phase 1 messages
+                       "raw_response": str,
+                       "selected_titles": [..],
+                       "rendered_block": str,
+                       "wall_elapsed_seconds": float,
+                       "error": Optional[str],
+                     }
+        """
+        trace: Dict[str, Any] = {
+            "layer": layer,
+            "enabled": False,
+            "skipped_reason": "",
+            "candidate_titles": [],
+            "generic_count": 0,
+            "specific_count": 0,
+            "max_selection": self.SKILL_SELECTION_MAX,
+            "messages_sent": [],
+            "raw_response": "",
+            "selected_titles": [],
+            "rendered_block": "",
+            "wall_elapsed_seconds": 0.0,
+            "error": None,
+        }
+
+        if not self._skill_enabled_for(layer):
+            trace["skipped_reason"] = (
+                f"disable_all_skills={self.disable_all_skills}, "
+                f"enable_skill_layers={self.enable_skill_layers}"
+            )
+            self._llm_infer_emit(
+                "    [Phase1/%s] SKIPPED (%s)",
+                layer, trace["skipped_reason"],
+            )
+            return [], "", trace
+
+        trace["enabled"] = True
+        lib = (
+            self._top60_skill_library if layer == "top" else self._mid_skill_library
+        )
+        generic = lib.get("generic", []) or []
+        specific = lib.get("specific", []) or []
+        trace["generic_count"] = len(generic)
+        trace["specific_count"] = len(specific)
+
+        # 注意：若整体没有候选 Skill（例如 generic md 也是空），Phase 1 无意义，直接跳过。
+        if not generic and not specific:
+            trace["skipped_reason"] = "empty_candidate_pool"
+            self._llm_infer_emit(
+                "    [Phase1/%s] empty candidate pool (generic+specific=0); "
+                "no skill injection.", layer,
+            )
+            return [], "", trace
+
+        valid_titles = [s["title"] for s in (generic + specific) if s.get("title")]
+        trace["candidate_titles"] = list(valid_titles)
+
+        messages = build_skill_selection_messages(
+            race=self.race_name,
+            layer="top_60" if layer == "top" else "mid",
+            obs_text=obs_text,
+            instruct=self.instruct,
+            strategy_name=self.selected_strategy or "",
+            strategy_description=self.strategy_description,
+            phase=self.current_phase,
+            focus=self.current_focus,
+            generic_skills=generic,
+            specific_skills=specific,
+            max_selection=self.SKILL_SELECTION_MAX,
+        )
+        trace["messages_sent"] = [dict(m) for m in messages]
+
+        self._llm_infer_emit(
+            "    [Phase1/%s] candidates: generic=%d, specific=%d, valid_titles=%s",
+            layer, len(generic), len(specific), valid_titles,
+        )
+
+        t_start = _wall_time.monotonic()
+        try:
+            raw = self._call_llm(messages, agent=layer)
+        except Exception as exc:
+            trace["wall_elapsed_seconds"] = round(_wall_time.monotonic() - t_start, 3)
+            trace["error"] = repr(exc)
+            self._llm_infer_emit(
+                "    [Phase1/%s] LLM call FAILED: %r; falling back to NO skill.",
+                layer, exc,
+            )
+            return [], "", trace
+        trace["wall_elapsed_seconds"] = round(_wall_time.monotonic() - t_start, 3)
+        trace["raw_response"] = raw or ""
+
+        selected = parse_skill_selection(
+            raw,
+            valid_titles=valid_titles,
+            max_selection=self.SKILL_SELECTION_MAX,
+        )
+        block = render_selected_skills_block(
+            selected,
+            generic_skills=generic,
+            specific_skills=specific,
+        )
+        trace["selected_titles"] = list(selected)
+        trace["rendered_block"] = block
+
+        self._llm_infer_emit(
+            "    [Phase1/%s] LLM selected %d/%d skills in %.2fs: %s (raw=%r)",
+            layer,
+            len(selected),
+            len(valid_titles),
+            trace["wall_elapsed_seconds"],
+            selected,
+            (raw or "")[:200],
+        )
+        return selected, block, trace
 
     # ------------------------------------------------------------------
     # Mid Agent + Down Agent Pipeline
@@ -734,6 +1363,22 @@ class UniversalLLMBot(KnowledgeBot):
         down_agent_translations: List[Dict[str, Any]] = []
         parsed_tasks: List[Dict[str, Any]] = []
         error_text: Optional[str] = None
+        # Phase 1 trace 默认占位；即使在 Phase 1 之前异常，也保证 JSON 记录字段存在。
+        mid_skill_trace: Dict[str, Any] = {
+            "layer": "mid",
+            "enabled": False,
+            "skipped_reason": "not_reached",
+            "candidate_titles": [],
+            "generic_count": 0,
+            "specific_count": 0,
+            "max_selection": self.SKILL_SELECTION_MAX,
+            "messages_sent": [],
+            "raw_response": "",
+            "selected_titles": [],
+            "rendered_block": "",
+            "wall_elapsed_seconds": 0.0,
+            "error": None,
+        }
 
         self._llm_infer_emit(
             f">>> MID AGENT START (trigger={trigger_reason}, game_time={game_time:.1f}s, "
@@ -747,10 +1392,32 @@ class UniversalLLMBot(KnowledgeBot):
                 f"observation_at_decision_time (game_time={game_time:.1f}s):\n{obs_text}"
             )
 
-            # ===================== Mid Agent: Planning ====================
+            # ===================== Mid Agent Phase 1: Skill Selection =====
+            mid_selected_titles, mid_skill_block, mid_skill_trace = self._run_skill_selection(
+                layer="mid",
+                obs_text=obs_text,
+            )
+            if mid_selected_titles:
+                self._llm_infer_emit(
+                    "    [Mid Phase2] injected %d selected skills: %s",
+                    len(mid_selected_titles),
+                    mid_selected_titles,
+                )
+            else:
+                self._llm_infer_emit(
+                    "    [Mid Phase2] no skill injection (use_mid_prompt=%s, "
+                    "enable_skill_layers=%s).",
+                    self.use_mid_prompt, self.enable_skill_layers,
+                )
+
+            # ===================== Mid Agent Phase 2: Planning ============
             self._llm_infer_emit("    calling Mid Agent (planning)...")
             s1_start = _wall_time.monotonic()
-            mid_agent_text = self._call_mid_agent(obs_text, previous_natural_tasks)
+            mid_agent_text = self._call_mid_agent(
+                obs_text,
+                previous_natural_tasks,
+                selected_skills_block=mid_skill_block,
+            )
             s1_elapsed = _wall_time.monotonic() - s1_start
 
             if not mid_agent_text:
@@ -835,6 +1502,7 @@ class UniversalLLMBot(KnowledgeBot):
                 "top_agent_focus": self.current_focus,
                 "observation_at_this_moment": obs_text,
                 "observation_structured": obs_snapshot,
+                "mid_agent_skill_selection": mid_skill_trace,
                 "mid_agent_input_previous_tasks": previous_natural_tasks,
                 "mid_agent_raw_response": mid_agent_text,
                 "mid_agent_output_new_tasks": mid_agent_tasks,
@@ -867,8 +1535,19 @@ class UniversalLLMBot(KnowledgeBot):
 
         return call_openai(messages=messages, model_key=model_key)
 
-    def _call_mid_agent(self, obs_text: str, previous_tasks: List[str]) -> str:
-        """构造 Mid Agent Prompt 并调用 LLM。"""
+    def _call_mid_agent(
+        self,
+        obs_text: str,
+        previous_tasks: List[str],
+        *,
+        selected_skills_block: str = "",
+    ) -> str:
+        """构造 Mid Agent Prompt 并调用 LLM（Phase 2 注入 Skill 约束块）。"""
+        # 兼容：若两段式禁用且旧字段开关开启，仍按 mid_agent.md 整文注入。
+        enable_legacy_execution_guidance = (
+            self.use_mid_prompt
+            and not self._skill_enabled_for("mid")
+        )
         messages = build_planning_messages(
             race=self.race_name,
             obs_text=obs_text,
@@ -876,8 +1555,9 @@ class UniversalLLMBot(KnowledgeBot):
             strategy_description=self.strategy_description,
             phase=self.current_phase,
             focus=self.current_focus,
-            enable_execution_guidance=self.use_mid_prompt,
+            enable_execution_guidance=enable_legacy_execution_guidance,
             execution_guidance_text=self._mid_guidance_text,
+            selected_skills_block=selected_skills_block,
         )
         return self._call_llm(messages, agent="mid")
 

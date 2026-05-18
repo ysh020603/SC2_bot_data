@@ -74,6 +74,10 @@ def play_vs_ai(
     skip_version_update: bool = False,
     use_top_60_prompt: bool = False,
     use_mid_prompt: bool = False,
+    disable_all_skills: bool = False,
+    enable_skill_layers: str = "all",
+    disable_specific_skills_layers: str = "none",
+    force_strategy: Optional[str] = None,
 ) -> None:
     root_dir = os.path.dirname(os.path.abspath(__file__))
     os.chdir(root_dir)
@@ -132,6 +136,14 @@ def play_vs_ai(
         args.append("--use-top-60-prompt")
     if use_mid_prompt:
         args.append("--use-mid-prompt")
+    if disable_all_skills:
+        args.append("--disable-all-skills")
+    if enable_skill_layers and enable_skill_layers != "all":
+        args.extend(["--enable-skill-layers", enable_skill_layers])
+    if disable_specific_skills_layers and disable_specific_skills_layers != "none":
+        args.extend(["--disable-specific-skills-layers", disable_specific_skills_layers])
+    if force_strategy:
+        args.extend(["--force-strategy", force_strategy])
 
     sys.argv = args
 
@@ -145,6 +157,12 @@ def play_vs_ai(
     print(
         f" ▷ Prompt 开关 : use_top_60_prompt={use_top_60_prompt}, "
         f"use_mid_prompt={use_mid_prompt}"
+    )
+    print(
+        f" ▷ Skill 开关 : disable_all_skills={disable_all_skills}, "
+        f"enable_skill_layers={enable_skill_layers}, "
+        f"disable_specific_skills_layers={disable_specific_skills_layers}, "
+        f"force_strategy={force_strategy or 'None'}"
     )
     if batch_name:
         print(f" ▷ 批次名称 : {batch_name} (任务序号: {run_index})")
@@ -187,6 +205,29 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
         action="store_true",
         help="开启 Mid Agent 规划的 [Execution Guidance] 注入（读取 mid_agent.md）",
     )
+    # ---- Ablation switches (Module 3) ---------------------------------
+    p.add_argument(
+        "--disable-all-skills",
+        action="store_true",
+        help="禁用两段式 Skill 系统（Top 60 + Mid 均跳过 Phase 1 筛选，Phase 2 无 Skill 注入）。",
+    )
+    p.add_argument(
+        "--enable-skill-layers",
+        choices=["all", "top_only", "mid_only", "none"],
+        default="all",
+        help="指定哪一层启用两段式 Skill 路由。",
+    )
+    p.add_argument(
+        "--disable-specific-skills-layers",
+        choices=["all", "top", "mid", "none"],
+        default="none",
+        help="指定哪一层禁用 Specific Skill（仅使用 Generic）。",
+    )
+    p.add_argument(
+        "--force-strategy",
+        default="",
+        help="强制锁定 t=0 策略（已存在的 SKILL/<race>/<name> 文件夹名）；空表示不强制。",
+    )
 
     return p.parse_args(argv)
 
@@ -210,6 +251,10 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         skip_version_update=ns.skip_version_update,
         use_top_60_prompt=ns.use_top_60_prompt,
         use_mid_prompt=ns.use_mid_prompt,
+        disable_all_skills=ns.disable_all_skills,
+        enable_skill_layers=ns.enable_skill_layers,
+        disable_specific_skills_layers=ns.disable_specific_skills_layers,
+        force_strategy=(ns.force_strategy or None),
     )
 
 if __name__ == "__main__":

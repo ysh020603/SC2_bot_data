@@ -1,8 +1,8 @@
-# 摘要
+# Summary
 
 Battlecruiser-focused macro build supported by Marines and Siege Tanks. Rush Starport tech, then transition into non-stop Battlecruiser production with Tactical Jump harassment. End-game goal: 20 Battlecruisers, 10 Siege Tanks, 50 Marines.
 
-# 详细内容
+# Details
 
 Your overall strategy is a Battlecruiser-focused macro build supported by Marines and Siege Tanks, with a strict emphasis on rapid Starport tech progression and balancing the developmental sequence between your ground forces and heavy air fleet:
 

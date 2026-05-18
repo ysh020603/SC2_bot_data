@@ -1,8 +1,8 @@
-# 摘要
+# Summary
 
 All-in Marine rush: mineral-only economy capped at 20 SCVs, 6 Barracks producing Marines non-stop. Skip gas, skip second base, launch a 20-Marine zone attack across the map. Designed to end the game in the early phases.
 
-# 详细内容
+# Details
 
 Your overall strategy is a highly aggressive Marine all-in rush, with a strict emphasis on sacrificing long-term macro development to overwhelm the opponent with an early, massive tier-one infantry swarm:
 

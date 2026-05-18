@@ -168,6 +168,29 @@ Builds:
             help="Enable [Execution Guidance] injection in Mid Agent prompt (reads mid_agent.md).",
             action="store_true",
         )
+        # ---- Ablation switches (Module 3) -----------------------------
+        parser.add_argument(
+            "--disable-all-skills",
+            help="Skip Phase-1 skill selection entirely; degrade to baseline (no skill injection).",
+            action="store_true",
+        )
+        parser.add_argument(
+            "--enable-skill-layers",
+            help="Which layer enables the two-stage Skill pipeline: all/top_only/mid_only/none.",
+            choices=["all", "top_only", "mid_only", "none"],
+            default="all",
+        )
+        parser.add_argument(
+            "--disable-specific-skills-layers",
+            help="Which layer must drop strategy-specific skills (only Generic): all/top/mid/none.",
+            choices=["all", "top", "mid", "none"],
+            default="none",
+        )
+        parser.add_argument(
+            "--force-strategy",
+            help="Force a specific strategy folder name (e.g. 'marine_rush'); bypasses t=0 LLM.",
+            default="",
+        )
 
         args = parser.parse_args()
 
@@ -291,6 +314,20 @@ Builds:
                 my_bot.use_top_60_prompt = bool(getattr(args, "use_top_60_prompt", False))
             if hasattr(my_bot, "use_mid_prompt"):
                 my_bot.use_mid_prompt = bool(getattr(args, "use_mid_prompt", False))
+            # ---- Ablation switches (Module 3) ------------------------
+            if hasattr(my_bot, "disable_all_skills"):
+                my_bot.disable_all_skills = bool(getattr(args, "disable_all_skills", False))
+            if hasattr(my_bot, "enable_skill_layers"):
+                my_bot.enable_skill_layers = (
+                    getattr(args, "enable_skill_layers", "all") or "all"
+                )
+            if hasattr(my_bot, "disable_specific_skills_layers"):
+                my_bot.disable_specific_skills_layers = (
+                    getattr(args, "disable_specific_skills_layers", "none") or "none"
+                )
+            if hasattr(my_bot, "force_strategy"):
+                fs = (getattr(args, "force_strategy", "") or "").strip()
+                my_bot.force_strategy = fs if fs and fs.lower() != "none" else None
             if args.release:
                 my_bot.config = get_config(False)
 

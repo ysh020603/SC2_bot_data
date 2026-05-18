@@ -1,8 +1,8 @@
-# 摘要
+# Summary
 
 Two-base Marine + Siege Tank macro build. Tech up via 5 Barracks (1 Tech Lab + Reactors) and 3 Factory Tech Labs, prioritising Marine buffer first, then mass-Tank production. End-game goal: 20 Siege Tanks and 100 Marines.
 
-# 详细内容
+# Details
 
 Your overall strategy is a Marine and Siege Tank macro build, with a strict emphasis on the developmental sequence between Barracks/Factories and Marines/Tanks:
 
