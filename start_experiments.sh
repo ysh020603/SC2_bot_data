@@ -29,7 +29,11 @@ export REAL_TIME="0" # 1为实时模式，0为加速模式
 # "cheatmoney",
 # "cheatinsane"
 # 对手配置
-export ENEMY_RACE="protoss"
+# "protoss"
+# "zerg"
+# "terran"
+
+export ENEMY_RACE="terran"
 export ENEMY_DIFFICULTY="hard"
 export ENEMY_BUILD="macro"
 

@@ -30,31 +30,40 @@ def process_single_batch(base_dir):
         difficulty = "Unknown"
         model_name = "Unknown"
 
-    # 2. 统计胜负
+    # 2. 统计胜负（含 Tie）
     total_logs = 0
     victories = 0
     defeats = 0
     ties = 0
     no_result = 0
-    
-    # 匹配日志中胜负结果的正则
-    result_pattern = re.compile(r"Result for player 1 - Bot UniversalLLMBot.*?:\s*(Victory|Defeat|Tie)", re.IGNORECASE)
 
-    for log_file in base_path.rglob('*.log'):
+    # 匹配日志中胜负结果的正则（Victory / Defeat / Tie）
+    result_pattern = re.compile(
+        r"Result for player 1 - Bot .+?:\s*(Victory|Defeat|Tie)\s*$",
+        re.IGNORECASE,
+    )
+
+    def parse_result_from_log(log_path):
+        """取日志中最后一次对局结果（避免重复启动时误匹配）。"""
+        last_result = None
+        with open(log_path, "r", encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                match = result_pattern.search(line)
+                if match:
+                    last_result = match.group(1).capitalize()
+        return last_result
+
+    for log_file in base_path.rglob("*.log"):
         total_logs += 1
-        found_in_file = False
         try:
-            with open(log_file, 'r', encoding='utf-8', errors='ignore') as f:
-                for line in f:
-                    match = result_pattern.search(line)
-                    if match:
-                        res = match.group(1).capitalize()
-                        if res == "Victory": victories += 1
-                        elif res == "Defeat": defeats += 1
-                        elif res == "Tie": ties += 1
-                        found_in_file = True
-                        break
-            if not found_in_file:
+            res = parse_result_from_log(log_file)
+            if res == "Victory":
+                victories += 1
+            elif res == "Defeat":
+                defeats += 1
+            elif res == "Tie":
+                ties += 1
+            else:
                 no_result += 1
         except Exception as e:
             print(f"  读取 {log_file.name} 出错: {e}")
@@ -74,7 +83,13 @@ def process_single_batch(base_dir):
             "defeats": defeats,
             "ties": ties,
             "no_result_found": no_result,
-            "win_rate": f"{(victories/total_logs*100):.2f}%" if total_logs > 0 else "0%"
+            "win_rate": f"{(victories/total_logs*100):.2f}%" if total_logs > 0 else "0%",
+            "tie_rate": f"{(ties/total_logs*100):.2f}%" if total_logs > 0 else "0%",
+            "win_rate_excluding_ties": (
+                f"{(victories/(victories + defeats)*100):.2f}%"
+                if (victories + defeats) > 0
+                else "0%"
+            ),
         }
     }
 
@@ -83,7 +98,7 @@ def process_single_batch(base_dir):
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(result_data, f, indent=4, ensure_ascii=False)
     
-    print(f"  完成! 胜: {victories}, 负: {defeats}, 总数: {total_logs}")
+    print(f"  完成! 胜: {victories}, 负: {defeats}, 平: {ties}, 总数: {total_logs}")
     print(f"  JSON 已保存至: {output_path}\n")
 
 def batch_process_logs(path_list):
@@ -97,20 +112,25 @@ def batch_process_logs(path_list):
 
 if __name__ == "__main__":
     # 在这里定义您的路径列表
+    # my_paths = [
+    #     "/data2/SC2_shy/sharpy-sc2/game_records/batch_20260514_1402_KairosJunctionLE_terranvterran_hard_deepseek-v4-pro-reasoning",
+    #     "/data2/SC2_shy/sharpy-sc2/game_records/batch_20260514_1406_KairosJunctionLE_terranvterran_hard_deepseek-v4-flash",
+    #     "/data2/SC2_shy/sharpy-sc2/game_records/batch_20260514_1406_KairosJunctionLE_terranvterran_hard_deepseek-v4-pro",
+    #     "/data2/SC2_shy/sharpy-sc2/game_records/batch_20260514_1410_KairosJunctionLE_terranvterran_hard_deepseek-v4-flash-reasoning",
+    #     "/data2/SC2_shy/sharpy-sc2/game_records/batch_20260514_1411_KairosJunctionLE_terranvterran_hard_qwen3-32b-nothinking",
+    #     "/data2/SC2_shy/sharpy-sc2/game_records/batch_20260514_1412_KairosJunctionLE_terranvterran_hard_qwen3-32b-thinking",
+    #     "/data2/SC2_shy/sharpy-sc2/game_records/batch_20260514_1413_KairosJunctionLE_terranvterran_hard_qwen2_5_14b",
+    #     "/data2/SC2_shy/sharpy-sc2/game_records/batch_20260514_1751_KairosJunctionLE_terranvterran_medium_qwen2_5_14b",
+    #     "/data2/SC2_shy/sharpy-sc2/game_records/batch_20260514_1752_KairosJunctionLE_terranvterran_medium_qwen3-32b-nothinking",
+    #     "/data2/SC2_shy/sharpy-sc2/game_records/batch_20260514_1752_KairosJunctionLE_terranvterran_medium_qwen3-32b-thinking",
+    #     "/data2/SC2_shy/sharpy-sc2/game_records/batch_20260514_1753_KairosJunctionLE_terranvterran_medium_deepseek-v4-flash",
+    #     "/data2/SC2_shy/sharpy-sc2/game_records/batch_20260514_1930_KairosJunctionLE_terranvterran_medium_deepseek-v4-pro-reasoning",
+    #     "/data2/SC2_shy/sharpy-sc2/game_records/batch_20260515_1958_KairosJunctionLE_terranvterran_hard_deepseek-v4-pro-reasoning"
+    # ]
     my_paths = [
-        "/data2/SC2_shy/sharpy-sc2/game_records/batch_20260514_1402_KairosJunctionLE_terranvterran_hard_deepseek-v4-pro-reasoning",
-        "/data2/SC2_shy/sharpy-sc2/game_records/batch_20260514_1406_KairosJunctionLE_terranvterran_hard_deepseek-v4-flash",
-        "/data2/SC2_shy/sharpy-sc2/game_records/batch_20260514_1406_KairosJunctionLE_terranvterran_hard_deepseek-v4-pro",
-        "/data2/SC2_shy/sharpy-sc2/game_records/batch_20260514_1410_KairosJunctionLE_terranvterran_hard_deepseek-v4-flash-reasoning",
-        "/data2/SC2_shy/sharpy-sc2/game_records/batch_20260514_1411_KairosJunctionLE_terranvterran_hard_qwen3-32b-nothinking",
-        "/data2/SC2_shy/sharpy-sc2/game_records/batch_20260514_1412_KairosJunctionLE_terranvterran_hard_qwen3-32b-thinking",
-        "/data2/SC2_shy/sharpy-sc2/game_records/batch_20260514_1413_KairosJunctionLE_terranvterran_hard_qwen2_5_14b",
-        "/data2/SC2_shy/sharpy-sc2/game_records/batch_20260514_1751_KairosJunctionLE_terranvterran_medium_qwen2_5_14b",
-        "/data2/SC2_shy/sharpy-sc2/game_records/batch_20260514_1752_KairosJunctionLE_terranvterran_medium_qwen3-32b-nothinking",
-        "/data2/SC2_shy/sharpy-sc2/game_records/batch_20260514_1752_KairosJunctionLE_terranvterran_medium_qwen3-32b-thinking",
-        "/data2/SC2_shy/sharpy-sc2/game_records/batch_20260514_1753_KairosJunctionLE_terranvterran_medium_deepseek-v4-flash",
-        "/data2/SC2_shy/sharpy-sc2/game_records/batch_20260514_1930_KairosJunctionLE_terranvterran_medium_deepseek-v4-pro-reasoning",
-        "/data2/SC2_shy/sharpy-sc2/game_records/batch_20260515_1958_KairosJunctionLE_terranvterran_hard_deepseek-v4-pro-reasoning"
+        "/data2/SC2_shy/sharpy-sc2/game_records/batch_20260518_1253_KairosJunctionLE_terranVprotoss_hard_kimi-k2_5_base",
+        "/data2/SC2_shy/sharpy-sc2/game_records/batch_20260518_1254_KairosJunctionLE_terranVterran_hard_kimi-k2_5_base",
+        "/data2/SC2_shy/sharpy-sc2/game_records/batch_20260518_1254_KairosJunctionLE_terranVzerg_hard_kimi-k2_5_base",
     ]
     # my_paths = [
     #     "/data2/SC2_shy/sharpy-sc2/game_records/batch_20260515_2215_KairosJunctionLE_terranvterran_hard_deepseek-v4-flash",
@@ -125,5 +145,7 @@ if __name__ == "__main__":
     #     "/data2/SC2_shy/sharpy-sc2/game_records/batch_20260515_2330_KairosJunctionLE_terranvprotoss_hard_deepseek-v4-flash",
     #     "/data2/SC2_shy/sharpy-sc2/game_records/batch_20260515_2328_KairosJunctionLE_terranvterran_hard_deepseek-v4-flash",
     # ]
+
+    
     
     batch_process_logs(my_paths)
