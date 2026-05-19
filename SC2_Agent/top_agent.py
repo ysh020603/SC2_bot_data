@@ -187,7 +187,6 @@ def parse_strategy_selection(
 def build_phase_assessment_messages(
     race: str,
     obs_text: str,
-    instruct: str,
     strategy_name: str,
     strategy_description: str,
     *,
@@ -199,7 +198,6 @@ def build_phase_assessment_messages(
 
     :param race:                  当前种族。
     :param obs_text:              当前观测文本。
-    :param instruct:              玩家指令。
     :param strategy_name:         t=0 选定的策略名。
     :param strategy_description:  策略的完整描述（Top_agent_0.md 或 GENERATE 内容）。
     :param enable_phase_guidance: 是否启用 ``[Phase Guidance]`` 区块的拼接（旧字段，
@@ -247,13 +245,9 @@ def build_phase_assessment_messages(
 
     system_msg = "\n".join(blocks)
 
-    user_parts = [f"[Current Observation]\n{obs_text}"]
-    if instruct:
-        user_parts.append(f"[Player Instruction]\n{instruct}")
-
     return [
         {"role": "system", "content": system_msg},
-        {"role": "user", "content": "\n\n".join(user_parts)},
+        {"role": "user", "content": f"[Current Observation]\n{obs_text}"},
     ]
 
 

@@ -1136,7 +1136,6 @@ class UniversalLLMBot(KnowledgeBot):
         messages = build_phase_assessment_messages(
             race=self.race_name,
             obs_text=obs_text,
-            instruct=self.instruct,
             strategy_name=self.selected_strategy,
             strategy_description=self.strategy_description,
             enable_phase_guidance=enable_legacy_phase_guidance,

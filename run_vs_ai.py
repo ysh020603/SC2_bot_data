@@ -86,14 +86,14 @@ DEFAULT_ENEMY_DIFFICULTY = "hard"  # 如 easy / medium / hard / veryhard
 DEFAULT_ENEMY_BUILD = "macro"  # 内置 AI 风格，如 macro / rush 等
 
 # --- LLM 模型（model_key，见项目模型配置）---
-DEFAULT_TOP_MODEL = "Kimi-k2.5_base"
-DEFAULT_MID_MODEL = "Kimi-k2.5_base"
+DEFAULT_TOP_MODEL = "DeepSeek-V4-pro"
+DEFAULT_MID_MODEL = "DeepSeek-V4-pro"
 DEFAULT_DOWN_MODEL = "Kimi-k2.5_base"
 
 # --- 固定 t=0 策略（绕过 Top Agent 开局选策略的 LLM）---
 # 填 SKILL/<种族>/ 下的文件夹名，如 safe_tvt_raven → SKILL/terran/safe_tvt_raven/
 # 须与 DEFAULT_BOT_RACE 一致。空字符串 "" 表示不强制；CLI 可用 --force-strategy none 取消。
-DEFAULT_FORCE_STRATEGY = "safe_tvt_raven"
+DEFAULT_FORCE_STRATEGY = "cyclones"
 
 # --- 旧版整文 Prompt 注入（Skill 路由关闭时的兜底；一般保持 False）---
 DEFAULT_USE_TOP_60_PROMPT = False  # t≈60 注入 Top_agent_60.md 全文
