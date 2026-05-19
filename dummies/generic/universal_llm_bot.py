@@ -14,10 +14,8 @@
     │   逐条翻译 → {"action": key, "to_count": int}                      │
     ├─────────────────────────────────────────────────────────────────────┤
     │ create_plan() → BuildOrder([                                        │
-    │     empty.depots,                                                   │
-    │     MorphOrbitals(),                                                │
     │     ActLLMOngoingTasks(...),     # 动态运营层 (Mid/Down Agent 驱动)  │
-    │     DynamicBaseTactics(...),     # 动态加载的静态战术层               │
+    │     DynamicBaseTactics(...),     # 补给 + Orbital + 静态战术层       │
     │ ])                                                                  │
     └─────────────────────────────────────────────────────────────────────┘
 
@@ -45,10 +43,8 @@ from sc2.ids.unit_typeid import UnitTypeId
 
 from sharpy.interfaces import IZoneManager
 from sharpy.knowledges import KnowledgeBot
-from sharpy.plans import BuildOrder, Step
+from sharpy.plans import BuildOrder
 from sharpy.plans.acts import ActBase
-from sharpy.plans.acts.terran import MorphOrbitals
-from sharpy.plans.require import UnitReady
 from sharpy.plans.sequential_list import SequentialList
 
 from API_Tools.llm_caller import call_openai
@@ -1682,17 +1678,10 @@ class UniversalLLMBot(KnowledgeBot):
             active_tasks_ref=self.active_tasks,
         )
 
-        empty = BuildOrder([])
-
         return BuildOrder(
-            empty.depots,
-            Step(
-                None,
-                MorphOrbitals(),
-                skip_until=UnitReady(UnitTypeId.BARRACKS, 1),
-            ),
-            llm_executor,
             base_tactics,
+            llm_executor,
+            
         )
 
 

@@ -1,0 +1,1 @@
+Banshee harassment build: gathers and attacks via `PlanZoneAttack` when army value reaches `attack_value` (default random 40–70). Threshold-driven push with `PlanFinishEnemy`; no spell or upgrade gate on the attack step.

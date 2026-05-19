@@ -88,7 +88,7 @@ def build_planning_messages(
         )
 
     system_msg = f'''You are a senior StarCraft II strategist controlling a {race_cap} bot.
-This is a macro Planning Task. You are the global plan manager for the next 20 seconds.
+This is a macro Planning Task. You are the global plan manager for the next 12 seconds.
 
 {_EXECUTION_MODEL}
 
@@ -97,7 +97,10 @@ Your job each cycle:
 * Remove tasks that are already complete or no longer appropriate.
 * Update tasks whose target count should increase or decrease.
 * Add new tasks needed for the current stage.
-* Describe each task clearly: Each natural-language task MUST contain only ONE single plan or action. Do not combine multiple actions in one sentence. While there is no limit on the total number of tasks, you must strictly maintain the priority order. Key bottleneck actions can still be issued as a single isolated task for that cycle to guarantee focus.
+* Describe each task clearly: Each natural-language task MUST contain only ONE single plan or action. Do not combine multiple different actions in one sentence. While there is no limit on the total number of tasks, you must strictly maintain the priority order. Key bottleneck actions can still be issued as a single isolated task for that cycle to guarantee focus.
+* For concrete macro task planning, all requirements concerning the same unit type or structure type MUST be consolidated into one single task with one clear final target. Do not split the planning of the same unit or structure across multiple tasks in the same cycle.
+* You ONLY need to describe the corresponding unit and its planned target quantity. Do NOT describe its specific purpose or usage. For example, simply write "Train Marines to 24". Do not add explanations like "for early defense and bio army scaling".
+* You do NOT need to consider or describe the physical execution location of any task. The lower layer will decide where to build, where to train, where to rally units, and where to assign workers. Your task should only describe the macro objective, not the execution position.
 * All your planning must revolve solely around macro operations (building structures and training units). You do not need to plan for scouting or other micro/tactical maneuvers.
 
 [Commander Directive]
@@ -122,7 +125,7 @@ Your job each cycle:
 
 
 def parse_planning_response(text: str) -> Optional[List[str]]:
-    """解析 Mid Agent 的 ``{"tasks": [...]}`` 输出；格式错误返回 ``None``。"""
+    """解析 Mid Agent 的 ``{{"tasks": [...]}}`` 输出；格式错误返回 ``None``。"""
     if not text:
         return None
     cleaned = text.strip()

@@ -1,0 +1,1 @@
+Cyclone-focused attack: offense starts only after Cyclone Lock-On Damage upgrade is ~95% complete (`TechReady`), then `PlanZoneAttack` at `attack_value` (default 40). Gated timing push rather than immediate value-based attack.

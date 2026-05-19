@@ -3,6 +3,8 @@
   "registered_strategies": [
     "marine_rush",
     "battle_cruisers",
-    "two_base_tanks"
+    "two_base_tanks",
+    "safe_tvt_raven",
+    "cyclones"
   ]
 }

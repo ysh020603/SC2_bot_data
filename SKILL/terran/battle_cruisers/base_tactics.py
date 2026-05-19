@@ -6,9 +6,10 @@ from sc2.ids.unit_typeid import UnitTypeId
 from sharpy.plans.acts import ActBase
 from sharpy.plans.acts import *
 from sharpy.plans.acts.terran import *
+from sharpy.plans import BuildOrder
 from sharpy.plans.sequential_list import SequentialList
 from sharpy.plans.build_step import Step
-from sharpy.plans.require import UnitExists, Time, RequireCustom
+from sharpy.plans.require import UnitExists, Time, RequireCustom, UnitReady
 from sharpy.plans.tactics import *
 from sharpy.plans.tactics.terran import *
 
@@ -48,6 +49,8 @@ class BattleCruisersTactics(SequentialList):
         
         super().__init__(
             [
+                *BuildOrder([]).depots,
+                Step(None, MorphOrbitals(), skip_until=UnitReady(UnitTypeId.BARRACKS, 1)),
                 MineOpenBlockedBase(),
                 PlanCancelBuilding(),
                 LowerDepots(),

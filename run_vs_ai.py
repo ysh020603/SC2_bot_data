@@ -1,4 +1,57 @@
-"""启动与内置 AI 的自定义对战（可单独运行，也可由批处理脚本调用）。"""
+"""启动与内置 AI 的自定义对战（可单独运行，也可由批处理脚本调用）。
+
+**首选改法**：编辑本文件 **「运行配置」** 区的 ``DEFAULT_*`` 常量后执行
+``python run_vs_ai.py``；无需记一长串 CLI 参数。
+
+固定策略（绕过 t=0 Top Agent 的 LLM 选策略）
+------------------------------------------------
+使用 ``--force-strategy <文件夹名>``，或调用 ``play_vs_ai(force_strategy="...")``。
+策略名对应 ``SKILL/<种族>/<文件夹名>/``（如人族 ``marine_rush`` → ``SKILL/terran/marine_rush/``）。
+须保证 ``--bot-race`` 与策略目录种族一致，且 ``--my-bot-name`` 为 ``universal_llm``（默认）。
+
+CLI 示例::
+
+    python run_vs_ai.py --bot-race terran --force-strategy marine_rush
+
+代码示例::
+
+    play_vs_ai(bot_race="terran", force_strategy="marine_rush")
+
+所有默认值集中在文件内 **「运行配置」** 常量区（``DEFAULT_*``），
+直接 ``python run_vs_ai.py`` 即生效；CLI 显式传参会覆盖对应项。
+取消固定策略请传 ``--force-strategy none``。
+
+批量脚本可通过环境变量 ``FORCE_STRATEGY`` 传入（见 ``run_vs_ai_batch.sh``）。
+
+各层是否启用 SKILL（两段式 Skill 路由 / 消融实验）
+--------------------------------------------------
+优先级：``--disable-all-skills`` > ``--enable-skill-layers``。
+
+``--disable-all-skills``
+    完全关闭 Skill：Top/Mid 均不做 Phase 1 筛选，Phase 2 不注入 Skill（基线）。
+
+``--enable-skill-layers {all,top_only,mid_only,none}``  （默认 ``all``）
+    * ``all``      — Top(t≈60) 与 Mid 均启用 Skill 路由
+    * ``top_only`` — 仅 Top 层启用
+    * ``mid_only`` — 仅 Mid 层启用
+    * ``none``     — 两层均不启用 Skill 路由
+
+``--disable-specific-skills-layers {all,top,mid,none}``  （默认 ``none``）
+    在已启用 Skill 的层上，强制只用 ``generic`` 目录下的通用 Skill，不用策略专属 Skill：
+    * ``top`` / ``mid`` — 仅禁用对应层的 Specific Skill
+    * ``all``           — 两层均只用 Generic
+    * ``none``          — 不限制（Specific + Generic 均可）
+
+CLI 示例（仅 Top 启用 Skill，且 Top 只用 Generic；同时锁定 marine_rush）::
+
+    python run_vs_ai.py \\
+        --enable-skill-layers top_only \\
+        --disable-specific-skills-layers top \\
+        --force-strategy marine_rush
+
+批量脚本对应环境变量：``DISABLE_ALL_SKILLS``、``ENABLE_SKILL_LAYERS``、
+``DISABLE_SPECIFIC_SKILLS_LAYERS``、``FORCE_STRATEGY``（见 ``start_experiments.sh``）。
+"""
 
 from __future__ import annotations
 
@@ -13,12 +66,63 @@ sys.path.insert(1, "python-sc2")
 from bot_loader import GameStarter, BotDefinitions
 from version import update_version_txt
 
+# =============================================================================
+# 运行配置 — 改这里即可；``python run_vs_ai.py`` 与 ``play_vs_ai()`` 均以此为准
+# CLI 显式传参会覆盖对应项。布尔项支持 ``--flag`` / ``--no-flag`` 覆盖文件默认。
+# =============================================================================
+
 OUTPUT_BASE_DIR = "./game_records"
 
-# 分层 LLM 模型默认值：改此处即可；CLI（python run_vs_ai.py）与 play_vs_ai() 均生效
+# --- 对战：我方 ---
+DEFAULT_MY_BOT_NAME = "universal_llm"  # universal_llm 时自动拼接种族：universal_llm.terran
+DEFAULT_BOT_RACE = "terran"  # protoss | terran | zerg
+DEFAULT_BOT_INSTRUCT = "打一波 以 大和为主的攻击"  # 自然语言战术指令（传给 Top/Mid Agent）
+DEFAULT_MAP_NAME = "KairosJunctionLE"
+DEFAULT_REAL_TIME = False  # True：实时模式，便于人类观战
+
+# --- 对战：内置 AI 对手 ---
+DEFAULT_ENEMY_RACE = "terran"
+DEFAULT_ENEMY_DIFFICULTY = "hard"  # 如 easy / medium / hard / veryhard
+DEFAULT_ENEMY_BUILD = "macro"  # 内置 AI 风格，如 macro / rush 等
+
+# --- LLM 模型（model_key，见项目模型配置）---
 DEFAULT_TOP_MODEL = "Kimi-k2.5_base"
 DEFAULT_MID_MODEL = "Kimi-k2.5_base"
 DEFAULT_DOWN_MODEL = "Kimi-k2.5_base"
+
+# --- 固定 t=0 策略（绕过 Top Agent 开局选策略的 LLM）---
+# 填 SKILL/<种族>/ 下的文件夹名，如 safe_tvt_raven → SKILL/terran/safe_tvt_raven/
+# 须与 DEFAULT_BOT_RACE 一致。空字符串 "" 表示不强制；CLI 可用 --force-strategy none 取消。
+DEFAULT_FORCE_STRATEGY = "cyclones"
+
+# --- 旧版整文 Prompt 注入（Skill 路由关闭时的兜底；一般保持 False）---
+DEFAULT_USE_TOP_60_PROMPT = False  # t≈60 注入 Top_agent_60.md 全文
+DEFAULT_USE_MID_PROMPT = False  # Mid 规划注入 mid_agent.md 全文
+
+# --- Skill 两段式路由 / 消融实验 ---
+# 优先级：disable_all_skills > enable_skill_layers
+DEFAULT_DISABLE_ALL_SKILLS = True  # True：完全关闭 Skill（基线）
+DEFAULT_ENABLE_SKILL_LAYERS = "all"  # all | top_only | mid_only | none
+DEFAULT_DISABLE_SPECIFIC_SKILLS_LAYERS = "none"  # all | top | mid | none（仅用 generic Skill）
+
+# --- 其它 ---
+DEFAULT_SKIP_VERSION_UPDATE = False  # True：跳过 version.txt 更新（批量并发时防 IO 锁）
+
+
+def _resolve_force_strategy(explicit: Optional[str]) -> Optional[str]:
+    """解析 force_strategy。
+
+    * ``explicit is None`` — 未在 CLI/调用方指定，使用 ``DEFAULT_FORCE_STRATEGY``
+    * ``''`` / ``'none'`` — 显式取消强制
+    * 其它非空字符串 — 策略文件夹名
+    """
+    if explicit is None:
+        explicit = DEFAULT_FORCE_STRATEGY
+    s = str(explicit or "").strip()
+    if not s or s.lower() == "none":
+        return None
+    return s
+
 
 def _safe_match_part(value: str) -> str:
     return "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in str(value))
@@ -57,28 +161,30 @@ def build_match_id(
 
 def play_vs_ai(
     *,
-    my_bot_name: str = "universal_llm",
-    map_name: str = "KairosJunctionLE",
-    real_time: bool = False,
-    enemy_race: str = "terran",
-    enemy_difficulty: str = "hard",
-    enemy_build: str = "macro",
-    bot_instruct: str = "打一波 以 大和为主的攻击",
-    bot_race: str = "terran",
+    my_bot_name: str = DEFAULT_MY_BOT_NAME,
+    map_name: str = DEFAULT_MAP_NAME,
+    real_time: bool = DEFAULT_REAL_TIME,
+    enemy_race: str = DEFAULT_ENEMY_RACE,
+    enemy_difficulty: str = DEFAULT_ENEMY_DIFFICULTY,
+    enemy_build: str = DEFAULT_ENEMY_BUILD,
+    bot_instruct: str = DEFAULT_BOT_INSTRUCT,
+    bot_race: str = DEFAULT_BOT_RACE,
     top_model: str = DEFAULT_TOP_MODEL,
     mid_model: str = DEFAULT_MID_MODEL,
     down_model: str = DEFAULT_DOWN_MODEL,
     batch_name: Optional[str] = None,
     run_index: Optional[int] = None,
     output_base_dir: str = OUTPUT_BASE_DIR,
-    skip_version_update: bool = False,
-    use_top_60_prompt: bool = False,
-    use_mid_prompt: bool = False,
-    disable_all_skills: bool = False,
-    enable_skill_layers: str = "all",
-    disable_specific_skills_layers: str = "none",
+    skip_version_update: bool = DEFAULT_SKIP_VERSION_UPDATE,
+    use_top_60_prompt: bool = DEFAULT_USE_TOP_60_PROMPT,
+    use_mid_prompt: bool = DEFAULT_USE_MID_PROMPT,
+    disable_all_skills: bool = DEFAULT_DISABLE_ALL_SKILLS,
+    enable_skill_layers: str = DEFAULT_ENABLE_SKILL_LAYERS,
+    disable_specific_skills_layers: str = DEFAULT_DISABLE_SPECIFIC_SKILLS_LAYERS,
     force_strategy: Optional[str] = None,
 ) -> None:
+    force_strategy = _resolve_force_strategy(force_strategy)
+
     root_dir = os.path.dirname(os.path.abspath(__file__))
     os.chdir(root_dir)
 
@@ -180,53 +286,71 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
         description="与 SC2 内置 AI 对战。支持单跑或被批处理脚本调用。",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    p.add_argument("--my-bot-name", default="universal_llm", help="Bot 名称")
-    p.add_argument("--map-name", default="KairosJunctionLE", help="地图名")
-    p.add_argument("--real-time", action="store_true", help="实时模式(人类观测)")
-    p.add_argument("--enemy-race", default="terran", help="对手种族")
-    p.add_argument("--enemy-difficulty", default="hard", help="对手难度")
-    p.add_argument("--enemy-build", default="macro", help="对手 AI 风格")
-    p.add_argument("--bot-instruct", default="打一波 以 大和为主的攻击", help="战术指令")
-    p.add_argument("--bot-race", default="terran", help="我方种族")
+    p.add_argument("--my-bot-name", default=DEFAULT_MY_BOT_NAME, help="Bot 名称")
+    p.add_argument("--map-name", default=DEFAULT_MAP_NAME, help="地图名")
+    p.add_argument(
+        "--real-time",
+        action=argparse.BooleanOptionalAction,
+        default=DEFAULT_REAL_TIME,
+        help="实时模式(人类观测)",
+    )
+    p.add_argument("--enemy-race", default=DEFAULT_ENEMY_RACE, help="对手种族")
+    p.add_argument("--enemy-difficulty", default=DEFAULT_ENEMY_DIFFICULTY, help="对手难度")
+    p.add_argument("--enemy-build", default=DEFAULT_ENEMY_BUILD, help="对手 AI 风格")
+    p.add_argument("--bot-instruct", default=DEFAULT_BOT_INSTRUCT, help="战术指令")
+    p.add_argument("--bot-race", default=DEFAULT_BOT_RACE, help="我方种族")
     p.add_argument("--top-model", default=DEFAULT_TOP_MODEL, help="Top Agent")
     p.add_argument("--mid-model", default=DEFAULT_MID_MODEL, help="Mid Agent")
     p.add_argument("--down-model", default=DEFAULT_DOWN_MODEL, help="Down Agent")
     p.add_argument("--batch-name", default="", help="记录写入 game_records/<batch-name>/ 归档")
     p.add_argument("--run-index", type=int, default=None, help="批处理序号以防并发冲突")
     p.add_argument("--output-base-dir", default=OUTPUT_BASE_DIR, help="记录根目录")
-    p.add_argument("--skip-version-update", action="store_true", help="跳过版本更新防止 IO 锁")
+    p.add_argument(
+        "--skip-version-update",
+        action=argparse.BooleanOptionalAction,
+        default=DEFAULT_SKIP_VERSION_UPDATE,
+        help="跳过版本更新防止 IO 锁",
+    )
     p.add_argument(
         "--use-top-60-prompt",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
+        default=DEFAULT_USE_TOP_60_PROMPT,
         help="开启 t=60 阶段评估的 [Phase Guidance] 注入（读取 Top_agent_60.md）",
     )
     p.add_argument(
         "--use-mid-prompt",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
+        default=DEFAULT_USE_MID_PROMPT,
         help="开启 Mid Agent 规划的 [Execution Guidance] 注入（读取 mid_agent.md）",
     )
     # ---- Ablation switches (Module 3) ---------------------------------
     p.add_argument(
         "--disable-all-skills",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
+        default=DEFAULT_DISABLE_ALL_SKILLS,
         help="禁用两段式 Skill 系统（Top 60 + Mid 均跳过 Phase 1 筛选，Phase 2 无 Skill 注入）。",
     )
     p.add_argument(
         "--enable-skill-layers",
         choices=["all", "top_only", "mid_only", "none"],
-        default="all",
+        default=DEFAULT_ENABLE_SKILL_LAYERS,
         help="指定哪一层启用两段式 Skill 路由。",
     )
     p.add_argument(
         "--disable-specific-skills-layers",
         choices=["all", "top", "mid", "none"],
-        default="none",
+        default=DEFAULT_DISABLE_SPECIFIC_SKILLS_LAYERS,
         help="指定哪一层禁用 Specific Skill（仅使用 Generic）。",
     )
     p.add_argument(
         "--force-strategy",
-        default="",
-        help="强制锁定 t=0 策略（已存在的 SKILL/<race>/<name> 文件夹名）；空表示不强制。",
+        default=None,
+        metavar="NAME",
+        help=(
+            f"强制锁定 t=0 策略（SKILL/<race>/<name> 文件夹名）；"
+            f"未指定时默认 {DEFAULT_FORCE_STRATEGY!r}（见 DEFAULT_FORCE_STRATEGY）；"
+            f"传 none 取消强制。"
+        ),
     )
 
     return p.parse_args(argv)
@@ -254,7 +378,7 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         disable_all_skills=ns.disable_all_skills,
         enable_skill_layers=ns.enable_skill_layers,
         disable_specific_skills_layers=ns.disable_specific_skills_layers,
-        force_strategy=(ns.force_strategy or None),
+        force_strategy=ns.force_strategy,
     )
 
 if __name__ == "__main__":
