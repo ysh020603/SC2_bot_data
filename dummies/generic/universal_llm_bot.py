@@ -14,8 +14,8 @@
     │   逐条翻译 → {"action": key, "to_count": int}                      │
     ├─────────────────────────────────────────────────────────────────────┤
     │ create_plan() → BuildOrder([                                        │
+    │     DynamicBaseTactics(...),     # 补给 + Orbital + 静态战术（并行）   │
     │     ActLLMOngoingTasks(...),     # 动态运营层 (Mid/Down Agent 驱动)  │
-    │     DynamicBaseTactics(...),     # 补给 + Orbital + 静态战术层       │
     │ ])                                                                  │
     └─────────────────────────────────────────────────────────────────────┘
 
@@ -45,7 +45,6 @@ from sharpy.interfaces import IZoneManager
 from sharpy.knowledges import KnowledgeBot
 from sharpy.plans import BuildOrder
 from sharpy.plans.acts import ActBase
-from sharpy.plans.sequential_list import SequentialList
 
 from API_Tools.llm_caller import call_openai
 from SC2_Agent.top_agent import (
@@ -159,8 +158,8 @@ class ActLLMOngoingTasks(ActBase):
 # ======================================================================
 
 
-class EmptyTactics(SequentialList):
-    """种族无关的最小兜底战术列表——当 SKILL 目录无对应策略时使用。
+class EmptyTactics(BuildOrder):
+    """种族无关的最小兜底战术列表（并行执行）——当 SKILL 目录无对应策略时使用。
 
     只包含跨种族通用的 tactics primitive；任何种族专属逻辑（如 Terran 的 Repair
     / ContinueBuilding / CallMule）都不能放在这里，否则会在 Zerg/Protoss 上 crash。
@@ -560,11 +559,11 @@ class UniversalLLMBot(KnowledgeBot):
     # 动态战术加载（importlib）
     # ------------------------------------------------------------------
 
-    def _load_dynamic_tactics(self) -> SequentialList:
+    def _load_dynamic_tactics(self) -> BuildOrder:
         """根据 ``selected_strategy`` 动态 import 对应的 base_tactics 模块。
 
         约定：``SKILL.{race}.{strategy}.base_tactics`` 模块中，
-        第一个继承 ``SequentialList`` 的类即为战术执行器。
+        第一个继承 ``BuildOrder`` 的战术类（非 ``BuildOrder`` 基类本身）即为战术执行器。
         若策略文件夹不存在（例如旧版的 ``CUSTOM_STRATEGY_NAME`` 占位），直接使用兜底 EmptyTactics。
         """
         if not self.selected_strategy:
@@ -589,8 +588,8 @@ class UniversalLLMBot(KnowledgeBot):
             attr = getattr(mod, attr_name)
             if (
                 isinstance(attr, type)
-                and issubclass(attr, SequentialList)
-                and attr is not SequentialList
+                and issubclass(attr, BuildOrder)
+                and attr is not BuildOrder
             ):
                 try:
                     return attr()
@@ -600,7 +599,7 @@ class UniversalLLMBot(KnowledgeBot):
                     except Exception as exc:
                         logger.warning("Failed to instantiate %s: %s", attr_name, exc)
 
-        logger.warning("No SequentialList subclass found in %s.", module_path)
+        logger.warning("No BuildOrder tactics subclass found in %s.", module_path)
         return EmptyTactics()
 
     # ------------------------------------------------------------------
@@ -1671,18 +1670,17 @@ class UniversalLLMBot(KnowledgeBot):
     # ------------------------------------------------------------------
 
     async def create_plan(self) -> BuildOrder:
-        """组装 BuildOrder：补给 + Orbital + LLM 动态运营 + 动态战术层。"""
+        """组装 BuildOrder：基础战术（并行后台动作）+ LLM 动态运营（并行）。"""
         base_tactics = self._load_dynamic_tactics()
 
         llm_executor = ActLLMOngoingTasks(
             active_tasks_ref=self.active_tasks,
         )
 
-        return BuildOrder(
-            base_tactics,
+        return BuildOrder([
             llm_executor,
-            
-        )
+            base_tactics,
+        ])
 
 
 # ----------------------------------------------------------------------

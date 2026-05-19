@@ -3,19 +3,18 @@ from sharpy.plans.acts import *
 from sharpy.plans.acts.terran import *
 from sc2.ids.unit_typeid import UnitTypeId
 from sharpy.plans import BuildOrder
-from sharpy.plans.sequential_list import SequentialList
 from sharpy.plans.build_step import Step
 from sharpy.plans.require import TechReady, UnitReady
 from sharpy.plans.tactics import *
 from sharpy.plans.tactics.terran import *
 
 
-class SafeTvTRavenTactics(SequentialList):
-    """TvT 安全铁鸦开局战术列表"""
+class SafeTvTRavenTactics(BuildOrder):
+    """TvT 安全铁鸦开局战术列表（并行执行）"""
     def __init__(self, attack_value: int = 4):
         super().__init__(
             [
-                *BuildOrder([]).depots,
+                # AutoDepot(),
                 Step(None, MorphOrbitals(), skip_until=UnitReady(UnitTypeId.BARRACKS, 1)),
                 CallMule(50),
                 LowerDepots(),

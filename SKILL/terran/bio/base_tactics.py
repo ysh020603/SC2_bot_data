@@ -2,21 +2,20 @@ from sc2.ids.unit_typeid import UnitTypeId
 from sharpy.plans.acts import *
 from sharpy.plans.acts.terran import *
 from sharpy.plans import BuildOrder
-from sharpy.plans.sequential_list import SequentialList
 from sharpy.plans.build_step import Step
 from sharpy.plans.require import UnitExists, Time, UnitReady
 from sharpy.plans.tactics import *
 from sharpy.plans.tactics.terran import *
 
 
-class BioTactics(SequentialList):
-    """常规生化部队战术列表"""
+class BioTactics(BuildOrder):
+    """常规生化部队战术列表（并行执行）"""
     def __init__(self, attack_value: int = 26):
         scout = Step(None, WorkerScout(), skip_until=UnitExists(UnitTypeId.SUPPLYDEPOT, 1))
         
         super().__init__(
             [
-                *BuildOrder([]).depots,
+                # AutoDepot(),
                 Step(None, MorphOrbitals(), skip_until=UnitReady(UnitTypeId.BARRACKS, 1)),
                 MineOpenBlockedBase(),
                 PlanCancelBuilding(),

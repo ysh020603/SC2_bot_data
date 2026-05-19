@@ -93,7 +93,7 @@ DEFAULT_DOWN_MODEL = "Kimi-k2.5_base"
 # --- 固定 t=0 策略（绕过 Top Agent 开局选策略的 LLM）---
 # 填 SKILL/<种族>/ 下的文件夹名，如 safe_tvt_raven → SKILL/terran/safe_tvt_raven/
 # 须与 DEFAULT_BOT_RACE 一致。空字符串 "" 表示不强制；CLI 可用 --force-strategy none 取消。
-DEFAULT_FORCE_STRATEGY = "cyclones"
+DEFAULT_FORCE_STRATEGY = "safe_tvt_raven"
 
 # --- 旧版整文 Prompt 注入（Skill 路由关闭时的兜底；一般保持 False）---
 DEFAULT_USE_TOP_60_PROMPT = False  # t≈60 注入 Top_agent_60.md 全文
