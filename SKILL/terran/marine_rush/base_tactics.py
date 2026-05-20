@@ -38,7 +38,7 @@ class TerranBaseTactics(BuildOrder):
     """机枪 Rush 战术列表（并行执行）"""
     def __init__(self, num_marines: int):
         super().__init__([
-            # AutoDepot(),
+            AutoDepot(),
             Step(None, MorphOrbitals(), skip_until=UnitReady(UnitTypeId.BARRACKS, 1)),
             MineOpenBlockedBase(),
             PlanCancelBuilding(),

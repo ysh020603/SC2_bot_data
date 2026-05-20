@@ -56,10 +56,25 @@ _ACTION_REGISTRY: Dict[str, Dict] = {
         "type": "unit",
         "action_func": lambda *args, **kw: ActUnit(UnitTypeId.GHOST, UnitTypeId.BARRACKS, *args, **kw),
     },
+    "build_nuke": {
+        "description": "Build Nuke at Ghost Academy",
+        "type": "unit",
+        "action_func": lambda *args, **kw: ActUnit(UnitTypeId.NUKE, UnitTypeId.GHOSTACADEMY, *args, **kw),
+    },
     "train_hellion": {
         "description": "Train Hellion from Factory",
         "type": "unit",
         "action_func": lambda *args, **kw: ActUnit(UnitTypeId.HELLION, UnitTypeId.FACTORY, *args, **kw),
+    },
+    "train_hellbat": {
+        "description": "Train Hellbat from Factory (requires Armory)",
+        "type": "unit",
+        "action_func": lambda *args, **kw: ActUnit(UnitTypeId.HELLIONTANK, UnitTypeId.FACTORY, *args, **kw),
+    },
+    "train_widow_mine": {
+        "description": "Train Widow Mine from Factory",
+        "type": "unit",
+        "action_func": lambda *args, **kw: ActUnit(UnitTypeId.WIDOWMINE, UnitTypeId.FACTORY, *args, **kw),
     },
     "train_cyclone": {
         "description": "Train Cyclone from Factory",
@@ -175,6 +190,11 @@ _ACTION_REGISTRY: Dict[str, Dict] = {
             UnitTypeId.MISSILETURRET, DefensePosition.Entrance, None, args[0] if args else 1
         ),
     },
+    "build_sensor_tower": {
+        "description": "Build Sensor Tower",
+        "type": "building",
+        "action_func": lambda *args, **kw: GridBuilding(UnitTypeId.SENSORTOWER, *args, **kw),
+    },
 
     # ==========================
     # 3. 附属建筑 (Build Addons)
@@ -230,25 +250,141 @@ _ACTION_REGISTRY: Dict[str, Dict] = {
         "type": "tech",
         "action_func": lambda *args, **kw: Tech(UpgradeId.PUNISHERGRENADES),
     },
-    "research_infantry_weapons": {
-        "description": "Upgrade Infantry Weapons (Engineering Bay)",
+    "research_personal_cloaking": {
+        "description": "Research Personal Cloaking for Ghosts",
+        "type": "tech",
+        "action_func": lambda *args, **kw: Tech(UpgradeId.PERSONALCLOAKING),
+    },
+    "research_infernal_preigniter": {
+        "description": "Research Infernal Pre-igniter for Hellions/Hellbats",
+        "type": "tech",
+        "action_func": lambda *args, **kw: Tech(UpgradeId.HIGHCAPACITYBARRELS),
+    },
+    "research_drilling_claws": {
+        "description": "Research Drilling Claws for Widow Mines",
+        "type": "tech",
+        "action_func": lambda *args, **kw: Tech(UpgradeId.DRILLCLAWS),
+    },
+    "research_magfield_accelerator": {
+        "description": "Research Mag-Field Accelerator for Cyclones",
+        "type": "tech",
+        "action_func": lambda *args, **kw: Tech(UpgradeId.MAGFIELDLAUNCHERS),
+    },
+    "research_smart_servos": {
+        "description": "Research Smart Servos for transforming units (Thor, Hellbat, Viking)",
+        "type": "tech",
+        "action_func": lambda *args, **kw: Tech(UpgradeId.SMARTSERVOS),
+    },
+    "research_banshee_cloak": {
+        "description": "Research Cloaking Field for Banshees",
+        "type": "tech",
+        "action_func": lambda *args, **kw: Tech(UpgradeId.BANSHEECLOAK),
+    },
+    "research_banshee_speed": {
+        "description": "Research Hyperflight Rotors for Banshees",
+        "type": "tech",
+        "action_func": lambda *args, **kw: Tech(UpgradeId.BANSHEESPEED),
+    },
+    "research_raven_corvid_reactor": {
+        "description": "Research Corvid Reactor for Ravens",
+        "type": "tech",
+        "action_func": lambda *args, **kw: Tech(UpgradeId.RAVENCORVIDREACTOR),
+    },
+    "research_liberator_range": {
+        "description": "Research Advanced Ballistics for Liberators",
+        "type": "tech",
+        "action_func": lambda *args, **kw: Tech(UpgradeId.LIBERATORAGRANGEUPGRADE),
+    },
+    "research_yamato_cannon": {
+        "description": "Research Yamato Cannon for Battlecruisers",
+        "type": "tech",
+        # YAMATOCANNON 不在 UPGRADE_RESEARCHED_FROM 中，需显式指定 Fusion Core
+        "action_func": lambda *args, **kw: Tech(UpgradeId.YAMATOCANNON, UnitTypeId.FUSIONCORE),
+    },
+    "research_hisec_auto_tracking": {
+        "description": "Research Hi-Sec Auto Tracking (Turret Range)",
+        "type": "tech",
+        "action_func": lambda *args, **kw: Tech(UpgradeId.HISECAUTOTRACKING),
+    },
+    "research_neosteel_armor": {
+        "description": "Research Neosteel Armor (Building Armor)",
+        "type": "tech",
+        "action_func": lambda *args, **kw: Tech(UpgradeId.TERRANBUILDINGARMOR),
+    },
+    "research_infantry_weapons_1": {
+        "description": "Upgrade Infantry Weapons Level 1",
         "type": "tech",
         "action_func": lambda *args, **kw: Tech(UpgradeId.TERRANINFANTRYWEAPONSLEVEL1),
     },
-    "research_infantry_armor": {
-        "description": "Upgrade Infantry Armor (Engineering Bay)",
+    "research_infantry_weapons_2": {
+        "description": "Upgrade Infantry Weapons Level 2",
+        "type": "tech",
+        "action_func": lambda *args, **kw: Tech(UpgradeId.TERRANINFANTRYWEAPONSLEVEL2),
+    },
+    "research_infantry_weapons_3": {
+        "description": "Upgrade Infantry Weapons Level 3",
+        "type": "tech",
+        "action_func": lambda *args, **kw: Tech(UpgradeId.TERRANINFANTRYWEAPONSLEVEL3),
+    },
+    "research_infantry_armor_1": {
+        "description": "Upgrade Infantry Armor Level 1",
         "type": "tech",
         "action_func": lambda *args, **kw: Tech(UpgradeId.TERRANINFANTRYARMORSLEVEL1),
     },
-    "research_vehicle_weapons": {
-        "description": "Upgrade Vehicle Weapons (Armory)",
+    "research_infantry_armor_2": {
+        "description": "Upgrade Infantry Armor Level 2",
+        "type": "tech",
+        "action_func": lambda *args, **kw: Tech(UpgradeId.TERRANINFANTRYARMORSLEVEL2),
+    },
+    "research_infantry_armor_3": {
+        "description": "Upgrade Infantry Armor Level 3",
+        "type": "tech",
+        "action_func": lambda *args, **kw: Tech(UpgradeId.TERRANINFANTRYARMORSLEVEL3),
+    },
+    "research_vehicle_weapons_1": {
+        "description": "Upgrade Vehicle Weapons Level 1",
         "type": "tech",
         "action_func": lambda *args, **kw: Tech(UpgradeId.TERRANVEHICLEWEAPONSLEVEL1),
     },
-    "research_ship_weapons": {
-        "description": "Upgrade Ship Weapons (Armory)",
+    "research_vehicle_weapons_2": {
+        "description": "Upgrade Vehicle Weapons Level 2",
+        "type": "tech",
+        "action_func": lambda *args, **kw: Tech(UpgradeId.TERRANVEHICLEWEAPONSLEVEL2),
+    },
+    "research_vehicle_weapons_3": {
+        "description": "Upgrade Vehicle Weapons Level 3",
+        "type": "tech",
+        "action_func": lambda *args, **kw: Tech(UpgradeId.TERRANVEHICLEWEAPONSLEVEL3),
+    },
+    "research_ship_weapons_1": {
+        "description": "Upgrade Ship Weapons Level 1",
         "type": "tech",
         "action_func": lambda *args, **kw: Tech(UpgradeId.TERRANSHIPWEAPONSLEVEL1),
+    },
+    "research_ship_weapons_2": {
+        "description": "Upgrade Ship Weapons Level 2",
+        "type": "tech",
+        "action_func": lambda *args, **kw: Tech(UpgradeId.TERRANSHIPWEAPONSLEVEL2),
+    },
+    "research_ship_weapons_3": {
+        "description": "Upgrade Ship Weapons Level 3",
+        "type": "tech",
+        "action_func": lambda *args, **kw: Tech(UpgradeId.TERRANSHIPWEAPONSLEVEL3),
+    },
+    "research_vehicle_and_ship_armor_1": {
+        "description": "Upgrade Vehicle and Ship Armor Level 1",
+        "type": "tech",
+        "action_func": lambda *args, **kw: Tech(UpgradeId.TERRANVEHICLEANDSHIPARMORSLEVEL1),
+    },
+    "research_vehicle_and_ship_armor_2": {
+        "description": "Upgrade Vehicle and Ship Armor Level 2",
+        "type": "tech",
+        "action_func": lambda *args, **kw: Tech(UpgradeId.TERRANVEHICLEANDSHIPARMORSLEVEL2),
+    },
+    "research_vehicle_and_ship_armor_3": {
+        "description": "Upgrade Vehicle and Ship Armor Level 3",
+        "type": "tech",
+        "action_func": lambda *args, **kw: Tech(UpgradeId.TERRANVEHICLEANDSHIPARMORSLEVEL3),
     },
     "morph_orbital_command": {
         "description": "Morph Command Center into Orbital Command",

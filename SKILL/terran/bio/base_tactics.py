@@ -15,7 +15,7 @@ class BioTactics(BuildOrder):
         
         super().__init__(
             [
-                # AutoDepot(),
+                AutoDepot(),
                 Step(None, MorphOrbitals(), skip_until=UnitReady(UnitTypeId.BARRACKS, 1)),
                 MineOpenBlockedBase(),
                 PlanCancelBuilding(),

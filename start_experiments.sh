@@ -34,7 +34,7 @@ export REAL_TIME="0" # 1为实时模式，0为加速模式
 # "terran"
 
 export ENEMY_RACE="terran"
-export ENEMY_DIFFICULTY="hard"
+export ENEMY_DIFFICULTY="harder"
 export ENEMY_BUILD="macro"
 
 # 我方 Agent 配置
@@ -44,8 +44,8 @@ export BOT_INSTRUCT="打一波，以大和战列巡洋舰为主的攻击"
 # =============================================================================
 # 2. 分层 LLM Agent 模型配置
 # =============================================================================
-export TOP_MODEL="Kimi-k2.5_base"
-export MID_MODEL="Kimi-k2.5_base"
+export TOP_MODEL="DeepSeek-V4-pro"
+export MID_MODEL="DeepSeek-V4-pro"
 export DOWN_MODEL="Kimi-k2.5_base"
 
 # =============================================================================
@@ -53,8 +53,8 @@ export DOWN_MODEL="Kimi-k2.5_base"
 #  - USE_TOP_60_PROMPT：t=60 阶段评估时是否拼接 Top_agent_60.md 作为 [Phase Guidance]。
 #  - USE_MID_PROMPT   ：Mid Agent 规划时是否拼接 mid_agent.md  作为 [Execution Guidance]。
 # =============================================================================
-export USE_TOP_60_PROMPT="1"
-export USE_MID_PROMPT="1"
+export USE_TOP_60_PROMPT="0"
+export USE_MID_PROMPT="0"
 
 # =============================================================================
 # 2.2 两段式 Skill 路由 / 消融实验开关 (Module 3)
@@ -68,16 +68,16 @@ export USE_MID_PROMPT="1"
 #  - FORCE_STRATEGY                  ：强制锁定的 t=0 策略名（如 marine_rush）。
 #                                      留空表示走正常 T=0 LLM 选择/生成流程。
 # =============================================================================
-export DISABLE_ALL_SKILLS="0"
+export DISABLE_ALL_SKILLS="1"
 export ENABLE_SKILL_LAYERS="all"
 export DISABLE_SPECIFIC_SKILLS_LAYERS="none"
-export FORCE_STRATEGY=""
+export FORCE_STRATEGY="battle_cruisers"
 
 # =============================================================================
 # 3. 运行控制 (总局数 / 并发数 / 运行模式)
 # =============================================================================
-TOTAL_MATCHES=10     # 运行的总局数
-CONCURRENCY=5        # 并发执行的数量
+TOTAL_MATCHES=2     # 运行的总局数
+CONCURRENCY=2        # 并发执行的数量
 RUN_MODE="tmux"      # 选项: 'tmux' (推荐,每个窗口一个线程) 或 'fg' (当前终端后台运行)
 
 # 批次名称(可选)，留空则会自动根据上方配置生成带时间戳和模型信息的文件夹名

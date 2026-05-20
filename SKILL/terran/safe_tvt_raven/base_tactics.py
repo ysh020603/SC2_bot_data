@@ -14,7 +14,7 @@ class SafeTvTRavenTactics(BuildOrder):
     def __init__(self, attack_value: int = 4):
         super().__init__(
             [
-                # AutoDepot(),
+                AutoDepot(),
                 Step(None, MorphOrbitals(), skip_until=UnitReady(UnitTypeId.BARRACKS, 1)),
                 CallMule(50),
                 LowerDepots(),

@@ -13,7 +13,7 @@ class OneBaseTurtleTactics(BuildOrder):
     def __init__(self, attack_value: int = 4, required_marines: int = 18):
         super().__init__(
             [
-                # AutoDepot(),
+                AutoDepot(),
                 Step(None, MorphOrbitals(), skip_until=UnitReady(UnitTypeId.BARRACKS, 1)),
                 MineOpenBlockedBase(),
                 PlanCancelBuilding(),

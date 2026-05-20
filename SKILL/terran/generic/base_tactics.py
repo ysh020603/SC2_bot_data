@@ -24,7 +24,7 @@ class GenericTerranTactics(BuildOrder):
     def __init__(self, attack_value: int = 60):
         super().__init__(
             [
-                # AutoDepot(),
+                AutoDepot(),
                 Step(None, MorphOrbitals(), skip_until=UnitReady(UnitTypeId.BARRACKS, 1)),
                 MineOpenBlockedBase(),
                 PlanCancelBuilding(),
