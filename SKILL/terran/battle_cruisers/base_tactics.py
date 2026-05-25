@@ -6,7 +6,7 @@ from sc2.ids.unit_typeid import UnitTypeId
 from sharpy.plans.acts import ActBase
 from sharpy.plans.acts import *
 from sharpy.plans.acts.terran import *
-from sharpy.plans import BuildOrder
+from sharpy.plans import SequentialList
 from sharpy.plans.build_step import Step
 from sharpy.plans.require import UnitExists, Time, RequireCustom, UnitReady
 from sharpy.plans.tactics import *
@@ -33,8 +33,8 @@ class JumpIn(ActBase):
         return True
 
 
-class BattleCruisersTactics(BuildOrder):
-    """大和战术列表（并行执行）"""
+class BattleCruisersTactics(SequentialList):
+    """大和战术列表（顺序执行）"""
     def __init__(self, attack_value: int = None, jump_index: int = 1):
         """
         大和战术列表
@@ -49,8 +49,8 @@ class BattleCruisersTactics(BuildOrder):
         
         super().__init__(
             [
-                AutoDepot(),
-                Step(None, MorphOrbitals(), skip_until=UnitReady(UnitTypeId.BARRACKS, 1)),
+                # AutoDepot(),
+                # Step(None, MorphOrbitals(), skip_until=UnitReady(UnitTypeId.BARRACKS, 1)),
                 MineOpenBlockedBase(),
                 PlanCancelBuilding(),
                 LowerDepots(),

@@ -18,15 +18,11 @@ _EXECUTION_MODEL = """\
 Execution model:
 * Your output list will be translated and executed concurrently by the lower layer.
 * A blocked task does NOT block later tasks.
-* The order of the list dictates absolute resource priority: earlier tasks claim \
-minerals, gas, and workers first. Therefore, you MUST place urgent, important, and \
-short-term tasks at the very front of the list. Less urgent, long-term goals must be \
-placed at the back.
-* Tasks that act as tech-tree bottlenecks (e.g., the opening Supply Depot or the first \
-Barracks) MUST be prioritized at the absolute front. To guarantee their immediate \
-execution, you can even issue them as a single isolated task for that cycle.
-* The lower layer is declarative: if you ask for "Train Marines to 20", it will keep \
-training until the absolute target count is reached."""
+* The order of the list dictates absolute resource priority: earlier tasks claim minerals, gas, and workers first. Therefore, you MUST place urgent, important, and short-term tasks at the very front of the list. Less urgent, long-term goals must be placed at the back.
+* Tasks that act as tech-tree bottlenecks (e.g., the opening Supply Depot or the first Barracks) MUST be prioritized at the absolute front. To guarantee their immediate execution, you can even issue them as a single isolated task for that cycle.
+* The lower layer is declarative: if you ask for "Train Marines to 20", it will keep training until the absolute target count is reached.
+* IMPORTANT: If a task cannot be executed because of lack of Supply (population), you MUST prioritize "Build Supply Depot" at the very front of your list to clear the bottleneck.
+* IMPORTANT: If a task cannot be executed due to insufficient resources, the system will NOT reserve your money if the task is physically blocked (e.g., by supply or lack of production buildings). Therefore, if you genuinely need a high-cost unit (like a Battlecruiser), you MUST ensure the necessary infrastructure (Starport/Fusion Core) and sufficient supply room are built BEFORE the train task; otherwise, your resources will be leaked to cheaper, lower-priority units."""
 
 _OUTPUT_FORMAT = """\
 Output format:
@@ -58,7 +54,7 @@ def build_planning_messages(
     )
 
     system_msg = f'''You are a senior StarCraft II strategist controlling a {race_cap} bot.
-This is a macro Planning Task. You are the global plan manager for the next 12 seconds.
+This is a macro Planning Task. You are the global plan manager for the next 30 seconds.
 
 {_EXECUTION_MODEL}
 

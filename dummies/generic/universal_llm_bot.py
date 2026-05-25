@@ -42,7 +42,7 @@ from sc2.ids.unit_typeid import UnitTypeId
 
 from sharpy.interfaces import IZoneManager
 from sharpy.knowledges import KnowledgeBot
-from sharpy.plans import BuildOrder
+from sharpy.plans import BuildOrder, SequentialList
 from sharpy.plans.acts import ActBase
 
 from API_Tools.llm_caller import call_openai
@@ -83,9 +83,80 @@ _RACE_MAP = {
 class ActLLMOngoingTasks(ActBase):
     """每帧扫一遍动作历史，把每个目标态翻译成具体 Sharpy 调用。"""
 
-    def __init__(self, active_tasks_ref: List[Dict[str, Any]]):
+    #: 同一任务预留日志的最小间隔（游戏内秒），避免每帧刷屏。
+    _RESERVE_LOG_DEBOUNCE_SEC: float = 5.0
+    _RESERVE_WAIT_REASON: str = (
+        "前置条件已满足，正在等待经济/人口积累以执行"
+    )
+
+    def __init__(
+        self,
+        active_tasks_ref: List[Dict[str, Any]],
+        log_emit: Optional[Callable[[str], None]] = None,
+    ):
         super().__init__()
         self.active_tasks = active_tasks_ref
+        self._log_emit = log_emit
+
+    @staticmethod
+    def _reserved_snapshot(knowledge: Any) -> Tuple[int, int, int]:
+        """读取 Sharpy 预留池快照（矿/气）及当前可用人口余量。"""
+        return (
+            knowledge.reserved_minerals,
+            knowledge.reserved_gas,
+            knowledge.ai.supply_left,
+        )
+
+    def _format_task_label(self, task: Dict[str, Any], action_key: str) -> str:
+        to_count = task.get("to_count")
+        if to_count is not None:
+            return f"{action_key}(to_count={to_count})"
+        return action_key
+
+    def _maybe_log_resource_reservation(
+        self,
+        task: Dict[str, Any],
+        action_key: str,
+        delta_minerals: int,
+        delta_gas: int,
+        supply_left_before: int,
+        supply_left_after: int,
+    ) -> None:
+        if delta_minerals <= 0 and delta_gas <= 0:
+            return
+
+        game_time = self.ai.time
+        last_log_time = task.get("_last_reserve_log_time", -self._RESERVE_LOG_DEBOUNCE_SEC)
+        if game_time - last_log_time < self._RESERVE_LOG_DEBOUNCE_SEC:
+            return
+        task["_last_reserve_log_time"] = game_time
+
+        parts: List[str] = []
+        if delta_minerals > 0:
+            parts.append(f"矿+{delta_minerals}")
+        if delta_gas > 0:
+            parts.append(f"气+{delta_gas}")
+
+        supply_delta = supply_left_before - supply_left_after
+        if supply_delta > 0:
+            parts.append(f"人口占用+{supply_delta}")
+
+        task_label = self._format_task_label(task, action_key)
+        supply_hint = ""
+        if supply_left_after <= 4:
+            supply_hint = f"（当前可用人口余量 {supply_left_after}）"
+
+        message = (
+            f"[任务 {task_label}] 预留了 {', '.join(parts)}，原因："
+            f"{self._RESERVE_WAIT_REASON}{supply_hint}"
+        )
+        if self._log_emit is not None:
+            self._log_emit(message)
+        else:
+            self.knowledge.print(
+                f"[ActLLMOngoingTasks][RESERVE] {message}",
+                stats=False,
+            )
 
     async def execute(self) -> bool:
         for task in self.active_tasks:
@@ -136,10 +207,25 @@ class ActLLMOngoingTasks(ActBase):
                     continue
                 task["_started"] = True
 
+            baseline_min, baseline_gas, supply_before = self._reserved_snapshot(
+                self.knowledge
+            )
             try:
                 await act.execute()
             except Exception as exc:
                 logger.warning("Act execute failed for action=%s: %s", action_key, exc)
+            else:
+                after_min, after_gas, supply_after = self._reserved_snapshot(
+                    self.knowledge
+                )
+                self._maybe_log_resource_reservation(
+                    task,
+                    action_key,
+                    after_min - baseline_min,
+                    after_gas - baseline_gas,
+                    supply_before,
+                    supply_after,
+                )
 
         return True
 
@@ -176,7 +262,7 @@ class EmptyTactics(BuildOrder):
 class UniversalLLMBot(KnowledgeBot):
     """跨种族、三层 Agent 架构的通用 LLM Bot。"""
 
-    MID_AGENT_POLL_INTERVAL: float = 12.0
+    MID_AGENT_POLL_INTERVAL: float = 30.0
     #: t=0 多轮交互式策略选择的最大轮次，防止 LLM 死循环 VIEW。
     TOP_AGENT_INITIAL_MAX_TURNS: int = 5
     #: t=0 相似策略检索的 Top-K（用于 GENERATE 模式的参考样本）。
@@ -403,7 +489,7 @@ class UniversalLLMBot(KnowledgeBot):
         """根据 ``selected_strategy`` 动态 import 对应的 base_tactics 模块。
 
         约定：``SKILL.{race}.{strategy}.base_tactics`` 模块中，
-        第一个继承 ``BuildOrder`` 的战术类（非 ``BuildOrder`` 基类本身）即为战术执行器。
+        第一个继承 ``BuildOrder`` 或 ``SequentialList`` 的战术类（非基类本身）即为战术执行器。
         若策略文件夹不存在（例如旧版的 ``CUSTOM_STRATEGY_NAME`` 占位），直接使用兜底 EmptyTactics。
         """
         if not self.selected_strategy:
@@ -426,10 +512,9 @@ class UniversalLLMBot(KnowledgeBot):
 
         for attr_name in dir(mod):
             attr = getattr(mod, attr_name)
-            if (
-                isinstance(attr, type)
-                and issubclass(attr, BuildOrder)
-                and attr is not BuildOrder
+            if isinstance(attr, type) and (
+                (issubclass(attr, BuildOrder) and attr is not BuildOrder)
+                or (issubclass(attr, SequentialList) and attr is not SequentialList)
             ):
                 try:
                     return attr()
@@ -439,7 +524,7 @@ class UniversalLLMBot(KnowledgeBot):
                     except Exception as exc:
                         logger.warning("Failed to instantiate %s: %s", attr_name, exc)
 
-        logger.warning("No BuildOrder tactics subclass found in %s.", module_path)
+        logger.warning("No BuildOrder/SequentialList tactics subclass found in %s.", module_path)
         return EmptyTactics()
 
     # ------------------------------------------------------------------
@@ -1205,6 +1290,7 @@ class UniversalLLMBot(KnowledgeBot):
 
         llm_executor = ActLLMOngoingTasks(
             active_tasks_ref=self.active_tasks,
+            log_emit=self._llm_infer_emit,
         )
 
         return BuildOrder([
