@@ -34,7 +34,7 @@ export REAL_TIME="0" # 1为实时模式，0为加速模式
 # "terran"
 
 export ENEMY_RACE="terran"
-export ENEMY_DIFFICULTY="harder"
+export ENEMY_DIFFICULTY="hard"
 export ENEMY_BUILD="macro"
 
 # 我方 Agent 配置
@@ -46,7 +46,7 @@ export BOT_INSTRUCT="打一波，以大和战列巡洋舰为主的攻击"
 # =============================================================================
 export TOP_MODEL="DeepSeek-V4-pro"
 export MID_MODEL="DeepSeek-V4-pro"
-export DOWN_MODEL="Kimi-k2.5_base"
+export DOWN_MODEL="DeepSeek-V4-flash"
 
 # =============================================================================
 # 2.1 阶段性 Prompt 注入开关（1=开启，0=关闭）—— 仅在两段式 Skill 路由被关闭时生效。

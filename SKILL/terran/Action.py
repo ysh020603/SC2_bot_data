@@ -296,10 +296,9 @@ _ACTION_REGISTRY: Dict[str, Dict] = {
         "action_func": lambda *args, **kw: Tech(UpgradeId.LIBERATORAGRANGEUPGRADE),
     },
     "research_yamato_cannon": {
-        "description": "Research Yamato Cannon for Battlecruisers",
+        "description": "Research Yamato Cannon for Battlecruisers (requires Starport TechLab and Fusion Core)",
         "type": "tech",
-        # YAMATOCANNON 不在 UPGRADE_RESEARCHED_FROM 中，需显式指定 Fusion Core
-        "action_func": lambda *args, **kw: Tech(UpgradeId.YAMATOCANNON, UnitTypeId.FUSIONCORE),
+        "action_func": lambda *args, **kw: Tech(UpgradeId.BATTLECRUISERENABLESPECIALIZATIONS),
     },
     "research_hisec_auto_tracking": {
         "description": "Research Hi-Sec Auto Tracking (Turret Range)",

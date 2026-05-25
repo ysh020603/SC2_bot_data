@@ -12,7 +12,6 @@ Each task should be useful within the next planning cycle or near-term execution
 
 # Bottleneck First
 The first task must address the most urgent bottleneck, such as supply block, missing prerequisite, worker shortage, or defensive collapse.
-t repeat a task that failed last cycle unless the blocker has changed or the missing prerequisite is now being handled.
 
 # Exact Target Counts
 Use exact target counts when possible, such as "Train SCVs to 46" or "Train Marines to 24", so the lower layer can execute declaratively.
@@ -20,7 +19,7 @@ Use exact target counts when possible, such as "Train SCVs to 46" or "Train Mari
 If a requested goal cannot execute because a prerequisite is missing, replace the goal with the missing prerequisite.
 
 # No Repeated Dead Task
-Do no
+Do not repeat a task that failed last cycle unless the blocker has changed or the missing prerequisite is now being handled.
 
 # Stable Task Count
 Prefer 3 to 5 high-priority tasks per cycle; too many concurrent tasks dilute resources and make execution unstable.
