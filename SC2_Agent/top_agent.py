@@ -2,8 +2,6 @@
 
 职责：
 * **t=0 初始化策略** — 多轮交互式决策（SELECT / VIEW / GENERATE）。
-* **每 60 秒轮询**   — 根据 obs 评估当前阶段 (早/中/晚期)，输出焦点指导，
-  可选拼接 ``Top_agent_60.md`` 作为 ``[Phase Guidance]`` 区块。
 """
 
 from __future__ import annotations
@@ -189,26 +187,13 @@ def build_phase_assessment_messages(
     obs_text: str,
     strategy_name: str,
     strategy_description: str,
-    *,
-    enable_phase_guidance: bool = False,
-    phase_guidance_text: str = "",
-    selected_skills_block: str = "",
 ) -> List[Dict[str, str]]:
-    """构建 60 秒轮询的阶段评估 LLM 消息列表（Phase 2 of two-stage pipeline）。
+    """构建 60 秒轮询的阶段评估 LLM 消息列表。
 
     :param race:                  当前种族。
     :param obs_text:              当前观测文本。
     :param strategy_name:         t=0 选定的策略名。
     :param strategy_description:  策略的完整描述（Top_agent_0.md 或 GENERATE 内容）。
-    :param enable_phase_guidance: 是否启用 ``[Phase Guidance]`` 区块的拼接（旧字段，
-                                  兼容老配置；现已被两段式 Skill 注入替代，仅在
-                                  没有 ``selected_skills_block`` 时作为兜底使用）。
-    :param phase_guidance_text:   ``Top_agent_60.md`` 文件全文（专属或 generic），
-                                  仅在 ``enable_phase_guidance`` 为真且没有
-                                  ``selected_skills_block`` 时拼接。
-    :param selected_skills_block: Phase 1 已筛选并渲染好的 Skill 约束块文本
-                                  （形如 ``"[Current Strategic Constraints]\\n..."``），
-                                  非空时直接覆盖旧的 Phase Guidance 注入。
     """
     blocks: List[str] = [
         f"You are monitoring an ongoing StarCraft II game as the {race.capitalize()} race.",
@@ -222,18 +207,6 @@ def build_phase_assessment_messages(
         "2. A concise paragraph describing what the player should focus on RIGHT NOW.",
         "   * All your planning must revolve solely around macro operations (building structures and training units). You do not need to plan for scouting or other micro/tactical maneuvers.",
     ]
-
-    if selected_skills_block and selected_skills_block.strip():
-        blocks.extend([
-            "",
-            selected_skills_block.strip(),
-        ])
-    elif enable_phase_guidance and phase_guidance_text and phase_guidance_text.strip():
-        blocks.extend([
-            "",
-            "[Phase Guidance]",
-            phase_guidance_text.strip(),
-        ])
 
     blocks.extend([
         "",

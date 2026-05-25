@@ -167,6 +167,8 @@ class GridBuilding(ActBuilding):
                 self.set_worker(worker)
                 if worker.tag not in self.ai.unit_tags_received_action and not self.has_build_order(worker):
                     # No duplicate builds
+                    pos_formatted = f"({position.x:.1f}, {position.y:.1f})"
+                    self.print(f"{self.unit_type.name} at {pos_formatted}")
                     if self.knowledge.my_race == Race.Protoss:
                         await self.build_protoss(worker, count, position)
                     elif self.knowledge.my_race == Race.Terran:

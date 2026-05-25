@@ -31,7 +31,7 @@ CLI 示例::
     完全关闭 Skill：Top/Mid 均不做 Phase 1 筛选，Phase 2 不注入 Skill（基线）。
 
 ``--enable-skill-layers {all,top_only,mid_only,none}``  （默认 ``all``）
-    * ``all``      — Top(t≈60) 与 Mid 均启用 Skill 路由
+    * ``all``      — Top(t=0) 与 Mid 均启用 Skill 路由
     * ``top_only`` — 仅 Top 层启用
     * ``mid_only`` — 仅 Mid 层启用
     * ``none``     — 两层均不启用 Skill 路由
@@ -86,24 +86,14 @@ DEFAULT_ENEMY_DIFFICULTY = "hard"  # 如 easy / medium / hard / veryhard
 DEFAULT_ENEMY_BUILD = "macro"  # 内置 AI 风格，如 macro / rush 等
 
 # --- LLM 模型（model_key，见项目模型配置）---
-DEFAULT_TOP_MODEL = "DeepSeek-V4-pro"
-DEFAULT_MID_MODEL = "DeepSeek-V4-pro"
+DEFAULT_TOP_MODEL = "Kimi-k2.5_base"
+DEFAULT_MID_MODEL = "Kimi-k2.5_base"
 DEFAULT_DOWN_MODEL = "Kimi-k2.5_base"
 
 # --- 固定 t=0 策略（绕过 Top Agent 开局选策略的 LLM）---
 # 填 SKILL/<种族>/ 下的文件夹名，如 safe_tvt_raven → SKILL/terran/safe_tvt_raven/
 # 须与 DEFAULT_BOT_RACE 一致。空字符串 "" 表示不强制；CLI 可用 --force-strategy none 取消。
 DEFAULT_FORCE_STRATEGY = "cyclones"
-
-# --- 旧版整文 Prompt 注入（Skill 路由关闭时的兜底；一般保持 False）---
-DEFAULT_USE_TOP_60_PROMPT = False  # t≈60 注入 Top_agent_60.md 全文
-DEFAULT_USE_MID_PROMPT = False  # Mid 规划注入 mid_agent.md 全文
-
-# --- Skill 两段式路由 / 消融实验 ---
-# 优先级：disable_all_skills > enable_skill_layers
-DEFAULT_DISABLE_ALL_SKILLS = True  # True：完全关闭 Skill（基线）
-DEFAULT_ENABLE_SKILL_LAYERS = "all"  # all | top_only | mid_only | none
-DEFAULT_DISABLE_SPECIFIC_SKILLS_LAYERS = "none"  # all | top | mid | none（仅用 generic Skill）
 
 # --- 其它 ---
 DEFAULT_SKIP_VERSION_UPDATE = False  # True：跳过 version.txt 更新（批量并发时防 IO 锁）
@@ -176,11 +166,6 @@ def play_vs_ai(
     run_index: Optional[int] = None,
     output_base_dir: str = OUTPUT_BASE_DIR,
     skip_version_update: bool = DEFAULT_SKIP_VERSION_UPDATE,
-    use_top_60_prompt: bool = DEFAULT_USE_TOP_60_PROMPT,
-    use_mid_prompt: bool = DEFAULT_USE_MID_PROMPT,
-    disable_all_skills: bool = DEFAULT_DISABLE_ALL_SKILLS,
-    enable_skill_layers: str = DEFAULT_ENABLE_SKILL_LAYERS,
-    disable_specific_skills_layers: str = DEFAULT_DISABLE_SPECIFIC_SKILLS_LAYERS,
     force_strategy: Optional[str] = None,
 ) -> None:
     force_strategy = _resolve_force_strategy(force_strategy)
@@ -238,16 +223,6 @@ def play_vs_ai(
         args.extend(["--mid-model", mid_model])
     if down_model:
         args.extend(["--down-model", down_model])
-    if use_top_60_prompt:
-        args.append("--use-top-60-prompt")
-    if use_mid_prompt:
-        args.append("--use-mid-prompt")
-    if disable_all_skills:
-        args.append("--disable-all-skills")
-    if enable_skill_layers and enable_skill_layers != "all":
-        args.extend(["--enable-skill-layers", enable_skill_layers])
-    if disable_specific_skills_layers and disable_specific_skills_layers != "none":
-        args.extend(["--disable-specific-skills-layers", disable_specific_skills_layers])
     if force_strategy:
         args.extend(["--force-strategy", force_strategy])
 
@@ -260,16 +235,7 @@ def play_vs_ai(
     print(f" ▷ 比赛地图 : {map_name}")
     print(f" ▷ 战术指令 : {bot_instruct}")
     print(f" ▷ 大模型簇 : Top=[{top_model}], Mid=[{mid_model}], Down=[{down_model}]")
-    print(
-        f" ▷ Prompt 开关 : use_top_60_prompt={use_top_60_prompt}, "
-        f"use_mid_prompt={use_mid_prompt}"
-    )
-    print(
-        f" ▷ Skill 开关 : disable_all_skills={disable_all_skills}, "
-        f"enable_skill_layers={enable_skill_layers}, "
-        f"disable_specific_skills_layers={disable_specific_skills_layers}, "
-        f"force_strategy={force_strategy or 'None'}"
-    )
+    print(f" ▷ 强制策略 : {force_strategy or 'None'}")
     if batch_name:
         print(f" ▷ 批次名称 : {batch_name} (任务序号: {run_index})")
     print(f" ▷ 记录目录 : {record_dir}")
@@ -312,37 +278,6 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
         help="跳过版本更新防止 IO 锁",
     )
     p.add_argument(
-        "--use-top-60-prompt",
-        action=argparse.BooleanOptionalAction,
-        default=DEFAULT_USE_TOP_60_PROMPT,
-        help="开启 t=60 阶段评估的 [Phase Guidance] 注入（读取 Top_agent_60.md）",
-    )
-    p.add_argument(
-        "--use-mid-prompt",
-        action=argparse.BooleanOptionalAction,
-        default=DEFAULT_USE_MID_PROMPT,
-        help="开启 Mid Agent 规划的 [Execution Guidance] 注入（读取 mid_agent.md）",
-    )
-    # ---- Ablation switches (Module 3) ---------------------------------
-    p.add_argument(
-        "--disable-all-skills",
-        action=argparse.BooleanOptionalAction,
-        default=DEFAULT_DISABLE_ALL_SKILLS,
-        help="禁用两段式 Skill 系统（Top 60 + Mid 均跳过 Phase 1 筛选，Phase 2 无 Skill 注入）。",
-    )
-    p.add_argument(
-        "--enable-skill-layers",
-        choices=["all", "top_only", "mid_only", "none"],
-        default=DEFAULT_ENABLE_SKILL_LAYERS,
-        help="指定哪一层启用两段式 Skill 路由。",
-    )
-    p.add_argument(
-        "--disable-specific-skills-layers",
-        choices=["all", "top", "mid", "none"],
-        default=DEFAULT_DISABLE_SPECIFIC_SKILLS_LAYERS,
-        help="指定哪一层禁用 Specific Skill（仅使用 Generic）。",
-    )
-    p.add_argument(
         "--force-strategy",
         default=None,
         metavar="NAME",
@@ -373,11 +308,6 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         run_index=ns.run_index,
         output_base_dir=ns.output_base_dir,
         skip_version_update=ns.skip_version_update,
-        use_top_60_prompt=ns.use_top_60_prompt,
-        use_mid_prompt=ns.use_mid_prompt,
-        disable_all_skills=ns.disable_all_skills,
-        enable_skill_layers=ns.enable_skill_layers,
-        disable_specific_skills_layers=ns.disable_specific_skills_layers,
         force_strategy=ns.force_strategy,
     )
 

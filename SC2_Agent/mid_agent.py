@@ -1,6 +1,6 @@
 """Mid Agent (运营执行官) Prompt 构建与解析。
 
-职责：保持原有 Stage 1 调用频率，根据 obs + Top Agent 注入的策略/阶段上下文，
+职责：保持原有 Stage 1 调用频率，根据 obs 与 t=0 选定的策略描述，
 输出自然语言宏观任务列表。
 """
 
@@ -43,49 +43,19 @@ def build_planning_messages(
     obs_text: str,
     previous_tasks: List[str],
     strategy_description: str,
-    phase: str,
-    focus: str,
-    *,
-    enable_execution_guidance: bool = False,
-    execution_guidance_text: str = "",
-    selected_skills_block: str = "",
 ) -> List[Dict[str, str]]:
-    """构建 Mid Agent 规划 Prompt（Phase 2 of two-stage pipeline）。
+    """构建 Mid Agent 规划 Prompt。
 
-    :param race:                       当前种族名。
-    :param obs_text:                   当前观测文本。
-    :param previous_tasks:             上一轮自然语言任务列表。
-    :param strategy_description:       从 ``Top_agent_0.md`` 读取的策略正文（或空串）。
-    :param phase:                      Top Agent 判定的当前阶段 (early/mid/late)。
-    :param focus:                      Top Agent 判定的当前焦点描述。
-    :param enable_execution_guidance:  是否启用 ``[Execution Guidance]`` 区块注入（旧字段，
-                                       兼容老配置；现已被两段式 Skill 注入替代，仅在没有
-                                       ``selected_skills_block`` 时作为兜底使用）。
-    :param execution_guidance_text:    ``mid_agent.md`` 全文。
-    :param selected_skills_block:      Phase 1 已筛选并渲染好的 Skill 约束块文本，
-                                       非空时直接覆盖旧的 Execution Guidance 注入。
+    :param race:                 当前种族名。
+    :param obs_text:             当前观测文本。
+    :param previous_tasks:       上一轮自然语言任务列表。
+    :param strategy_description: 从 ``Top_agent_0.md`` 读取的策略正文（或空串）。
     """
     race_cap = race.capitalize()
-
-    top_context_lines: List[str] = []
-    if phase:
-        top_context_lines.append(f"Current game phase (assessed by commander): {phase}")
-    if focus:
-        top_context_lines.append(f"Current focus directive: {focus}")
-    top_context_block = "\n".join(top_context_lines) or "(No commander directive yet.)"
 
     strategy_block = strategy_description.strip() if strategy_description else (
         f"(No pre-defined strategy loaded. Use general {race_cap} best practices.)"
     )
-
-    execution_guidance_block = ""
-    if selected_skills_block and selected_skills_block.strip():
-        execution_guidance_block = "\n\n" + selected_skills_block.strip()
-    elif enable_execution_guidance and execution_guidance_text and execution_guidance_text.strip():
-        execution_guidance_block = (
-            "\n\n[Execution Guidance]\n"
-            f"{execution_guidance_text.strip()}"
-        )
 
     system_msg = f'''You are a senior StarCraft II strategist controlling a {race_cap} bot.
 This is a macro Planning Task. You are the global plan manager for the next 12 seconds.
@@ -93,6 +63,7 @@ This is a macro Planning Task. You are the global plan manager for the next 12 s
 {_EXECUTION_MODEL}
 
 Your job each cycle:
+* Follow the selected strategy below and align every task with its build order, tech path, and unit composition goals.
 * Compare the current observation with the previous natural-language task list.
 * Remove tasks that are already complete or no longer appropriate.
 * Update tasks whose target count should increase or decrease.
@@ -103,11 +74,8 @@ Your job each cycle:
 * You do NOT need to consider or describe the physical execution location of any task. The lower layer will decide where to build, where to train, where to rally units, and where to assign workers. Your task should only describe the macro objective, not the execution position.
 * All your planning must revolve solely around macro operations (building structures and training units). You do not need to plan for scouting or other micro/tactical maneuvers.
 
-[Commander Directive]
-{top_context_block}
-
 [Strategy]
-{strategy_block}{execution_guidance_block}
+{strategy_block}
 
 {_OUTPUT_FORMAT}'''
 
