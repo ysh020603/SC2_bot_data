@@ -1,5 +1,5 @@
 from math import floor
-from typing import Optional, Set
+from typing import Dict, Optional, Set
 
 from sc2.data import Race
 from sc2.ids.ability_id import AbilityId
@@ -17,6 +17,9 @@ from sharpy.interfaces import IBuildingSolver, IIncomeCalculator
 from sharpy.managers.core import PathingManager
 
 worker_trainers = {AbilityId.NEXUSTRAIN_PROBE, AbilityId.COMMANDCENTERTRAIN_SCV}
+
+# 同一坐标连续失败超过该阈值后进入黑名单，强制遍历下一个备选格
+INVALID_POSITION_THRESHOLD = 20
 
 
 class WorkerStuckStatus:
@@ -88,6 +91,8 @@ class GridBuilding(ActBuilding):
         self.make_pylon = None
         self.last_iteration_moved = -10
         self.worker_stuck: WorkerStuckStatus = WorkerStuckStatus()
+        # 动态容错黑名单：记录各建造点连续失败/被选中的帧数
+        self.invalid_positions: Dict[Point2, int] = {}
 
     async def start(self, knowledge: "Knowledge"):
         await super().start(knowledge)
@@ -121,7 +126,7 @@ class GridBuilding(ActBuilding):
         if self.knowledge.my_race == Race.Protoss:
             position = self.position_protoss(count)
         elif self.knowledge.my_race == Race.Terran:
-            position = self.position_terran(count)
+            position = await self.position_terran(count)
         else:
             position = self.position_zerg(count)
 
@@ -292,14 +297,61 @@ class GridBuilding(ActBuilding):
 
         return future_position
 
-    def position_terran(self, count) -> Optional[Point2]:
+    def _is_position_blacklisted(self, point: Point2) -> bool:
+        return self.invalid_positions.get(point, 0) >= INVALID_POSITION_THRESHOLD
+
+    def _bump_invalid_position(self, point: Point2) -> None:
+        self.invalid_positions[point] = self.invalid_positions.get(point, 0) + 1
+
+    async def _validate_terran_point(
+        self,
+        point: Point2,
+        buildings,
+        blocking_units,
+        creation_ability: AbilityId,
+        collision_radius: float,
+    ) -> bool:
+        """
+        三步协同校验：黑名单 -> 建筑/单位碰撞 -> SC2 内核 can_place。
+        任一失败则累加失败计数，便于后续帧拉黑并尝试列表中的下一个格子。
+        """
+        if self._is_position_blacklisted(point):
+            return False
+
+        if buildings.closer_than(1, point):
+            self._bump_invalid_position(point)
+            return False
+
+        if blocking_units.closer_than(collision_radius, point).exists:
+            self._bump_invalid_position(point)
+            return False
+
+        if not (await self.ai.can_place(creation_ability, [point]))[0]:
+            self._bump_invalid_position(point)
+            return False
+
+        return True
+
+    async def position_terran(self, count) -> Optional[Point2]:
         is_depot = self.unit_type == UnitTypeId.SUPPLYDEPOT
         buildings = self.ai.structures
         future_position = None
 
+        # 步骤一：过滤会阻挡地面建造的地面单位（排除飞行单位与当前建造 SCV）
+        blocking_units = self.ai.units.not_flying
+        if self.builder_tag is not None:
+            blocking_units = blocking_units.tags_not_in({self.builder_tag})
+
+        unit_data = self.ai._game_data.units[self.unit_type.value]
+        creation_ability: AbilityId = unit_data.creation_ability.id
+        collision_radius = 1.2 if is_depot else 1.5
+
         if is_depot:
             for point in self.building_solver.buildings2x2:
-                if not buildings.closer_than(1, point):
+                if await self._validate_terran_point(
+                    point, buildings, blocking_units, creation_ability, collision_radius
+                ):
+                    self._bump_invalid_position(point)
                     return point
         else:
             pylons = self.cache.own(UnitTypeId.PYLON).not_ready
@@ -308,13 +360,15 @@ class GridBuilding(ActBuilding):
                 if not self.allow_wall:
                     if point in self.building_solver.wall3x3:
                         continue
-                # If a structure is landing here from AddonSwap() then dont use this location
                 if point in reserved_landing_locations:
                     continue
-                # If this location has a techlab or reactor next to it, then don't create a new structure here
                 if point in self.building_solver.free_addon_locations:
                     continue
-                if not buildings.closer_than(1, point):
+
+                if await self._validate_terran_point(
+                    point, buildings, blocking_units, creation_ability, collision_radius
+                ):
+                    self._bump_invalid_position(point)
                     return point
 
                 if future_position is None and pylons and point.distance_to_closest(pylons) <= 7:
