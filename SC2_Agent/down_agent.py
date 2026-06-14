@@ -1,7 +1,7 @@
 """Down Agent (微操执行官) Prompt 构建与解析。
 
 职责：将 Mid Agent 输出的单条自然语言任务翻译成严格 JSON 动作指令
-``{"action": "<key>", "to_count": <int>}``。
+``{"action": "<key>", "to_count": <int>, "priority": <bool>}``。
 """
 
 from __future__ import annotations
@@ -40,11 +40,16 @@ def build_translation_messages(
         "JSON object that strictly matches the action space below.\n"
         "Output ONLY the JSON object, no prose, no markdown fences.\n\n"
         "Schema:\n"
-        '  {"action": "<action_key>", "to_count": <positive integer>}\n\n'
+        '  {"action": "<action_key>", "to_count": <positive integer>, "priority": <boolean>}\n\n'
         "Constraints:\n"
         "  * <action_key> MUST be one of the legal keys listed below.\n"
         "  * <to_count> is the ABSOLUTE target count on the field "
         "(including under-construction).\n"
+        "  * <priority> MUST be true ONLY IF the task description explicitly asks "
+        "for priority or hoarding resources (e.g. contains \"(Priority)\"). "
+        "Otherwise false.\n"
+        "  * Set priority to true only for actions marked [Supports Priority] "
+        "in the action space below.\n"
         "  * Translate only the single task provided by the planner.\n\n"
         f"[Legal Action Space]\n{action_space_text}"
     )
@@ -64,7 +69,7 @@ def parse_translation_response(
     text: str,
     legal_keys: Set[str],
 ) -> Optional[Dict[str, Any]]:
-    """解析 Down Agent 输出 ``{"action": ..., "to_count": ...}``。
+    """解析 Down Agent 输出 ``{"action": ..., "to_count": ..., "priority": ...}``。
 
     :return: 合法的动作字典，或 ``None``。
     """
@@ -98,6 +103,9 @@ def parse_translation_response(
 
     action = parsed.get("action")
     to_count_raw = parsed.get("to_count")
+    priority_raw = parsed.get("priority", False)
+    is_priority = bool(priority_raw)
+
     if not isinstance(action, str) or not action:
         return None
     try:
@@ -111,4 +119,7 @@ def parse_translation_response(
         logger.warning("Down Agent produced illegal action %r; dropping.", action)
         return None
 
-    return {"action": action, "to_count": to_count}
+    if is_priority:
+        logger.info("Down Agent set priority=true for action %r.", action)
+
+    return {"action": action, "to_count": to_count, "priority": is_priority}

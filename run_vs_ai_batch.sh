@@ -22,12 +22,6 @@ BOT_RACE="${BOT_RACE:-terran}"
 TOP_MODEL="${TOP_MODEL:-DeepSeek-V4-pro-reasoning}"
 MID_MODEL="${MID_MODEL:-DeepSeek-V4-pro-reasoning}"
 DOWN_MODEL="${DOWN_MODEL:-DeepSeek-V4-flash}"
-USE_TOP_60_PROMPT="${USE_TOP_60_PROMPT:-1}"
-USE_MID_PROMPT="${USE_MID_PROMPT:-1}"
-# --- 消融实验开关 (Module 3) ---
-DISABLE_ALL_SKILLS="${DISABLE_ALL_SKILLS:-0}"
-ENABLE_SKILL_LAYERS="${ENABLE_SKILL_LAYERS:-all}"
-DISABLE_SPECIFIC_SKILLS_LAYERS="${DISABLE_SPECIFIC_SKILLS_LAYERS:-none}"
 FORCE_STRATEGY="${FORCE_STRATEGY:-}"
 BATCH_NAME="${BATCH_NAME:-}"
 
@@ -59,11 +53,6 @@ write_batch_env_file() {
     printf '%s\n' "TOP_MODEL=$(printf '%q' "$TOP_MODEL")"
     printf '%s\n' "MID_MODEL=$(printf '%q' "$MID_MODEL")"
     printf '%s\n' "DOWN_MODEL=$(printf '%q' "$DOWN_MODEL")"
-    printf '%s\n' "USE_TOP_60_PROMPT=$(printf '%q' "$USE_TOP_60_PROMPT")"
-    printf '%s\n' "USE_MID_PROMPT=$(printf '%q' "$USE_MID_PROMPT")"
-    printf '%s\n' "DISABLE_ALL_SKILLS=$(printf '%q' "$DISABLE_ALL_SKILLS")"
-    printf '%s\n' "ENABLE_SKILL_LAYERS=$(printf '%q' "$ENABLE_SKILL_LAYERS")"
-    printf '%s\n' "DISABLE_SPECIFIC_SKILLS_LAYERS=$(printf '%q' "$DISABLE_SPECIFIC_SKILLS_LAYERS")"
     printf '%s\n' "FORCE_STRATEGY=$(printf '%q' "$FORCE_STRATEGY")"
     printf '%s\n' "BATCH_NAME=$(printf '%q' "$BATCH_NAME")"
     printf '%s\n' "RECORD_ROOT=$(printf '%q' "$RECORD_ROOT")"
@@ -82,7 +71,6 @@ if [[ "${1:-}" == "worker" ]]; then
   
   worker_loop() {
     local wid="$1" total="$2" conc="$3" logdir="$4" i
-    # 按照步长(并发数)分发局数，确保不重复运行
     for ((i = wid; i < total; i += conc)); do
       echo "[Worker $wid] 开始运行 第 $i 局..." | tee -a "$logdir/worker_${wid}.log"
       set +e
@@ -98,25 +86,11 @@ if [[ "${1:-}" == "worker" ]]; then
     local rt=()
     [[ "${REAL_TIME:-0}" == "1" ]] && rt=(--real-time)
 
-    # 阶段性 Prompt 注入开关 -> 长参数
-    local prompt_flags=()
-    [[ "${USE_TOP_60_PROMPT:-0}" == "1" ]] && prompt_flags+=(--use-top-60-prompt)
-    [[ "${USE_MID_PROMPT:-0}"   == "1" ]] && prompt_flags+=(--use-mid-prompt)
-
-    # 消融实验开关 -> 长参数 (Module 3)
-    local skill_flags=()
-    [[ "${DISABLE_ALL_SKILLS:-0}" == "1" ]] && skill_flags+=(--disable-all-skills)
-    if [[ -n "${ENABLE_SKILL_LAYERS:-}" && "${ENABLE_SKILL_LAYERS}" != "all" ]]; then
-      skill_flags+=(--enable-skill-layers "$ENABLE_SKILL_LAYERS")
-    fi
-    if [[ -n "${DISABLE_SPECIFIC_SKILLS_LAYERS:-}" && "${DISABLE_SPECIFIC_SKILLS_LAYERS}" != "none" ]]; then
-      skill_flags+=(--disable-specific-skills-layers "$DISABLE_SPECIFIC_SKILLS_LAYERS")
-    fi
+    local extra_flags=()
     if [[ -n "${FORCE_STRATEGY:-}" ]]; then
-      skill_flags+=(--force-strategy "$FORCE_STRATEGY")
+      extra_flags+=(--force-strategy "$FORCE_STRATEGY")
     fi
 
-    # 这里的 $PYTHON 就是我们在 start_experiments.sh 里配置的绝对路径
     "$PYTHON" "$RUN_SCRIPT" \
       --my-bot-name "$MY_BOT_NAME" \
       --map-name "$MAP_NAME" \
@@ -129,8 +103,7 @@ if [[ "${1:-}" == "worker" ]]; then
       --top-model "$TOP_MODEL" \
       --mid-model "$MID_MODEL" \
       --down-model "$DOWN_MODEL" \
-      "${prompt_flags[@]}" \
-      "${skill_flags[@]}" \
+      "${extra_flags[@]}" \
       --batch-name "$BATCH_NAME" \
       --run-index "$idx" \
       --output-base-dir "$RECORD_ROOT" \
@@ -169,7 +142,6 @@ echo " 单局录像   : $RECORD_ROOT/$BATCH_NAME/"
 echo " 终端日志   : $LOG_DIR"
 echo "=================================================="
 
-# 提前更新 version 避免多进程读写冲突 (同样使用绝对路径 Python)
 $PYTHON -c "import sys; sys.path.insert(0, '.'); from version import update_version_txt; update_version_txt()" || true
 
 run_tmux() {
@@ -186,7 +158,6 @@ run_tmux() {
   qscript=$(printf '%q' "$0")
 
   for ((w = 0; w < CONCURRENCY; w++)); do
-    # 这里的 bash $qscript 会正确调用本脚本的 worker 逻辑
     local inner
     inner="export BATCH_ENV_FILE=$bf BATCH_TOTAL=$TOTAL BATCH_CONC=$CONCURRENCY LOG_DIR=$(printf '%q' "$LOG_DIR"); cd $qroot && bash $qscript worker $w; echo '[Worker $w] 全部任务完成。'; read -r _"
     

@@ -5,7 +5,8 @@ key 翻译成具体的 Sharpy ``ActBase`` 实例。
 
 设计意图与 ``llm_bot.py`` 的状态机协同：
 
-* LLM 输出的格式严格限制为 ``{"action": <key>, "to_count": n}``，**目标导向（Goal-Oriented）**。
+* LLM 输出的格式严格限制为 ``{"action": <key>, "to_count": n, "priority": bool}``，**目标导向（Goal-Oriented）**。
+* 部分动作支持 ``priority=True``，触发 Sharpy 资源预留（锁矿/锁气），避免被低优先级任务抢占。
 * 上层 Bot 维护动作历史序列，每个动作持有一个 lazy 实例化的 Sharpy Act；动态运营层
   每帧 ``await act.execute()`` 让 Sharpy 自动调度资源。
 * 动作历史不会再根据完成条件出队；是否继续产生实际指令交给对应 Sharpy Act 的内部逻辑。
@@ -17,7 +18,7 @@ key 翻译成具体的 Sharpy ``ActBase`` 实例。
 * ``get_action_type(key) -> str`` —— 标记 ``unit`` / ``building`` / ``tech`` 等粗粒度类型。
 """
 
-from typing import Dict
+from typing import Dict, FrozenSet
 
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.upgrade_id import UpgradeId
@@ -397,14 +398,48 @@ _ACTION_REGISTRY: Dict[str, Dict] = {
     },
 }
 
+# GridBuilding 子类动作（支持 priority 锁资源）
+_GRID_BUILDING_ACTION_KEYS: FrozenSet[str] = frozenset({
+    "build_supply_depot",
+    "build_barracks",
+    "build_factory",
+    "build_starport",
+    "build_engineering_bay",
+    "build_armory",
+    "build_ghost_academy",
+    "build_fusion_core",
+    "build_sensor_tower",
+})
+
+_PRIORITY_SUFFIX = " [Supports Priority: can hoard resources if critical]"
+
+
+def action_supports_priority(action_key: str) -> bool:
+    """返回该 action key 是否支持 ``priority=True`` 资源预留。"""
+    if action_key not in _ACTION_REGISTRY:
+        return False
+    entry = _ACTION_REGISTRY[action_key]
+    if entry.get("type") == "unit":
+        return True
+    if action_key == "expand":
+        return True
+    return action_key in _GRID_BUILDING_ACTION_KEYS
+
 
 def get_action_space() -> Dict[str, str]:
     """返回 ``{action_key: description}`` 字典，作为提供给 LLM 的合法动作清单。
 
     LLM 的输出必须严格属于这些 key；任何 key 之外的动作都被视为非法 JSON，调用
     侧将拒绝并触发重试（或回退到 ``none``）。
+    支持 priority 的动作会在 description 末尾附加 ``[Supports Priority]`` 标识。
     """
-    return {key: value["description"] for key, value in _ACTION_REGISTRY.items()}
+    result: Dict[str, str] = {}
+    for key, value in _ACTION_REGISTRY.items():
+        desc = value["description"]
+        if action_supports_priority(key) and "[Supports Priority" not in desc:
+            desc = f"{desc}{_PRIORITY_SUFFIX}"
+        result[key] = desc
+    return result
 
 
 def get_action(action_key: str, *args, **kwargs):
@@ -425,4 +460,5 @@ __all__ = [
     "get_action_space",
     "get_action",
     "get_action_type",
+    "action_supports_priority",
 ]

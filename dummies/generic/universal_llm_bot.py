@@ -10,7 +10,7 @@
     │   每 N 秒 → 结合 obs + Top 上下文 → 自然语言宏观任务列表              │
     ├─────────────────────────────────────────────────────────────────────┤
     │ Down Agent (微操执行官)                                              │
-    │   逐条翻译 → {"action": key, "to_count": int}                      │
+    │   逐条翻译 → {"action": key, "to_count": int, "priority": bool}    │
     ├─────────────────────────────────────────────────────────────────────┤
     │ create_plan() → BuildOrder([                                        │
     │     DynamicBaseTactics(...),     # 补给 + Orbital + 静态战术（并行）   │
@@ -109,8 +109,12 @@ class ActLLMOngoingTasks(ActBase):
 
     def _format_task_label(self, task: Dict[str, Any], action_key: str) -> str:
         to_count = task.get("to_count")
+        priority = task.get("priority", False)
         if to_count is not None:
-            return f"{action_key}(to_count={to_count})"
+            label = f"{action_key}(to_count={to_count})"
+            if priority:
+                label += ", priority=True"
+            return label
         return action_key
 
     def _maybe_log_resource_reservation(
@@ -184,12 +188,16 @@ class ActLLMOngoingTasks(ActBase):
                     task["_disabled"] = True
                     task["_error"] = "no_action_resolver"
                     continue
+                is_priority = bool(task.get("priority", False))
                 try:
-                    act = get_action_fn(action_key, to_count)
+                    if is_priority:
+                        act = get_action_fn(action_key, to_count, priority=True)
+                    else:
+                        act = get_action_fn(action_key, to_count)
                 except Exception as exc:
                     logger.warning(
-                        "Failed to instantiate act for action=%s to_count=%s: %s",
-                        action_key, to_count, exc,
+                        "Failed to instantiate act for action=%s to_count=%s priority=%s: %s",
+                        action_key, to_count, is_priority, exc,
                     )
                     task["_disabled"] = True
                     task["_error"] = f"instantiate_failed: {exc}"
@@ -304,6 +312,7 @@ class UniversalLLMBot(KnowledgeBot):
         # --- 种族动态模块 ---
         self._get_action_fn: Optional[Callable] = None
         self._get_action_space_fn: Optional[Callable] = None
+        self._action_supports_priority_fn: Optional[Callable[[str], bool]] = None
         self._action_space_cache: Optional[Dict[str, str]] = None
         # 形如 ``{name: {"summary": str, "detail": str}}``。
         self._available_strategies: Dict[str, Dict[str, str]] = {}
@@ -322,10 +331,12 @@ class UniversalLLMBot(KnowledgeBot):
             mod = importlib.import_module(module_path)
             self._get_action_fn = getattr(mod, "get_action", None)
             self._get_action_space_fn = getattr(mod, "get_action_space", None)
+            self._action_supports_priority_fn = getattr(mod, "action_supports_priority", None)
         except ImportError:
             logger.warning("Action module %s not found; action space will be empty.", module_path)
             self._get_action_fn = None
             self._get_action_space_fn = None
+            self._action_supports_priority_fn = None
 
         self._action_space_cache = (
             self._get_action_space_fn() if self._get_action_space_fn else {}
@@ -1203,10 +1214,20 @@ class UniversalLLMBot(KnowledgeBot):
     def _replace_active_tasks(self, tasks: List[Dict[str, Any]]) -> None:
         self.active_tasks.clear()
         for idx, task in enumerate(tasks, start=1):
+            action_key = task.get("action")
+            priority = bool(task.get("priority", False))
+            if priority and action_key and self._action_supports_priority_fn is not None:
+                if not self._action_supports_priority_fn(action_key):
+                    logger.warning(
+                        "Stripping priority for action %r (does not support priority).",
+                        action_key,
+                    )
+                    priority = False
             self.active_tasks.append({
                 "sequence": idx,
-                "action": task.get("action"),
+                "action": action_key,
                 "to_count": task.get("to_count"),
+                "priority": priority,
                 "_get_action_fn": self._get_action_fn,
             })
 
@@ -1214,7 +1235,11 @@ class UniversalLLMBot(KnowledgeBot):
     def _slim_action(task: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         if task is None:
             return None
-        slim = {"action": task.get("action"), "to_count": task.get("to_count")}
+        slim = {
+            "action": task.get("action"),
+            "to_count": task.get("to_count"),
+            "priority": bool(task.get("priority", False)),
+        }
         if "sequence" in task:
             slim["sequence"] = task.get("sequence")
         return slim
@@ -1226,6 +1251,7 @@ class UniversalLLMBot(KnowledgeBot):
                 "sequence": task.get("sequence", idx),
                 "action": task.get("action"),
                 "to_count": task.get("to_count"),
+                "priority": bool(task.get("priority", False)),
             }
             if task.get("_disabled", False):
                 item["disabled"] = True

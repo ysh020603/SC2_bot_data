@@ -35,15 +35,15 @@ class JumpIn(ActBase):
 
 class BattleCruisersTactics(SequentialList):
     """大和战术列表（顺序执行）"""
-    def __init__(self, attack_value: int = None, jump_index: int = 1):
+    def __init__(self, attack_value: int = 55, jump_index: int = 1):
         """
         大和战术列表
         :param attack_value: 触发攻击的单位价值阈值。如果未提供，将随机生成(50~80)的合理值。
         :param jump_index: 是否执行折跃的索引，默认为 1 (执行折跃)，0 为不折跃。
         """
         # 合理处理随机数据：外部不传参时，赋予原先合理的随机默认值
-        if attack_value is None:
-            attack_value = random.randint(50, 80)
+        # if attack_value is None:
+        #     attack_value = random.randint(50, 80)
 
         scout = Step(None, WorkerScout(), skip_until=UnitExists(UnitTypeId.SUPPLYDEPOT, 1))
         

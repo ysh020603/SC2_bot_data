@@ -22,7 +22,13 @@ Execution model:
 * Tasks that act as tech-tree bottlenecks (e.g., the opening Supply Depot or the first Barracks) MUST be prioritized at the absolute front. To guarantee their immediate execution, you can even issue them as a single isolated task for that cycle.
 * The lower layer is declarative: if you ask for "Train Marines to 20", it will keep training until the absolute target count is reached.
 * IMPORTANT: If a task cannot be executed because of lack of Supply (population), you MUST prioritize "Build Supply Depot" at the very front of your list to clear the bottleneck.
-* IMPORTANT: If a task cannot be executed due to insufficient resources, the system will NOT reserve your money if the task is physically blocked (e.g., by supply or lack of production buildings). Therefore, if you genuinely need a high-cost unit (like a Battlecruiser), you MUST ensure the necessary infrastructure (Starport/Fusion Core) and sufficient supply room are built BEFORE the train task; otherwise, your resources will be leaked to cheaper, lower-priority units."""
+* IMPORTANT: If a task cannot be executed due to insufficient resources, the system will NOT reserve your money if the task is physically blocked (e.g., by supply or lack of production buildings). Therefore, if you genuinely need a high-cost unit (like a Battlecruiser), you MUST ensure the necessary infrastructure (Starport/Fusion Core) and sufficient supply room are built BEFORE the train task; otherwise, your resources will be leaked to cheaper, lower-priority units.
+
+[Resource Allocation & Priority Rules]
+When you need to save resources for expensive, high-tier actions (like Battlecruisers or Expansions) and want to prevent other automatic or minor tasks from stealing your Minerals/Gas, append "(Priority)" to your task string.
+* Standard task: "Train Battlecruiser to 20" (builds when resources happen to be enough)
+* Priority task: "Train Battlecruiser to 20 (Priority)" (locks resources and hoards them until affordable)
+Use "(Priority)" sparingly and only for tasks marked with [Supports Priority] in the Action Space. Do not use it for Tech research or Refineries."""
 
 _OUTPUT_FORMAT = """\
 Output format:

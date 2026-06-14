@@ -82,13 +82,13 @@ DEFAULT_REAL_TIME = False  # True：实时模式，便于人类观战
 
 # --- 对战：内置 AI 对手 ---
 DEFAULT_ENEMY_RACE = "terran"
-DEFAULT_ENEMY_DIFFICULTY = "hard"  # 如 easy / medium / hard / veryhard
+DEFAULT_ENEMY_DIFFICULTY = "harder"  # 如 easy / medium / hard / veryhard
 DEFAULT_ENEMY_BUILD = "macro"  # 内置 AI 风格，如 macro / rush 等
 
 # --- LLM 模型（model_key，见项目模型配置）---
-DEFAULT_TOP_MODEL = "Kimi-k2.5_base"
-DEFAULT_MID_MODEL = "Kimi-k2.5_base"
-DEFAULT_DOWN_MODEL = "Kimi-k2.5_base"
+DEFAULT_TOP_MODEL = "DeepSeek-V4-flash"
+DEFAULT_MID_MODEL = "DeepSeek-V4-flash"
+DEFAULT_DOWN_MODEL = "DeepSeek-V4-flash"
 
 # --- 固定 t=0 策略（绕过 Top Agent 开局选策略的 LLM）---
 # 填 SKILL/<种族>/ 下的文件夹名，如 safe_tvt_raven → SKILL/terran/safe_tvt_raven/
