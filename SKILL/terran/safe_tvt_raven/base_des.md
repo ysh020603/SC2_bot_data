@@ -1,1 +1,0 @@
-Safe TvT raven opener: `PlanWorkerOnlyDefense` and zone defense until Stimpack is ready, then `PlanZoneAttack` at low `attack_value` (default 4). Attack is upgrade-gated (stim) rather than army-value heavy.

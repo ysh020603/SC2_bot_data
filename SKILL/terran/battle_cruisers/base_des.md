@@ -1,1 +1,0 @@
-Battle cruiser tactics: gathers on map, then optionally `JumpIn` (tactical jump behind enemy main minerals when `jump_index` is 1) before `PlanZoneAttack` at `attack_value` (default random 50–80). Attack commits once army value hits the threshold, followed by `PlanFinishEnemy`.

@@ -33,6 +33,21 @@ Execution model:
     - "append": add these increments on top of what is still pending.
     - "replace": discard the unfinished plan and start fresh from this list."""
 
+_SIZING_GUIDANCE = """\
+Sizing guidance (IMPORTANT):
+* The increments must be realistically achievable within ONE planning window of
+  about {horizon} seconds, given your CURRENT production capacity and economy in
+  the observation. Do NOT dump a huge batch at once.
+* Rule of thumb for one {horizon}s window:
+    - Workers (SCV): roughly 1 per active town hall for this window (a town hall
+      makes ~1 SCV every ~12s, but you also spend minerals elsewhere). Asking for
+      6+ SCVs in a single window is almost always too much.
+    - Army units: only as many as your current production buildings can actually
+      produce in {horizon}s (about 1-2 per relevant production building).
+    - Structures: usually 1-3 new buildings per window.
+* Prefer a small, focused increment that the economy can sustain, then expand it
+  next cycle. Over-planning wastes the window and starves higher-priority items."""
+
 _OUTPUT_FORMAT = """\
 Output format:
 1. First write ONE concise reasoning paragraph outside JSON.
@@ -69,12 +84,15 @@ def build_increment_messages(
         f"(No pre-defined strategy loaded. Use general {race_cap} best practices.)"
     )
 
+    horizon = int(interval_seconds)
     system_msg = f"""You are a senior StarCraft II {race_cap} macro commander.
 Every cycle you output the ABSOLUTE INCREMENT (delta) of structures / units /
-upgrades to ADD over roughly the next {int(interval_seconds)} seconds, strictly
-following the Selected Strategy below.
+upgrades to ADD over roughly the next {horizon} seconds (this is your planning
+window / horizon), strictly following the Selected Strategy below.
 
 {_EXECUTION_MODEL}
+
+{_SIZING_GUIDANCE.format(horizon=horizon)}
 
 [Strategy]
 {strategy_block}

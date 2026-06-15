@@ -1,1 +1,0 @@
-One-base turtle: very low `attack_value` (default 4) but attack is gated on having `required_marines` (default 18, including killed) before `PlanZoneAttack`, so tanks push only with enough marine screen. Then `PlanFinishEnemy`.

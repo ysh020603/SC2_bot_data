@@ -1,1 +1,0 @@
-Early marine rush: uses custom `DodgeRampAttack` instead of plain `PlanZoneAttack`, keyed on `num_marines` as the army-value threshold. Retreats briefly if force fields block the base ramp, then resumes attack; finishes with `PlanFinishEnemy`.

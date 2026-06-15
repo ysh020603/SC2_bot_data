@@ -1,1 +1,0 @@
-Standard bio army flow: zone defense and gather, then `PlanZoneAttack` with a relatively low `attack_value` (default 26) for earlier pushes, ending with `PlanFinishEnemy`. No upgrade or unit-count gates—attack triggers purely on army value.

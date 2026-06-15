@@ -1,1 +1,0 @@
-Legacy factory-style play: after defense and gather, launches `PlanZoneAttack` when army value meets `attack_value` (default random 50–80). Mid-to-late threshold push with `PlanFinishEnemy`; no extra attack conditions beyond value.

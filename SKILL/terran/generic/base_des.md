@@ -1,1 +1,0 @@
-Generic Terran fallback tactics: after zone defense, worker scout, and army gather (`PlanZoneGatherTerran`), pushes with `PlanZoneAttack` when friendly army value reaches `attack_value` (default 60), then `PlanFinishEnemy` to close out the game. No special attack gates or harassment—standard threshold-based zone attack.

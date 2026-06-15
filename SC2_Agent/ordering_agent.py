@@ -29,7 +29,9 @@ def build_ordering_messages(
     """构建阶段4 排序 Agent Prompt。
 
     :param race:           当前种族名（固定 terran）。
-    :param actions:        待排序的 Action 标准名列表（不含 SupplyDepot）。
+    :param actions:        待排序的 Action 标准名列表（**已按数量展开的扁平列表**，
+                           不含 SupplyDepot）。同一个 action 可能出现多次，表示要
+                           生产/建造多个；排序只决定先后，不增删、不改变出现次数。
     :param obs_text:       当前观测文本。
     :param prereq_hints:   前置缺失 + 科技链路关系提示文本。
     :param conflict_hints: 执行者冲突提示文本。
@@ -48,9 +50,13 @@ Rules:
   parallel; sequence them sensibly so neither starves.
 * Cheaper / unlocking / short actions generally go earlier; expensive long-term
   goals later.
+* The input is an ALREADY-EXPANDED flat list: an action may appear multiple
+  times, meaning that many copies should be produced. Keep EXACTLY the same
+  multiset (the same number of occurrences of each action) — only reorder them.
+  Do NOT merge duplicates and do NOT write "xN" counts.
 * IGNORE supply depots entirely (supply is inserted automatically afterwards). If
   any supply-depot action appears in the input, DROP it.
-* Keep every other input action exactly once. Do not invent new actions.
+* Do not invent new actions and do not add or remove occurrences.
 
 [Prerequisite & tech-chain hints]
 {prereq_hints or '(none)'}
@@ -61,11 +67,15 @@ Rules:
 [Per-action cost/time]
 {cost_hints or '(none)'}
 
-Output ONLY one JSON object, no prose, no markdown fences:
-{{"ordered_actions":["TERRANBUILD_BARRACKS","BUILD_TECHLAB_BARRACKS","BARRACKSTRAIN_MARINE"]}}"""
+Output ONLY one JSON object, no prose, no markdown fences. The output list must
+contain exactly the same items as the input (same multiset), just reordered:
+{{"ordered_actions":["TERRANBUILD_BARRACKS","BARRACKSTRAIN_MARINE","BARRACKSTRAIN_MARINE"]}}"""
 
     actions_json = json.dumps(actions, ensure_ascii=False, indent=2)
-    user_msg = f"[Actions to order]\n{actions_json}\n\n[Current Observation]\n{obs_text}"
+    user_msg = (
+        f"[Actions to order (flat list, keep every occurrence)]\n"
+        f"{actions_json}\n\n[Current Observation]\n{obs_text}"
+    )
 
     return [
         {"role": "system", "content": system_msg},

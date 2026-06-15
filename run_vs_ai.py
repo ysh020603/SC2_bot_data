@@ -98,7 +98,7 @@ DEFAULT_EXECUTOR_MODEL = "DeepSeek-V4-flash"
 # --- 固定 t=0 策略（绕过 Top Agent 开局选策略的 LLM）---
 # 填 SKILL/<种族>/ 下的文件夹名，如 safe_tvt_raven → SKILL/terran/safe_tvt_raven/
 # 须与 DEFAULT_BOT_RACE 一致。空字符串 "" 表示不强制；CLI 可用 --force-strategy none 取消。
-DEFAULT_FORCE_STRATEGY = "battle_cruisers"
+DEFAULT_FORCE_STRATEGY = "marine_rush"
 
 # --- 其它 ---
 DEFAULT_SKIP_VERSION_UPDATE = False  # True：跳过 version.txt 更新（批量并发时防 IO 锁）

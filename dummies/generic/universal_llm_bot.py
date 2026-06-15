@@ -33,7 +33,6 @@ import json
 import logging
 import os
 import re
-import shutil
 import time as _wall_time
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
@@ -91,7 +90,7 @@ from SC2_Agent.data_tools import (
     cost_for_action,
     detect_action_conflicts,
     is_known_terran_entity,
-    plan_supply,
+    plan_supply_with_trace,
     resolve_alias,
     tech_chain_relations,
     terran_unit_names,
@@ -1007,7 +1006,11 @@ class UniversalLLMBot(KnowledgeBot):
         return {"name": name, "description": description, "folder": folder}
 
     def _materialise_strategy_folder(self, *, name: str, description: str) -> str:
-        """在 ``SKILL/{race}/{name}/`` 下创建目录、写入 MD、拷贝 base_tactics、注册。"""
+        """在 ``SKILL/{race}/{name}/`` 下创建目录、写入 ``Top_agent_0.md``、注册。
+
+        说明：新执行框架统一使用共享的 ``SKILL/{race}/background_tactics.py``，
+        不再为每个策略拷贝旧的 per-strategy ``base_tactics.py``。
+        """
         race_dir = self._skill_race_dir
         target_dir = os.path.join(race_dir, name)
         os.makedirs(target_dir, exist_ok=True)
@@ -1022,20 +1025,6 @@ class UniversalLLMBot(KnowledgeBot):
         )
         with open(md_path, "w", encoding="utf-8") as f:
             f.write(md_body)
-
-        # base_tactics.py：硬编码从 generic 拷贝
-        src_tactics = os.path.join(race_dir, "generic", "base_tactics.py")
-        dst_tactics = os.path.join(target_dir, "base_tactics.py")
-        if os.path.isfile(src_tactics):
-            shutil.copyfile(src_tactics, dst_tactics)
-            self._llm_infer_emit(
-                f"    [Strategy GENERATE] copied base_tactics: {src_tactics} -> {dst_tactics}"
-            )
-        else:
-            self._llm_infer_emit(
-                f"    [Strategy GENERATE] WARNING: generic base_tactics not found at {src_tactics}; "
-                f"strategy '{name}' will fall back to EmptyTactics."
-            )
 
         # 注册到 registry.json，下一次 _discover_strategies 即可被 SELECT/VIEW 看到
         self._register_strategy(name)
@@ -1316,6 +1305,13 @@ class UniversalLLMBot(KnowledgeBot):
             if not actions:
                 record["error"] = "mapping_empty"
                 return
+            # 按数量展开成扁平列表（同一 action 重复 count 次）；Stage4 直接排这个
+            # 扁平列表，无需再带 xN。
+            expanded_actions: List[str] = []
+            for name in actions:
+                expanded_actions.extend([name] * max(int(qty_map.get(name, 1)), 1))
+            record["expanded_actions"] = list(expanded_actions)
+            self._llm_infer_emit(f"    Stage3 expanded: {expanded_actions}")
 
             # ---------- 阶段4：排序 Agent（带前置/冲突/成本提示）----------
             entities = collect_obs_entities(self)
@@ -1324,7 +1320,7 @@ class UniversalLLMBot(KnowledgeBot):
             cost_hints = self._build_cost_hints(actions)
             order_msgs = build_ordering_messages(
                 race=self.race_name,
-                actions=actions,
+                actions=expanded_actions,
                 obs_text=obs_text,
                 prereq_hints=prereq_hints,
                 conflict_hints=conflict_hints,
@@ -1332,31 +1328,37 @@ class UniversalLLMBot(KnowledgeBot):
             )
             order_raw = self._call_llm(order_msgs, agent="ordering")
             record["ordering_raw"] = order_raw
-            ordered = parse_ordering_response(order_raw, legal_actions=set(actions))
+            llm_ordered = parse_ordering_response(order_raw, legal_actions=set(actions)) or []
+            # 多重集对账：以 Stage3 的展开列表为准，按 LLM 给出的顺序消费配额，
+            # 多出的丢弃、缺的按原始顺序补在末尾。保证每个 action 出现次数 = qty_map。
+            ordered = self._reconcile_multiset(llm_ordered, expanded_actions)
             if not ordered:
-                ordered = list(actions)  # fallback: keep mapping order
-                self._llm_infer_emit("    Stage4 ordering invalid; falling back to mapping order.")
-            # 确保未被 LLM 丢弃的 action 仍保留（补在末尾，去重）
-            for a in actions:
-                if a not in ordered:
-                    ordered.append(a)
+                ordered = list(expanded_actions)
+                self._llm_infer_emit("    Stage4 ordering invalid; falling back to expanded order.")
             record["ordered_actions"] = ordered
             self._llm_infer_emit(f"    Stage4 ordered: {ordered}")
 
             # ---------- 阶段5：Supply 注入（无 LLM）----------
-            ordered_with_supply = plan_supply(ordered, self, threshold=self.SUPPLY_THRESHOLD)
+            ordered_with_supply, supply_trace = plan_supply_with_trace(
+                ordered, self, threshold=self.SUPPLY_THRESHOLD
+            )
             record["ordered_with_supply"] = ordered_with_supply
+            record["supply_trace"] = supply_trace
             self._llm_infer_emit(f"    Stage5 with supply: {ordered_with_supply}")
+            self._llm_infer_emit("    Stage5 supply derivation:")
+            for _tl in supply_trace:
+                self._llm_infer_emit(f"      {_tl}")
 
             # ---------- 装入调度器 ----------
-            pairs: List[Tuple[str, int]] = [
-                (name, qty_map.get(name, 1)) for name in ordered_with_supply
-            ]
+            # 把扁平列表按「连续相同」折叠回 (name, count) 交给调度器：
+            # build/research 用绝对 to_count，需要单条带数量；train 折叠成连发也正确。
+            pairs: List[Tuple[str, int]] = self._collapse_runs(ordered_with_supply)
             if self.scheduler is not None:
                 self.scheduler.set_actions(pairs, mode=mode)
             record["installed_pairs"] = pairs
             self._llm_infer_emit(
-                f"    Installed {len(pairs)} planned actions into scheduler (mode={mode})."
+                f"    Installed {len(pairs)} planned actions into scheduler (mode={mode}): "
+                + str([f"{n} x{q}" for n, q in pairs])
             )
         except Exception as exc:
             record["error"] = repr(exc)
@@ -1368,6 +1370,46 @@ class UniversalLLMBot(KnowledgeBot):
             self._llm_infer_emit(
                 f"<<< MACRO PIPELINE END (total {record['wall_elapsed_seconds']:.2f}s wall)"
             )
+
+    # --- 阶段4 多重集对账 / 折叠 ---------------------------------------
+
+    @staticmethod
+    def _reconcile_multiset(
+        llm_ordered: List[str], expanded: List[str]
+    ) -> List[str]:
+        """以 ``expanded`` 为准的多重集，按 ``llm_ordered`` 的顺序输出。
+
+        - LLM 给出的顺序逐个消费 ``expanded`` 的配额（出现次数）；
+        - 超过配额的重复项丢弃；非法/不在配额内的忽略；
+        - 最后把 LLM 漏掉的（配额未消费完的）按 ``expanded`` 原顺序补在末尾。
+        这样保证每个 action 的出现次数严格等于 Stage3 展开的数量。
+        """
+        from collections import Counter
+
+        remaining = Counter(expanded)
+        out: List[str] = []
+        for name in llm_ordered:
+            if remaining.get(name, 0) > 0:
+                out.append(name)
+                remaining[name] -= 1
+        # 补齐被漏掉的（保持原始展开顺序）
+        for name in expanded:
+            if remaining.get(name, 0) > 0:
+                out.append(name)
+                remaining[name] -= 1
+        return out
+
+    @staticmethod
+    def _collapse_runs(flat: List[str]) -> List[Tuple[str, int]]:
+        """把扁平动作列表按「连续相同」折叠成 ``[(name, run_length), ...]``。"""
+        pairs: List[Tuple[str, int]] = []
+        for name in flat:
+            if pairs and pairs[-1][0] == name:
+                prev, cnt = pairs[-1]
+                pairs[-1] = (prev, cnt + 1)
+            else:
+                pairs.append((name, 1))
+        return pairs
 
     # --- 阶段3 实体→Action 选择 ----------------------------------------
 

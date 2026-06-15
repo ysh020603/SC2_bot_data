@@ -37,7 +37,7 @@ export BOT_INSTRUCT="打一波，以大和战列巡洋舰为主的攻击"
 
 # 强制固定 t=0 开局策略 (填策略文件夹名，如 marine_rush, battle_cruisers)
 # 留空 ("") 表示走 LLM 正常决策流程
-export FORCE_STRATEGY="two_base_tanks_marine_rush_6"
+export FORCE_STRATEGY="marine_rush"
 
 # =============================================================================
 # 2. 分层 LLM Agent 模型配置
