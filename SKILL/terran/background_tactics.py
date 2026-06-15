@@ -3,14 +3,19 @@
 The new command-style pipeline (`ExecutionScheduler`) owns ALL resource spending
 (structures / units / upgrades / add-ons / base morphs / supply depots). The
 background layer therefore keeps ONLY tools that do **not** spend minerals, gas or
-supply, so it never competes with the scheduler for resources:
+supply, so it never competes with the scheduler for resources.
 
-* scouting:        ``WorkerScout``, ``ScanEnemy``
+Scope of THIS module (strategy-agnostic, always on):
+
+* free operations: ``MineOpenBlockedBase``, ``PlanCancelBuilding``, ``LowerDepots``,
+                   ``DistributeWorkers``, ``SpeedMining``, ``ContinueBuilding``,
+                   ``CallMule``
 * defense:         ``PlanZoneDefense``, ``PlanWorkerOnlyDefense``, ``ManTheBunkers``
-* gather/attack:   ``PlanZoneGatherTerran``, ``PlanZoneAttack``, ``PlanFinishEnemy``
-* free operations: ``CallMule``, ``LowerDepots``, ``MineOpenBlockedBase``,
-                   ``SpeedMining``, ``ContinueBuilding``, ``DistributeWorkers``,
-                   ``PlanCancelBuilding``
+
+**Scouting and attacking are intentionally NOT here.** They are strategy-specific
+and are injected per skill from ``SKILL/terran/<strategy>/scout_attack.py`` (with a
+generic fallback in ``SKILL/terran/scout_attack_default.py``). See
+``_load_scout_attack_tactics`` in ``dummies/generic/universal_llm_bot.py``.
 
 Explicitly EXCLUDED (they spend resources and are handled by the pipeline +
 supply_planner instead): ``AutoDepot`` (minerals), ``MorphOrbitals`` (minerals),
@@ -19,35 +24,33 @@ supply_planner instead): ``AutoDepot`` (minerals), ``MorphOrbitals`` (minerals),
 See ``SKILL/terran/scout_and_attack_tools.md`` §2.2 for the full classification.
 """
 
-from sc2.ids.unit_typeid import UnitTypeId
 from sharpy.plans import BuildOrder
 from sharpy.plans.build_step import Step
-from sharpy.plans.require import Time, UnitExists
+from sharpy.plans.require import Time
 from sharpy.plans.acts import MineOpenBlockedBase
 from sharpy.plans.tactics import (
     DistributeWorkers,
     PlanCancelBuilding,
-    PlanFinishEnemy,
     PlanWorkerOnlyDefense,
-    PlanZoneAttack,
     PlanZoneDefense,
     SpeedMining,
-    WorkerScout,
 )
 from sharpy.plans.tactics.terran import (
     CallMule,
     ContinueBuilding,
     LowerDepots,
     ManTheBunkers,
-    PlanZoneGatherTerran,
-    ScanEnemy,
 )
 
 
 class BackgroundTactics(BuildOrder):
-    """Always-on, resource-free Terran background behaviours (parallel)."""
+    """Always-on, resource-free, strategy-agnostic Terran background behaviours.
 
-    def __init__(self, attack_value: int = 60):
+    Contains only economy/upkeep operations and defense. Scouting and attacking
+    are injected separately per selected skill (see module docstring).
+    """
+
+    def __init__(self):
         super().__init__(
             [
                 # --- free operations ---
@@ -60,16 +63,9 @@ class BackgroundTactics(BuildOrder):
                 # --- MULE energy economy (no minerals/gas/supply) ---
                 Step(None, CallMule(50), skip=Time(5 * 60)),
                 Step(None, CallMule(100), skip_until=Time(5 * 60)),
-                # --- scouting ---
-                Step(None, WorkerScout(), skip_until=UnitExists(UnitTypeId.SUPPLYDEPOT, 1)),
-                Step(None, ScanEnemy(), skip_until=Time(5 * 60)),
-                # --- defense ---
+                # --- defense (always on, resource-free) ---
                 PlanZoneDefense(),
                 PlanWorkerOnlyDefense(),
                 ManTheBunkers(),
-                # --- gather / attack ---
-                PlanZoneGatherTerran(),
-                PlanZoneAttack(attack_value),
-                PlanFinishEnemy(),
             ]
         )

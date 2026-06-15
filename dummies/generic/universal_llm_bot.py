@@ -306,7 +306,7 @@ class UniversalLLMBot(KnowledgeBot):
 
     MID_AGENT_POLL_INTERVAL: float = 30.0
     #: 宏观决策触发周期（秒）：每隔该时间或 Action 序列执行完触发一次增量流水线。
-    MACRO_POLL_INTERVAL: float = 30.0
+    MACRO_POLL_INTERVAL: float = 60.0
     #: 序列执行完后再次触发的最小间隔（秒），避免空序列时每帧反复触发 LLM。
     MACRO_MIN_RETRIGGER: float = 5.0
     #: Action 在等待队列中超过该时长（秒）则放弃并释放预留资源。
@@ -359,6 +359,9 @@ class UniversalLLMBot(KnowledgeBot):
         self.scheduler: Optional[ExecutionScheduler] = None
         self._last_macro_time: float = -self.MACRO_POLL_INTERVAL
         self._macro_cycle_count: int = 0
+        # 记录每一次 LLM 调用的完整 prompt 与 output，落到专门的 *.llm_calls.json。
+        self._llm_call_records: List[Dict[str, Any]] = []
+        self._llm_call_seq: int = 0
 
         # --- Mid/Down Agent 状态（保留兼容，新流水线不再使用） ---
         self.active_tasks: List[Dict[str, Any]] = []
@@ -623,6 +626,13 @@ class UniversalLLMBot(KnowledgeBot):
         self.llm_observation_recorder.interval_seconds = self.MACRO_POLL_INTERVAL
         if self.record_dir:
             self.llm_observation_recorder.output_folder = self.record_dir
+
+    async def on_end(self, game_result):
+        # 先让父类（含 LLMObservationRecorder）落盘，再写一份完整的 LLM 调用记录。
+        try:
+            await super().on_end(game_result)
+        finally:
+            self._flush_llm_call_log()
 
     async def pre_step_execute(self):
         """每帧 Tick 入口：检查宏观增量流水线的触发条件。
@@ -1241,11 +1251,16 @@ class UniversalLLMBot(KnowledgeBot):
             record["observation_at_this_moment"] = obs_text
             record["observation_structured"] = obs_snapshot
 
+            # 每次 Stage1 决策都把当前 obs 完整打印到 .log，便于回看决策依据。
+            self._llm_infer_emit("    [Observation @ decision]")
+            for _line in (obs_text or "").splitlines():
+                self._llm_infer_emit(f"      {_line}")
+
             pending_summary = (
                 self.scheduler.pending_summary_text() if self.scheduler else "  (empty)"
             )
 
-            # ---------- 阶段1：增量 Agent ----------
+            # ---------- 阶段1：增量 Agent（输出一段自然语言计划）----------
             inc_msgs = build_increment_messages(
                 race=self.race_name,
                 obs_text=obs_text,
@@ -1256,20 +1271,20 @@ class UniversalLLMBot(KnowledgeBot):
             inc_raw = self._call_llm(inc_msgs, agent="increment")
             record["increment_raw"] = inc_raw
             parsed_inc = parse_increment_response(inc_raw)
-            if not parsed_inc or not parsed_inc.get("increments"):
-                self._llm_infer_emit("    Increment Agent produced no usable increments; skipping cycle.")
+            if not parsed_inc or not parsed_inc.get("plan"):
+                self._llm_infer_emit("    Increment Agent produced no usable plan; skipping cycle.")
                 record["error"] = "increment_empty"
                 return
             mode = parsed_inc["mode"]
-            increments = parsed_inc["increments"]
+            plan_text = parsed_inc["plan"]
             record["mode"] = mode
-            record["increments"] = increments
-            self._llm_infer_emit(f"    Stage1 increments (mode={mode}): {increments}")
+            record["increment_plan"] = plan_text
+            self._llm_infer_emit(f"    Stage1 plan (mode={mode}): {plan_text}")
 
-            # ---------- 阶段2：命名 Agent ----------
+            # ---------- 阶段2：命名 Agent（从一段计划中抽取标准名+数量）----------
             name_msgs = build_naming_messages(
                 race=self.race_name,
-                increments=increments,
+                plan_text=plan_text,
                 terran_unit_names=terran_unit_names(),
                 terran_upgrade_names=terran_upgrade_names(),
                 alias_pairs=ALIAS_MAP,
@@ -1533,7 +1548,64 @@ class UniversalLLMBot(KnowledgeBot):
             )
             return ""
 
-        return call_openai(messages=messages, model_key=model_key)
+        response = call_openai(messages=messages, model_key=model_key)
+        self._record_llm_call(agent=agent, model_key=model_key, messages=messages, output=response)
+        return response
+
+    def _record_llm_call(
+        self,
+        *,
+        agent: str,
+        model_key: str,
+        messages: List[Dict[str, str]],
+        output: str,
+    ) -> None:
+        """把一次 LLM 调用的 prompt 与 output 追加到内存，并增量落盘到专门 JSON。"""
+        self._llm_call_seq += 1
+        try:
+            game_time = round(float(getattr(self, "time", 0.0)), 2)
+        except Exception:
+            game_time = None
+        self._llm_call_records.append(
+            {
+                "seq": self._llm_call_seq,
+                "game_time": game_time,
+                "macro_cycle": self._macro_cycle_count,
+                "agent": agent,
+                "model_key": model_key,
+                "prompt": list(messages),
+                "output": output,
+            }
+        )
+        # 增量落盘：即便对局中途被 kill，也能保留已发生的调用记录。
+        self._flush_llm_call_log()
+
+    def _llm_call_log_path(self) -> Optional[str]:
+        recorder = getattr(self, "llm_observation_recorder", None)
+        if recorder is None:
+            return None
+        try:
+            base = recorder._resolve_output_path()
+        except Exception:
+            return None
+        root, _ext = os.path.splitext(base)
+        return root + ".llm_calls.json"
+
+    def _flush_llm_call_log(self) -> None:
+        path = self._llm_call_log_path()
+        if not path:
+            return
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            payload = {
+                "match": os.path.basename(path)[: -len(".llm_calls.json")],
+                "llm_call_count": len(self._llm_call_records),
+                "calls": self._llm_call_records,
+            }
+            with open(path, "w", encoding="utf-8") as handle:
+                json.dump(payload, handle, ensure_ascii=False, indent=2)
+        except Exception as exc:
+            logger.debug("[UniversalLLMBot] failed to flush llm_calls log: %s", exc)
 
     def _call_mid_agent(
         self,
@@ -1678,25 +1750,31 @@ class UniversalLLMBot(KnowledgeBot):
     # ------------------------------------------------------------------
 
     async def create_plan(self) -> BuildOrder:
-        """组装 BuildOrder：命令式执行调度器（并行）+ 仅含无消耗工具的后台战术（并行）。
+        """组装 BuildOrder：命令式执行调度器 + 通用后台战术 + 按 skill 注入的侦察/攻击。
 
-        替换原 ``ActLLMOngoingTasks`` 声明式执行层与含耗资源工具的 base_tactics：
+        三条并行轨：
         * ``ExecutionScheduler``：增量流水线产出的命令式 Action 序列的执行器。
-        * ``BackgroundTactics``：只保留不耗矿/气/supply 的侦察/防守/集结/进攻/运营工具。
+        * ``BackgroundTactics``：策略无关、只含不耗矿/气/supply 的运营 + 防守工具。
+        * scout/attack 战术：**按所选 skill 注入**——优先用
+          ``SKILL/{race}/{strategy}/scout_attack.py``，缺省回退
+          ``SKILL/{race}/scout_attack_default.py``。这样不同策略可定义各自的
+          侦察与进攻触发逻辑。
         """
         self.scheduler = ExecutionScheduler(wait_abandon_sec=self.WAIT_ABANDON_SEC)
         # 注入执行者 Agent 回调（train/addon/morph 多候选时由 LLM 选执行单位）。
         self.scheduler.executor_llm = self._executor_llm_select
 
         background = self._load_background_tactics()
+        scout_attack = self._load_scout_attack_tactics()
 
         return BuildOrder([
             self.scheduler,
             background,
+            scout_attack,
         ])
 
     def _load_background_tactics(self) -> BuildOrder:
-        """加载只含无资源消耗工具的后台战术（人族）。失败时回退 EmptyTactics。"""
+        """加载策略无关的后台战术（运营 + 防守，无资源消耗）。失败回退 EmptyTactics。"""
         try:
             from SKILL.terran.background_tactics import BackgroundTactics
 
@@ -1704,6 +1782,55 @@ class UniversalLLMBot(KnowledgeBot):
         except Exception as exc:
             logger.warning("Failed to load BackgroundTactics; using EmptyTactics: %s", exc)
             return EmptyTactics()
+
+    def _load_scout_attack_tactics(self) -> BuildOrder:
+        """按所选 skill 注入侦察/攻击战术。
+
+        查找顺序：
+        1. ``SKILL.{race}.{selected_strategy}.scout_attack`` —— skill 自定义；
+        2. ``SKILL.{race}.scout_attack_default`` —— 通用兜底；
+        3. ``EmptyTactics`` —— 兜底失败。
+
+        模块中第一个 ``BuildOrder`` / ``SequentialList`` 子类（非基类本身）即视为
+        侦察/攻击战术执行器。
+        """
+        candidates: List[str] = []
+        if self.selected_strategy and self.selected_strategy != CUSTOM_STRATEGY_NAME:
+            candidates.append(f"SKILL.{self.race_name}.{self.selected_strategy}.scout_attack")
+        candidates.append(f"SKILL.{self.race_name}.scout_attack_default")
+
+        for module_path in candidates:
+            tactics = self._instantiate_tactics_from_module(module_path)
+            if tactics is not None:
+                self._llm_infer_emit(f"    [ScoutAttack] loaded from {module_path}")
+                return tactics
+        logger.warning("No scout/attack tactics found; using EmptyTactics.")
+        return EmptyTactics()
+
+    def _instantiate_tactics_from_module(self, module_path: str) -> Optional[BuildOrder]:
+        """import 模块并实例化其中第一个 BuildOrder/SequentialList 子类。失败返回 None。"""
+        try:
+            mod = importlib.import_module(module_path)
+        except ImportError:
+            return None
+        except Exception as exc:
+            logger.warning("Error importing tactics module %s: %s", module_path, exc)
+            return None
+
+        for attr_name in dir(mod):
+            attr = getattr(mod, attr_name)
+            if isinstance(attr, type) and (
+                (issubclass(attr, BuildOrder) and attr is not BuildOrder)
+                or (issubclass(attr, SequentialList) and attr is not SequentialList)
+            ):
+                try:
+                    return attr()
+                except TypeError:
+                    try:
+                        return attr(20)
+                    except Exception as exc:
+                        logger.warning("Failed to instantiate %s: %s", attr_name, exc)
+        return None
 
 
 # ----------------------------------------------------------------------

@@ -34,33 +34,36 @@ Execution model:
     - "replace": discard the unfinished plan and start fresh from this list."""
 
 _SIZING_GUIDANCE = """\
-Sizing guidance (IMPORTANT):
-* The increments must be realistically achievable within ONE planning window of
-  about {horizon} seconds, given your CURRENT production capacity and economy in
-  the observation. Do NOT dump a huge batch at once.
-* Rule of thumb for one {horizon}s window:
-    - Workers (SCV): roughly 1 per active town hall for this window (a town hall
-      makes ~1 SCV every ~12s, but you also spend minerals elsewhere). Asking for
-      6+ SCVs in a single window is almost always too much.
-    - Army units: only as many as your current production buildings can actually
-      produce in {horizon}s (about 1-2 per relevant production building).
-    - Structures: usually 1-3 new buildings per window.
-* Prefer a small, focused increment that the economy can sustain, then expand it
-  next cycle. Over-planning wastes the window and starves higher-priority items."""
+Planning horizon & sizing (IMPORTANT):
+* Plan a RELATIVELY LONG-RANGE build covering the whole next ~{horizon} seconds,
+  not just one or two immediate actions. Describe a coherent ~{horizon}s game plan.
+* The plan must still be realistically achievable within {horizon} seconds given
+  your CURRENT production capacity and economy in the observation — size the
+  amounts to what your town halls / production buildings can actually output in
+  {horizon}s, and to what your income can pay for. A {horizon}s window is long
+  enough for several workers, a few army units, and 2-4 new structures / tech
+  steps, sequenced sensibly.
+* Cover the important dimensions for this window: economy (workers / expansion),
+  production buildings & add-ons, tech / upgrades, and army composition — all in
+  service of the Selected Strategy."""
 
 _OUTPUT_FORMAT = """\
 Output format:
-1. First write ONE concise reasoning paragraph outside JSON.
+1. First write ONE short reasoning sentence outside JSON.
 2. Then output ONE JSON object with this exact schema:
-{"mode":"append"|"replace","increments":["Add 1 Barracks","Add a Tech Lab on the Barracks","Add 4 Marines"]}
+{"mode":"append"|"replace","plan":"<one natural-language paragraph>"}
 
-Rules for increments:
-* Each item is ONE increment about ONE unit / structure / upgrade type only.
-* Express increments as deltas to ADD ("Add N X"), never cumulative targets.
-* Upgrades/researches are written as a single item (e.g. "Research Stimpack").
-* List order = execution precedence (earliest first); you may use words like
-  "then"/"before" for clarity.
-* Do not output markdown fences, comments, or action keys inside the JSON."""
+Rules for the "plan" field:
+* It is ONE single natural-language PARAGRAPH (a full prose description), NOT a
+  list and NOT bullet points. Write it as flowing sentences.
+* Describe the WHOLE ~horizon plan: which structures to add, which units to
+  train and roughly how many, which add-ons, and which upgrades/research — and
+  the rough order / dependencies (use words like "first", "then", "after",
+  "while"). State amounts as increments to ADD (e.g. "add three more SCVs",
+  "build two Barracks"), never cumulative targets.
+* Do NOT plan supply depots (they are inserted automatically).
+* Keep it to one paragraph; do not output markdown fences, lists, JSON arrays, or
+  action keys inside the "plan" string."""
 
 
 def build_increment_messages(
@@ -86,9 +89,10 @@ def build_increment_messages(
 
     horizon = int(interval_seconds)
     system_msg = f"""You are a senior StarCraft II {race_cap} macro commander.
-Every cycle you output the ABSOLUTE INCREMENT (delta) of structures / units /
-upgrades to ADD over roughly the next {horizon} seconds (this is your planning
-window / horizon), strictly following the Selected Strategy below.
+Every cycle you describe, as ONE natural-language paragraph, the ABSOLUTE
+INCREMENT (delta) of structures / units / upgrades to ADD over roughly the next
+{horizon} seconds (this is your planning window / horizon), strictly following
+the Selected Strategy below.
 
 {_EXECUTION_MODEL}
 
@@ -132,7 +136,11 @@ def _extract_json_object(text: str) -> Optional[Dict[str, Any]]:
 
 
 def parse_increment_response(text: str) -> Optional[Dict[str, Any]]:
-    """解析阶段1 输出 ``{"mode": ..., "increments": [...]}``；非法返回 ``None``。"""
+    """解析阶段1 输出 ``{"mode": ..., "plan": "<一段自然语言>"}``；非法返回 ``None``。
+
+    兼容旧格式 ``{"increments": [...]}``：若没有 ``plan`` 字段但有 ``increments``
+    列表，则把列表拼成一段文本。
+    """
     if not text:
         return None
     data = _extract_json_object(text)
@@ -143,8 +151,15 @@ def parse_increment_response(text: str) -> Optional[Dict[str, Any]]:
     mode = data.get("mode")
     if mode not in ("append", "replace"):
         mode = "replace"  # safe default
+
+    plan = data.get("plan")
+    if isinstance(plan, str) and plan.strip():
+        return {"mode": mode, "plan": plan.strip()}
+
+    # 向后兼容：旧的 increments 列表 → 合成一段文本
     raw_increments = data.get("increments")
-    if not isinstance(raw_increments, list):
-        return None
-    increments = [s.strip() for s in raw_increments if isinstance(s, str) and s.strip()]
-    return {"mode": mode, "increments": increments}
+    if isinstance(raw_increments, list):
+        parts = [s.strip() for s in raw_increments if isinstance(s, str) and s.strip()]
+        if parts:
+            return {"mode": mode, "plan": "; ".join(parts) + "."}
+    return None

@@ -17,7 +17,7 @@ logger = logging.getLogger("SC2_Agent.naming_agent")
 
 def build_naming_messages(
     race: str,
-    increments: List[str],
+    plan_text: str,
     terran_unit_names: List[str],
     terran_upgrade_names: List[str],
     alias_pairs: Dict[str, str],
@@ -25,7 +25,7 @@ def build_naming_messages(
     """构建阶段2 命名 Agent Prompt。
 
     :param race:                当前种族名（固定 terran）。
-    :param increments:          阶段1 输出的自然语言增量列表。
+    :param plan_text:           阶段1 输出的**一段自然语言增量计划**（整段话）。
     :param terran_unit_names:   人族 canonical Unit 名单。
     :param terran_upgrade_names:人族 canonical Upgrade 名单。
     :param alias_pairs:         别名 -> canonical 名 映射（仅作提示）。
@@ -35,18 +35,19 @@ def build_naming_messages(
     upgrades_text = ", ".join(terran_upgrade_names)
     alias_text = "\n".join(f"  - {k} -> {v}" for k, v in alias_pairs.items()) or "  (none)"
 
-    system_msg = f"""You convert natural-language {race_cap} build increments into
-canonical entity names with counts, using ONLY names from the Canonical Name List
-below.
+    system_msg = f"""You read a natural-language {race_cap} build plan (one paragraph)
+and extract EVERY structure / unit / upgrade it says to ADD, as canonical entity
+names with counts, using ONLY names from the Canonical Name List below.
 
 Rules:
+* Read the whole paragraph and enumerate ALL increments it mentions.
 * Output ONLY entities that {race_cap} can build / train / research.
 * Use the EXACT canonical spelling from the lists below.
 * Map common aliases to their canonical name (see Alias map).
 * Upgrades / researches ALWAYS have count 1.
-* Structures and add-ons: count = how many to ADD this cycle.
-* Units: count = how many to ADD this cycle.
-* Drop any increment you cannot confidently map to a canonical name.
+* Structures, add-ons and units: count = how many to ADD this cycle (sum up if the
+  paragraph mentions the same entity more than once).
+* Drop anything you cannot confidently map to a canonical name.
 * Do NOT include Supply Depots (handled automatically by the system).
 
 [Canonical {race_cap} Units]
@@ -61,8 +62,7 @@ Rules:
 Output ONLY one JSON object, no prose, no markdown fences:
 {{"items":[{{"name":"Barracks","count":1}},{{"name":"BarracksTechLab","count":1}},{{"name":"Marine","count":4}}]}}"""
 
-    increments_json = json.dumps(increments, ensure_ascii=False, indent=2)
-    user_msg = f"[Increments]\n{increments_json}"
+    user_msg = f"[Build plan paragraph]\n{plan_text}"
 
     return [
         {"role": "system", "content": system_msg},
