@@ -28,6 +28,22 @@ from .down_agent import (
     build_translation_messages,
     parse_translation_response,
 )
+from .increment_agent import (
+    build_increment_messages,
+    parse_increment_response,
+)
+from .naming_agent import (
+    build_naming_messages,
+    parse_naming_response,
+)
+from .ordering_agent import (
+    build_ordering_messages,
+    parse_ordering_response,
+)
+from .executor_agent import (
+    build_executor_messages,
+    parse_executor_response,
+)
 
 __all__ = [
     "CUSTOM_STRATEGY_NAME",
@@ -45,4 +61,13 @@ __all__ = [
     "parse_planning_response",
     "build_translation_messages",
     "parse_translation_response",
+    # 新五阶段流水线 Agent
+    "build_increment_messages",
+    "parse_increment_response",
+    "build_naming_messages",
+    "parse_naming_response",
+    "build_ordering_messages",
+    "parse_ordering_response",
+    "build_executor_messages",
+    "parse_executor_response",
 ]

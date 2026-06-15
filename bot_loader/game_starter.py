@@ -159,6 +159,26 @@ Builds:
             default="",
         )
         parser.add_argument(
+            "--increment-model",
+            help="Model key from config.json for Increment Agent (stage 1).",
+            default="",
+        )
+        parser.add_argument(
+            "--naming-model",
+            help="Model key from config.json for Naming Agent (stage 2).",
+            default="",
+        )
+        parser.add_argument(
+            "--ordering-model",
+            help="Model key from config.json for Ordering Agent (stage 4).",
+            default="",
+        )
+        parser.add_argument(
+            "--executor-model",
+            help="Model key from config.json for Executor Agent (train/addon/morph).",
+            default="",
+        )
+        parser.add_argument(
             "--force-strategy",
             help="Force a specific strategy folder name (e.g. 'marine_rush'); bypasses t=0 LLM.",
             default="",
@@ -240,12 +260,18 @@ Builds:
         GameStarter._set_recorder_replay_path(player2_bot, replay_path)
 
         runner = MatchRunner()
+        # Game length cap in seconds. Default 30 game-minutes; override via the
+        # SC2_GAME_TIME_LIMIT env var (useful for short smoke tests).
+        try:
+            _time_limit = int(float(os.environ.get("SC2_GAME_TIME_LIMIT", 30 * 60)))
+        except (TypeError, ValueError):
+            _time_limit = 30 * 60
         result = runner.run_game(
             maps.get(map_name),
             [player1_bot, player2_bot],
             player1_id=player1,
             realtime=args.real_time,
-            game_time_limit=(30 * 60),
+            game_time_limit=_time_limit,
             save_replay_as=replay_path,
             start_port=args.port,
         )
@@ -282,6 +308,14 @@ Builds:
                 my_bot.mid_model_key = args.mid_model
             if getattr(args, "down_model", None) and hasattr(my_bot, "down_model_key"):
                 my_bot.down_model_key = args.down_model
+            if getattr(args, "increment_model", None) and hasattr(my_bot, "increment_model_key"):
+                my_bot.increment_model_key = args.increment_model
+            if getattr(args, "naming_model", None) and hasattr(my_bot, "naming_model_key"):
+                my_bot.naming_model_key = args.naming_model
+            if getattr(args, "ordering_model", None) and hasattr(my_bot, "ordering_model_key"):
+                my_bot.ordering_model_key = args.ordering_model
+            if getattr(args, "executor_model", None) and hasattr(my_bot, "executor_model_key"):
+                my_bot.executor_model_key = args.executor_model
             if hasattr(my_bot, "force_strategy"):
                 fs = (getattr(args, "force_strategy", "") or "").strip()
                 my_bot.force_strategy = fs if fs and fs.lower() != "none" else None

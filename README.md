@@ -1,317 +1,343 @@
 # StarCraft II LLM Multi-Agent Framework
 
-本项目是一个基于大语言模型 (LLM) 驱动的《星际争霸 II》自动化 AI 框架。底层封装了基于规则的 SC2 运行平台（`sharpy`），并在其之上构建了一个 **三层多智能体 (Multi-Agent) 架构**（`SC2_Agent`），将自然语言指令逐步降维、拆解，最终转化为游戏内的宏观与微操指令。
+> 📌 **当前版本（2026-06）已升级为「LLM 增量驱动宏观决策 + 命令式执行调度」架构**（5 个 LLM 阶段
+> + DATA_TOOLS 知识库 + `ExecutionScheduler`）。完整说明请看 **[`docs/系统文档.md`](docs/系统文档.md)**；
+> 环境搭建请看 **[`docs/环境配置教程.md`](docs/环境配置教程.md)**。
+> 下文保留的 Top/Mid/Down 声明式说明为 **legacy**（仍在仓库中、但默认不再走该执行路径）。
 
-最新一轮迭代在原有的三层智能体之上叠加了三个跨层模块：
+本项目是一个基于大语言模型 (LLM) 驱动的《星际争霸 II》自动化 AI 框架。底层封装了基于规则的 SC2 运行平台（`sharpy`），并在其之上构建了 **三层多智能体 (Multi-Agent) 架构**（`SC2_Agent` + `UniversalLLMBot`），将自然语言指令逐步降维、拆解，最终转化为游戏内的宏观运营与动作指令。
 
-1. **T=0 动态策略生成与持久化** — 让 LLM 在开局生成全新策略，自动写盘并注册到策略库；
-2. **双段式决策流 (Two-Stage Pipeline)** — Top/Mid Agent 每次决策先做 *Skill 筛选*，再做 *Decision Making*；
-3. **消融实验开关 + 策略路由控制** — CLI / 环境变量一键控制 Skill 注入粒度，并支持强制策略旁路。
+当前版本的核心设计：
+
+1. **Top Agent（t=0 策略选择）** — 开局从策略库中 SELECT / VIEW / GENERATE，确定本局宏观打法；
+2. **Mid Agent（周期性规划）** — 每 30 秒根据观测 + 策略全文输出自然语言任务列表；
+3. **Down Agent（动作翻译）** — 将每条任务翻译为带 **优先级锁资源** 的目标导向 JSON 动作；
+4. **双轨执行层** — LLM 动态运营（`ActLLMOngoingTasks`）与策略静态战术（`base_tactics.py`）并行运行。
 
 ---
 
-## 🧠 SC2_Agent 三层架构
+## 项目结构
 
-`SC2_Agent` 目录是本项目的大模型决策核心，分为 **Top / Mid / Down** 三层，自上而下链式协作。
+```
+sharpy-sc2/
+├── SC2_Agent/              # 三层 Agent 的 Prompt 构建与解析
+│   ├── top_agent.py        # t=0 策略选择 / GENERATE 持久化
+│   ├── mid_agent.py        # 宏观任务规划
+│   └── down_agent.py       # 自然语言 → 动作 JSON
+├── dummies/generic/
+│   └── universal_llm_bot.py  # 核心 Bot：UniversalLLMBot
+├── SKILL/                  # 战术知识库（当前已实现 terran）
+│   └── terran/
+│       ├── Action.py       # 合法动作空间 + priority 支持
+│       ├── registry.json   # 策略白名单
+│       ├── generic/        # 兜底战术（GENERATE 拷贝源）
+│       └── <strategy>/     # 各策略目录
+├── API_config/config.json  # LLM 模型池配置
+├── API_Tools/llm_caller.py # OpenAI 兼容 API 调用封装
+├── bot_loader/             # Bot 注册与对战启动
+├── run_vs_ai.py            # 单局对战入口（含 DEFAULT_* 运行配置）
+├── run_vs_ai_batch.sh      # 批量并发引擎
+├── start_experiments.sh    # 实验参数预设 + 启动批量
+├── parse_sc2_logs.py       # 批次胜率 / 策略维度统计
+└── game_records/           # 对局录像、日志、JSON 记录
+```
+
+更详细的 Sharpy Bot 继承关系见 [`readme_bot.md`](readme_bot.md)。
+
+---
+
+## SC2_Agent 三层架构
+
+`SC2_Agent` 是 LLM 决策核心；`UniversalLLMBot`（`dummies/generic/universal_llm_bot.py`）负责调度三层 Agent 并与 Sharpy 执行层对接。
 
 | 层 | 角色 | 触发节奏 | 输出 |
 |---|---|---|---|
-| **Top Agent** | 全局指挥官 | t=0 + 每 60s | t=0：策略名/详情；60s：`{phase, focus}` |
-| **Mid Agent** | 运营执行官 | 每 12s（默认 `MID_AGENT_POLL_INTERVAL`） | `{"tasks": ["自然语言任务", ...]}` |
-| **Down Agent** | 微操翻译官 | Mid 每输出一条任务即触发一次 | `{"action": "<key>", "to_count": <int>}` |
+| **Top Agent** | 全局指挥官 | 仅 t=0（开局一次） | 策略名 + `Top_agent_0.md` 全文 |
+| **Mid Agent** | 运营规划师 | 每 **30s**（`MID_AGENT_POLL_INTERVAL`） | `{"tasks": ["自然语言任务", ...]}` |
+| **Down Agent** | 动作翻译官 | Mid 每输出一条任务即触发一次 | `{"action": "<key>", "to_count": <int>, "priority": <bool>}` |
 
-### Top Agent（全局指挥官）
+### Top Agent（t=0 策略选择）
 
-* **t=0 — 交互式策略选择**：将 `SKILL/<race>/` 下经过注册表过滤的所有策略摘要展示给 LLM，允许它选择以下三种动作之一，最多 `TOP_AGENT_INITIAL_MAX_TURNS=5` 轮：
-  * `SELECT`：直接选定某个已登记策略；
-  * `VIEW`：请求查看一个或多个策略的完整 `Top_agent_0.md` 详情后再决定；
-  * `GENERATE`：触发**模块一**的动态生成流程（详见下文）。
-* **每 60s — 双段式阶段评估**（详见**模块二**）：先调一次 LLM 从 Skill 候选池中筛选关键约束，再调一次 LLM 输出 `{"phase": "early|mid|late", "focus": "..."}`。
+开局将 `SKILL/<race>/` 下经注册表过滤的策略摘要展示给 LLM，支持最多 `TOP_AGENT_INITIAL_MAX_TURNS=5` 轮交互：
 
-### Mid Agent（运营执行官）
+| 动作 | 含义 |
+|---|---|
+| `SELECT` | 直接选定某个已登记策略 |
+| `VIEW` | 请求查看一个或多个策略的完整 `Top_agent_0.md` 后再决定 |
+| `GENERATE` | 触发新策略生成并持久化到磁盘（见下文） |
 
-* **决策周期**：每 12s 跑一次双段式 Pipeline。
-* **输入**：上一轮自然语言任务 + 当前 obs + Top Agent 输出的 `phase/focus` + Phase 1 选出的 Skill 约束块。
-* **输出**：自然语言宏观任务列表。**列表顺序 = 资源分配优先级**。
+选定策略后，`strategy_description`（`Top_agent_0.md` 的 `# Details` 段）会作为 **Mid Agent 全程的宏观指导**，不再做额外的 60 秒阶段评估轮询。
 
-### Down Agent（动作翻译官）
+### Mid Agent（宏观规划）
 
-* **角色**：纯翻译层，无状态。
+* **决策周期**：每 30 秒执行一次（可在 `UniversalLLMBot.MID_AGENT_POLL_INTERVAL` 调整）。
+* **输入**：当前 obs + 上一轮自然语言任务 + t=0 选定的策略全文（`strategy_description`）。
+* **输出**：自然语言宏观任务列表。**列表顺序 = 资源分配优先级**（靠前的任务优先占用矿/气/工人）。
+* **Priority 约定**：若某任务需要锁资源等待高价值单位/建筑，在任务字符串末尾追加 `(Priority)`，Down Agent 会将其翻译为 `priority: true`（详见下文）。
+
+Mid Agent 只负责宏观运营（造建筑、训单位），不规划侦察或微操；执行位置由下层 Sharpy Act 自行决定。
+
+#### 游戏观测（obs）与 `BuildDetector`
+
+Mid / Down Agent 每轮决策前，由 `LLMObservationRecorder` 生成英文观测文本（`observation_at_decision_time`）。其中 **`[Threat Flags]`** 段依赖 Sharpy 扩展管理器 **`BuildDetector`**（对手 rush / 宏观开局识别）。
+
+`UniversalLLMBot` 在 `configure_managers()` 中显式加载 `BuildDetector()`，与 `KnowledgeBot` 默认栈合并后：
+
+| 能力 | 说明 |
+|---|---|
+| `[Threat Flags]` | 无威胁时为 `none.`；检测到 rush 时形如 `enemy rush detected (ProxyRax)`；非标准宏观为 `enemy macro build = Mmm` 等 |
+| `DataManager` | 可将对手 `rush_build` / `macro_build` 写入对局数据（需 `write_data=yes`） |
+| 结构化快照 | `observation_structured.memory_flags` 含 `is_rushing`、`rush_build`、`macro_build` |
+
+**注意**：`BuildDetector` 根据**已侦察到的敌方建筑与单位**推断开局；前期无侦察时 `[Threat Flags]` 仍可能为 `none.`，与 Manager 是否加载无关。更完整的观测字段说明见 [`note/llm_observation_recorder.md`](note/llm_observation_recorder.md)。
+
+### Down Agent（动作翻译）
+
+* **角色**：无状态纯翻译层。
 * **输入**：Mid 输出的**单条**自然语言任务 + obs + 合法动作空间（`SKILL/<race>/Action.py::get_action_space()`）。
-* **输出**：严格 JSON `{"action": "<key>", "to_count": <int>}`；不合法动作直接被丢弃。
+* **输出**：严格 JSON `{"action": "<key>", "to_count": <int>, "priority": <bool>}`；不合法动作直接被丢弃。
+* **`to_count`**：场上（含建造中）的**绝对目标数量**，非增量。
+* **`priority`**：仅当任务含 `(Priority)` 且该 action 支持 priority 时为 `true`。
 
 ---
 
-## 🎯 模块一：T=0 动态策略生成与持久化
+## 决策与执行流程
 
-### 1.1 GENERATE 流水线
+```
+[Player Instruct]
+       │
+       ▼
+┌── Top Agent (t=0) ──────────────────────────────┐
+│  SELECT / VIEW / GENERATE                        │
+│  → selected_strategy + strategy_description      │
+└──────────────────────┬──────────────────────────┘
+                       │
+       ┌───────────────┴───────────────┐
+       │  每 30s                        │
+       ▼                                │
+┌── Mid Agent ─────────────────────────┤
+│  obs + strategy_desc + prev_tasks    │
+│  → {"tasks": [...]}  (有序优先级)    │
+└──────────────┬───────────────────────┘
+               │ 逐条
+               ▼
+┌── Down Agent ────────────────────────┐
+│  task + obs + action_space             │
+│  → {"action", "to_count", "priority"}  │
+└──────────────┬─────────────────────────┘
+               ▼
+       active_tasks
+               │
+               ▼
+   ActLLMOngoingTasks（每帧 await act.execute()）
+               ║  并行
+               ║
+   base_tactics.py（策略静态战术：防守/进攻/收尾）
+```
 
-当 t=0 交互流中 LLM 返回 `{"action": "GENERATE", ...}` 时，Bot 不再仅把生成的描述作为运行时占位，而是会执行一次**完整的策略落盘**：
+`create_plan()` 返回 `BuildOrder([ActLLMOngoingTasks, base_tactics])`，两条执行轨并行运行。
 
-1. **相似策略检索**（`SC2_Agent.top_agent.find_similar_strategies`）
-   * 用 *玩家指令 + LLM 第一次草稿 + 开局 obs* 拼接作为 query。
-   * 在 `_available_strategies` 中按 **Jaccard 相似度** 取 `STRATEGY_GENERATION_TOPK=3` 条作为写作参考。
-2. **第二次 LLM 调用**（`build_strategy_generation_messages`）
-   * 强制输出 JSON `{"Strategy_Name": "<snake_case>", "Strategy_Description": "<多段落正文>"}`。
-   * `parse_generated_strategy` 自动规范化命名：仅保留 `[a-z0-9_]`、重名时追加 `_v2/_v3...`。
-3. **文件系统持久化**（`UniversalLLMBot._materialise_strategy_folder`）
-   * 创建 `SKILL/<race>/<Strategy_Name>/`
-   * 写入 `Top_agent_0.md`（英文标题：`# Summary` / `# Details`）
-   * **硬编码复制** `SKILL/<race>/generic/base_tactics.py` → `<Strategy_Name>/base_tactics.py`
-   * 同时创建空的 `Top_agent_60.md` / `mid_agent.md` 占位
-4. **自动注册** 到 `SKILL/<race>/registry.json`（详见 §1.2）
+---
 
-完成后，新策略立刻生效：
-* `_load_dynamic_tactics()` 会 `importlib.import_module("SKILL.<race>.<name>.base_tactics")` 加载战术；
-* `_resolve_phase_guidance()` 会按新策略名路由 Skill 库。
+## Priority 资源锁机制
 
-### 1.2 策略注册表 `SKILL/<race>/registry.json`
+部分动作支持 `priority=True`，触发 Sharpy 的资源预留（锁矿/锁气），防止低优先级任务在资源不足时"偷走"高价值目标的积累。
+
+**Mid → Down 协作方式**：
+
+* Mid 在任务字符串末尾写 `(Priority)`，例如 `"Train Battlecruiser to 3 (Priority)"`；
+* Down 解析为 `"priority": true`；
+* Bot 在写入 `active_tasks` 前会调用 `action_supports_priority(key)` 校验，不支持则自动降级为 `false`。
+
+**支持 priority 的动作类型**（人族 `Action.py`）：
+
+* 所有 `type=unit` 的训练动作；
+* `expand`（扩张）；
+* 部分 GridBuilding 类建筑（Supply Depot、Barracks、Factory、Starport 等）。
+
+动作空间中支持 priority 的 key 会在 description 末尾标注 `[Supports Priority]`，供 Down Agent 参考。
+
+---
+
+## SKILL 战术知识库
+
+当前已实现 **人族 (`terran`)** 策略库；Bot 通过 `race_name` 动态加载 `SKILL.{race}.Action` 与对应策略目录，其他种族需自行补充 `Action.py` 与策略文件夹。
+
+### 目录结构
+
+```
+SKILL/terran/
+├── registry.json              ← 策略白名单
+├── Action.py                  ← 合法动作空间（Down Agent 用）
+├── generic/
+│   ├── base_tactics.py        ← 兜底战术 + GENERATE 拷贝源
+│   └── base_des.md            ← 人类可读的战术说明（不参与运行时加载）
+├── marine_rush/
+│   ├── Top_agent_0.md         ← # Summary / # Details（Top/Mid 共用）
+│   ├── base_tactics.py        ← 静态战术（防守/进攻/收尾）
+│   └── base_des.md            ← 可选，人类参考
+├── battle_cruisers/
+├── two_base_tanks/
+├── two_base_tanks_marine_rush_2 … _8   ← GENERATE 或手工迭代版本
+└── …
+```
+
+### `Top_agent_0.md` 格式
+
+由 `parse_top_agent_0_md` 解析，兼容中英文标题：
+
+| 字段 | 标题（任选其一） | 用途 |
+|---|---|---|
+| `summary` | `# Summary` / `# 摘要` | t=0 策略列表中的短摘要 |
+| `detail` | `# Details` / `# 详细内容` | Mid Agent 全程宏观指导正文 |
+
+### 策略注册表 `registry.json`
 
 ```json
 {
   "_comment": "Whitelist...",
-  "registered_strategies": ["marine_rush", "battle_cruisers", "two_base_tanks"]
+  "registered_strategies": [
+    "marine_rush", "battle_cruisers", "two_base_tanks",
+    "safe_tvt_raven", "cyclones", "rusty", "bio", "banshees",
+    "one_base_turtle", "two_base_tanks_marine_rush_2", "…"
+  ]
 }
 ```
 
-* `_discover_strategies()` 优先读注册表：**仅** 列出 `registered_strategies` 中的策略，物理目录存在但未登记的会被忽略。
-* 注册表缺失/损坏时自动回退到旧行为（按文件系统扫描）。
+* `_discover_strategies()` 优先读注册表：**仅**列出 `registered_strategies` 中的策略；
+* 物理目录存在但未登记的会被忽略；
 * GENERATE 新策略由 `_register_strategy(name)` 自动追加（幂等去重）。
-* `_comment` 字段仅供人阅读，不会进入任何 Prompt 也不会写入日志。
 
-### 1.3 `--force-strategy` 旁路
+### 静态战术 `base_tactics.py`
 
-调试或控制变量实验时可以用 `--force-strategy <name>` **完全绕过 t=0 LLM**：
+每个策略目录下的 `base_tactics.py` 定义 **与 LLM 并行的后台战术**（如区域防守、阈值进攻、收尾）。Bot 在 `create_plan()` 时通过 `importlib` 动态加载：
+
+```
+SKILL.{race}.{selected_strategy}.base_tactics
+```
+
+模块中第一个继承 `BuildOrder` 或 `SequentialList` 的战术类会被实例化。GENERATE 新策略时，会自动从 `generic/base_tactics.py` 拷贝一份作为起点。
+
+---
+
+## T=0 动态策略生成与持久化
+
+当 t=0 交互中 LLM 返回 `{"action": "GENERATE", ...}` 时，Bot 执行完整落盘流程：
+
+1. **相似策略检索**（`find_similar_strategies`）：用玩家指令 + LLM 草稿 + 开局 obs 拼接 query，按 Jaccard 相似度取 `STRATEGY_GENERATION_TOPK=3` 条参考；
+2. **第二次 LLM 调用**（`build_strategy_generation_messages`）：强制输出 `{"Strategy_Name": "<snake_case>", "Strategy_Description": "..."}`；
+3. **文件系统持久化**（`_materialise_strategy_folder`）：
+   * 创建 `SKILL/<race>/<Strategy_Name>/`
+   * 写入 `Top_agent_0.md`（`# Summary` + `# Details`）
+   * 拷贝 `generic/base_tactics.py` → 新策略目录
+4. **自动注册**到 `registry.json`
+
+命名自动规范化（仅 `[a-z0-9_]`），重名时追加 `_v2/_v3...`。
+
+---
+
+## `--force-strategy` 策略锁定
+
+调试或控制变量实验时，用 `--force-strategy <name>` **完全绕过 t=0 LLM**：
+
 * `on_start()` 检测到非空 `force_strategy` 后直接调 `_apply_forced_strategy(name)`；
 * 不发起任何 LLM 调用；
-* `selected_strategy / strategy_description` 直接从 `SKILL/<race>/<name>/Top_agent_0.md` 读取并锁定；
-* 同时写入一条 `trigger_reason="top_agent_initial_t0_forced"` 的 JSON 记录，便于事后区分。
+* `selected_strategy / strategy_description` 直接从 `SKILL/<race>/<name>/Top_agent_0.md` 读取；
+* 写入 `trigger_reason="top_agent_initial_t0_forced"` 的 JSON 记录。
+
+```bash
+python run_vs_ai.py --force-strategy battle_cruisers
+python run_vs_ai.py --force-strategy none   # 取消强制，走 LLM 选择
+```
+
+`run_vs_ai.py` 文件顶部的 `DEFAULT_FORCE_STRATEGY` 常量也可预设默认锁定策略。
 
 ---
 
-## 🔄 模块二：双段式决策流（Two-Stage Pipeline）
+## LLM 配置
 
-### 2.1 Skill 库结构
+大模型调用由 `API_config/config.json` 的 `llm_agents_pool` 统一管理。Top / Mid / Down 三层各自指定一个 `model_key`：
 
-每个策略目录下的 `Top_agent_60.md` / `mid_agent.md` 都是一份**多条 Skill 的清单**，以一级标题分隔：
-
-```markdown
-# skill_title_a
-This skill describes ... 多行 description，允许 ## 之类的子标题作为正文。
-
-# skill_title_b
-Another skill description ...
+```json
+{
+  "llm_agents_pool": {
+    "DeepSeek-V4-flash": { "api_url": "...", "model_name": "deepseek-v4-flash", "is_reasoning": false },
+    "DeepSeek-V4-flash-reasoning": { "...", "is_reasoning": true },
+    "Kimi-k2.5": { "..." }
+  }
+}
 ```
 
-`SC2_Agent.skill_loader.parse_skill_md` 按 `^# ` 切分为 `[{"title": "...", "description": "..."}, ...]`。
+**建议组合**：
 
-每个 Agent 层（top/mid）都有 **两个候选池**：
+* **`top_model` / `mid_model`**：带 Reasoning 能力的大模型（如 `DeepSeek-V4-flash-reasoning`），规划更稳定；
+* **`down_model`**：速度快的 Flash 级模型，温度低、强制 JSON 返回。
 
-| 池 | 来源 |
-|---|---|
-| **Generic** | `SKILL/<race>/generic/{Top_agent_60.md, mid_agent.md}` |
-| **Specific** | `SKILL/<race>/<selected_strategy>/{Top_agent_60.md, mid_agent.md}` |
-
-### 2.2 Phase 1 — Skill Selection
-
-`UniversalLLMBot._run_skill_selection(layer, obs_text)` 执行的完整流程：
-
-1. 检查该层是否启用 Skill 路由（看 `_skill_enabled_for(layer)`，受模块三开关控制）；
-2. 加载 Generic + Specific 池（受 `--disable-specific-skills-layers` 控制是否包含 Specific）；
-3. 调 `build_skill_selection_messages(...)` 构造 Phase 1 Prompt，**包含完整 obs / 策略名 / 策略描述 / commander 给出的 phase/focus / 玩家指令 / Skill 清单**；
-4. LLM 输出 `{"selected": ["title_a", "title_b", ...]}`；
-5. `parse_skill_selection` 大小写不敏感地映射回合法 title、去重、截断到 `SKILL_SELECTION_MAX=5`；
-6. `render_selected_skills_block` 把选中 title 拼回 description 并加上引导头 `[Current Strategic Constraints]`。
-
-**输出是三元组** `(selected_titles, rendered_block, trace_dict)`，`trace_dict` 包含完整 Prompt、原始响应、耗时、错误等审计字段，供 JSON 记录使用。
-
-### 2.3 Phase 2 — Decision Making
-
-Top Agent 60s：调 `build_phase_assessment_messages(..., selected_skills_block=rendered_block)`，让 LLM 在 *与 Phase 1 完全相同的 obs* 下生成 `{"phase", "focus"}`。
-
-Mid Agent：调 `build_planning_messages(..., selected_skills_block=rendered_block)`，让 LLM 生成最终的 `{"tasks": [...]}`。
-
-**关键不变量**：Phase 1 与 Phase 2 共享同一份 `obs_text`（在 Top 轮询 `_run_top_agent_poll_blocking` 与 Mid 流水线 `_run_mid_agent_pipeline_blocking` 中都只采样一次），保证 LLM 看到的世界状态完全一致。
-
-### 2.4 各层信息传递
-
-```
-[Player Instruct]                ┐
-                                 │
-   ┌─── Top Agent (t=0) ─────────┼─→ selected_strategy + strategy_description
-   │   (SELECT/VIEW/GENERATE)    │
-   │                             ▼
-   │   ┌──── 每 60s ────┐    ┌─ obs(snap once)
-   │   │ Phase 1: pick  │←───┤
-   │   │  top60 Skills  │    │
-   │   └──────┬─────────┘    │
-   │          ▼              │
-   │   ┌──── Phase 2 ────┐   │
-   │   │ {phase, focus}  │   │
-   │   └──────┬──────────┘   │
-   │          │              │
-   ▼          ▼              ▼
-   ┌─── Mid Agent (每 12s) ──────────────────────┐
-   │  strategy_desc / phase / focus / prev_tasks │
-   │  ┌── Phase 1: pick mid Skills ──┐           │
-   │  │   (same obs as Phase 2)      │           │
-   │  └──────────┬───────────────────┘           │
-   │             ▼                               │
-   │  ┌── Phase 2: build_planning_messages ──┐   │
-   │  │ → {"tasks": [...]}                   │   │
-   │  └──────────┬───────────────────────────┘   │
-   └─────────────│───────────────────────────────┘
-                 ▼
-   ┌─── Down Agent (逐条翻译) ──┐
-   │ task + obs + action_space  │
-   │ → {"action", "to_count"}   │
-   └───────────┬────────────────┘
-               ▼
-       active_tasks  →  ActLLMOngoingTasks (每帧 await act.execute())
-```
+`API_Tools/llm_caller.py` 会根据 `is_reasoning` 字段向厂商 API 注入 thinking 开关，并自动剥离 `<think>` 等推理段。
 
 ---
 
-## 🧪 模块三：消融实验 / 策略路由开关
+## 运行与测试
 
-为支持 Ablation Study，新增了 **4 个 CLI 参数 + 环境变量**：
-
-| CLI | 环境变量 | 取值 | 含义 |
-|---|---|---|---|
-| `--disable-all-skills` | `DISABLE_ALL_SKILLS` | `1` / `0` | 完全跳过 Phase 1；Phase 2 不注入 Skill。退化为基线。 |
-| `--enable-skill-layers` | `ENABLE_SKILL_LAYERS` | `all` / `top_only` / `mid_only` / `none` | 哪一层启用两段式 Skill 路由。 |
-| `--disable-specific-skills-layers` | `DISABLE_SPECIFIC_SKILLS_LAYERS` | `all` / `top` / `mid` / `none` | 哪一层只用 Generic、不用 Specific。 |
-| `--force-strategy` | `FORCE_STRATEGY` | 策略文件夹名 / 空 | 强制锁定策略，绕过 t=0 LLM。 |
-
-**优先级**：`disable_all_skills > enable_skill_layers`。任意层都先判 `disable_all_skills`，再判 `enable_skill_layers`。
-
-**和老开关的关系**：当某一层 Skill 路由被关掉时（`disable_all_skills=1` 或 `enable_skill_layers` 把该层排除），若旧字段 `USE_TOP_60_PROMPT / USE_MID_PROMPT` 仍为 1，则**回退到整文注入** `Top_agent_60.md` / `mid_agent.md`（旧 Phase Guidance / Execution Guidance 机制）。这样可以单独剥离"双段式 vs 单段整文" / "Skill 注入 vs 无注入"两个变量。
-
-**透传链路**：
-
-```
-start_experiments.sh
-  └── export DISABLE_ALL_SKILLS / ENABLE_SKILL_LAYERS / ...
-       └── run_vs_ai_batch.sh (read env, build skill_flags[])
-            └── python run_vs_ai.py --disable-all-skills --enable-skill-layers ...
-                 └── bot_loader/game_starter.py argparse + setup_bot()
-                      └── my_bot.disable_all_skills = ...  (attribute injection)
-                           └── UniversalLLMBot.__init__ / _skill_enabled_for() / ...
-```
-
----
-
-## 🗂️ SKILL 战术知识库结构
-
-```
-SKILL/
-└── terran/
-    ├── registry.json              ← 策略白名单 (§1.2)
-    ├── Action.py                  ← 合法动作空间 (Down Agent 用)
-    ├── generic/
-    │   ├── base_tactics.py        ← 兜底战术 + GENERATE 拷贝源
-    │   ├── Top_agent_60.md        ← Generic top60 Skill 库
-    │   └── mid_agent.md           ← Generic mid Skill 库
-    ├── marine_rush/
-    │   ├── base_tactics.py
-    │   ├── Top_agent_0.md         ← # Summary / # Details
-    │   ├── Top_agent_60.md        ← Specific top60 Skill 库
-    │   └── mid_agent.md           ← Specific mid Skill 库
-    ├── battle_cruisers/...
-    └── two_base_tanks/...
-```
-
-**MD 解析规则**：
-
-| 文件 | 解析器 | 期望结构 |
-|---|---|---|
-| `Top_agent_0.md` | `parse_top_agent_0_md` | `# Summary` + `# Details`（或中文 `# 摘要` / `# 详细内容`） |
-| `Top_agent_60.md` / `mid_agent.md` | `parse_skill_md` | 多个 `# <title>` 段，每段一条 Skill |
-
-> 已有 3 个预设策略的 `Top_agent_0.md` 已统一为英文标题；`parse_top_agent_0_md` 仍同时兼容中英两种写法。
-
----
-
-## ⚙️ LLM 配置指南
-
-大模型的调用配置完全由 `API_config/config.json` 掌控。框架支持为 Top/Mid/Down 三层各自指定一个 `model_key`，建议组合：
-
-* **`top_model` / `mid_model`**：带 Reasoning/Thinking 能力的大模型（如 `deepseek-v4-pro-reasoning`、`kimi-k2.5_base`），单次调用偏慢但稳定。
-* **`down_model`**：速度极快的 Flash/Lite 级模型，温度 `0.0` 并开启强制 JSON 返回。
-
-**智能 Vendor 分发**：`API_Tools/llm_caller.py` 会根据 `model_key` 自动向云端 API 注入开启深度思考的特定字段。
-
----
-
-## 🚀 测试与运行
-
-测试生成的录像、日志、JSON 默认存放在 `./game_records/`。
+对局录像、日志、JSON 默认存放在 `./game_records/`。
 
 ### 1. 单局测试 `run_vs_ai.py`
 
+**推荐方式**：直接编辑 `run_vs_ai.py` 中 **「运行配置」** 区的 `DEFAULT_*` 常量，然后：
+
 ```bash
-# 基础运行（默认 Terran 对战 Hard 难度 Terran）
 python run_vs_ai.py
-
-# 自定义指令 + 双段式 Skill 全启
-python run_vs_ai.py \
-  --real-time \
-  --bot-instruct "速生科技，打一波隐刀rush" \
-  --bot-race protoss \
-  --enemy-race zerg \
-  --enemy-difficulty veryhard \
-  --map-name KairosJunctionLE
-
-# Ablation 示例：仅 Top Agent 启用 Skill；Top 强制只用 Generic；锁定 marine_rush
-python run_vs_ai.py \
-  --bot-instruct "all-in marine rush" \
-  --enable-skill-layers top_only \
-  --disable-specific-skills-layers top \
-  --force-strategy marine_rush
 ```
 
-**全部 CLI 参数**：
+常用 CLI 参数（显式传参会覆盖文件默认值）：
 
 | 参数 | 作用 |
 |---|---|
 | `--bot-instruct` | 自然语言战术指令 |
 | `--bot-race` / `--enemy-race` | 双方种族 |
-| `--enemy-difficulty` / `--enemy-build` | 内置 AI 难度 + 风格 |
+| `--enemy-difficulty` / `--enemy-build` | 内置 AI 难度 + 风格（macro / rush / timing / air 等） |
 | `--top-model` / `--mid-model` / `--down-model` | 三层 LLM 的 `model_key` |
-| `--use-top-60-prompt` | **旧机制**：仅在 Skill 路由关闭时生效，整文注入 `Top_agent_60.md` |
-| `--use-mid-prompt` | **旧机制**：同上，整文注入 `mid_agent.md` |
-| `--disable-all-skills` | 关闭所有 Phase 1 |
-| `--enable-skill-layers` | `all` / `top_only` / `mid_only` / `none` |
-| `--disable-specific-skills-layers` | `all` / `top` / `mid` / `none` |
-| `--force-strategy` | 锁定 t=0 策略，绕过 LLM |
+| `--force-strategy` | 锁定 t=0 策略，绕过 LLM；传 `none` 取消 |
+| `--real-time` | 实时模式，便于人类观战 |
 | `--batch-name` / `--run-index` / `--output-base-dir` | 批量调度用 |
 
-### 2. 批量并发测试 `run_vs_ai_batch.sh`
+```bash
+# 自定义指令 + 对手
+python run_vs_ai.py \
+  --bot-instruct "速二矿，以坦克+枪兵推进" \
+  --bot-race terran \
+  --enemy-race zerg \
+  --enemy-difficulty harder \
+  --enemy-build rush \
+  --force-strategy two_base_tanks_marine_rush_5
+```
 
-通过 `start_experiments.sh` 注入环境变量后启动；推荐使用 `tmux` 模式：
+### 2. 批量并发 `start_experiments.sh` + `run_vs_ai_batch.sh`
+
+编辑 `start_experiments.sh` 中的环境变量后启动：
 
 ```bash
-# start_experiments.sh 中关键变量（节选）
+# start_experiments.sh 关键变量
 export BOT_INSTRUCT="打一波，以大和战列巡洋舰为主的攻击"
-export TOP_MODEL="Kimi-k2.5_base"
-export USE_TOP_60_PROMPT="1"
-export USE_MID_PROMPT="1"
-export DISABLE_ALL_SKILLS="0"
-export ENABLE_SKILL_LAYERS="all"
-export DISABLE_SPECIFIC_SKILLS_LAYERS="none"
-export FORCE_STRATEGY=""        # 留空 = 走 LLM 选择/生成
+export BOT_RACE="terran"
+export ENEMY_RACE="zerg"
+export ENEMY_DIFFICULTY="harder"
+export ENEMY_BUILD="air"
+export FORCE_STRATEGY="two_base_tanks_marine_rush_6"   # 留空 = 走 LLM 选择
+export TOP_MODEL="DeepSeek-V4-flash"
+export MID_MODEL="DeepSeek-V4-flash-reasoning"
+export DOWN_MODEL="DeepSeek-V4-flash"
 
-# 然后启动批量
-bash start_experiments.sh       # 默认 10 局 / 5 并发 / tmux
+bash start_experiments.sh       # 默认 10 局 / 10 并发 / tmux
 # 或直接调用底层引擎
 bash run_vs_ai_batch.sh <总局数> <并发数> [fg|tmux]
 ```
 
-> tmux 模式启动后会打印 `tmux attach -t sc2_batch_<pid>`，附加进去可看到每个 worker 的实时日志。
+tmux 模式启动后会打印 `tmux attach -t sc2_batch_<pid>`，附加进去可看到每个 worker 的实时日志。
 
 ---
 
-## 📊 实验结果与分析
+## 实验结果与分析
 
 ### 单局产出
 
@@ -319,95 +345,67 @@ bash run_vs_ai_batch.sh <总局数> <并发数> [fg|tmux]
 
 | 文件 | 内容 |
 |---|---|
-| `<match_id>.log` | Sharpy + bot 的完整运行日志，含 `[UniversalLLMBot][LLM-INFER]` 行 |
+| `<match_id>.log` | Sharpy + Bot 完整运行日志，含 `[UniversalLLMBot][LLM-INFER]` 行 |
 | `<match_id>.SC2Replay` | 录像文件 |
 | `<match_id>.json` | **LLM 交互完整记录**（关键产物） |
 
-### `<match_id>.json` Schema
+### `<match_id>.json` 关键字段
 
 ```json
 {
   "metadata": {
     "result": "Victory|Defeat|Tie",
-    "interval_seconds": 12.0,
-    "llm_interaction_count": 38,
-    "..." : "..."
+    "interval_seconds": 30.0,
+    "llm_interaction_count": 52
   },
-  "interactions": [
-    { "trigger_reason": "top_agent_initial_t0", "...": "..." },
-    { "trigger_reason": "top_agent_poll_60",  "...": "..." },
-    { "trigger_reason": "poll",                "...": "..." },
-    "..."
-  ]
+  "interactions": [ "..." ]
 }
 ```
 
 **`interactions[]` 中可能出现的 `trigger_reason`**：
 
-| `trigger_reason` | 来自 | 包含字段（关键） |
+| `trigger_reason` | 来自 | 关键字段 |
 |---|---|---|
-| `top_agent_initial_t0` | t=0 LLM 选择 | `top_agent_initial.turns[]` (每轮 messages/raw/parsed)、`viewed_strategies`、`final_action` (`SELECT`/`VIEW`/`GENERATE`/`MAX_TURNS_EXCEEDED`/...)、`selected_strategy`、`strategy_description` |
-| `top_agent_initial_t0_forced` | `--force-strategy` 旁路 | `top_agent_initial.forced_strategy`、`final_action="FORCED"` |
-| `top_agent_poll_60` | 每 60s 阶段评估 | `top_agent_skill_selection`（Phase 1 完整 trace）、`top_agent_phase_assessment.{messages_sent, raw_response, parsed}`、`top_agent_phase`、`top_agent_focus` |
-| `poll` | 每 12s Mid Pipeline | `mid_agent_skill_selection`、`mid_agent_input_previous_tasks`、`mid_agent_raw_response`、`mid_agent_output_new_tasks`、`down_agent_translations[]`、`active_tasks_after_refresh`、`observation_at_this_moment` |
+| `top_agent_initial_t0` | t=0 LLM 选择 | `top_agent_initial.turns[]`、`final_action`（SELECT/VIEW/GENERATE/…）、`selected_strategy`、`strategy_description` |
+| `top_agent_initial_t0_forced` | `--force-strategy` 旁路 | `forced_strategy`、`final_action="FORCED"` |
+| `poll` | 每 30s Mid Pipeline | `mid_agent_input_previous_tasks`、`mid_agent_output_new_tasks`、`down_agent_translations[]`（含 `priority`）、`active_tasks_after_refresh`、`observation_at_this_moment` |
 
-### `*_skill_selection` 子结构（Phase 1 trace）
+`down_agent_translations[]` 中每条记录包含 Mid 原始任务、Down 原始响应、解析后的 `{action, to_count, priority}`。
 
-每次 Skill 筛选都会带一个完整 trace 字段（key 为 `top_agent_skill_selection` 或 `mid_agent_skill_selection`）：
+### 批次统计 `parse_sc2_logs.py`
 
-```json
-{
-  "layer": "top" | "mid",
-  "enabled": true,                  // 该层是否启用 Skill 路由
-  "skipped_reason": "",             // "" / "empty_candidate_pool" / "disable_all_skills=..."
-  "candidate_titles": ["...", "..."],
-  "generic_count": 3,
-  "specific_count": 5,
-  "max_selection": 5,
-  "messages_sent": [{"role": "system", "content": "..."}, {"role": "user", "content": "..."}],
-  "raw_response": "{\"selected\": [\"...\"]}",
-  "selected_titles": ["..."],
-  "rendered_block": "[Current Strategic Constraints]\n### title\n...",
-  "wall_elapsed_seconds": 1.235,
-  "error": null
-}
-```
-
-### 胜率聚合 `parse_sc2_logs.py`
-
-提供了一个轻量的批次胜率统计脚本：
+按 **策略 → 对手种族 → 对手风格** 三维度聚合胜率：
 
 ```bash
-# 编辑 parse_sc2_logs.py 末尾的 my_paths 列表（指向 batch_xxx 目录）
+# 编辑 parse_sc2_logs.py 末尾的 my_paths 列表（指向 batch 目录或 game_records 根目录）
 python parse_sc2_logs.py
-# 输出在每个 batch 目录下生成 match_statistics.json：
-#   { "statistics": { "total_logs": ..., "victories": ..., "win_rate": "..." } }
+# 输出至 game_records/strategy_statistics.json
 ```
 
-> 这个脚本目前只解析 `.log` 末尾的 `Result for player 1 ... : Victory|Defeat|Tie` 行；想做 Skill 选择频次/Phase 分布等更细致的分析，可以遍历 `.json` 中的 `interactions[*].*_skill_selection.selected_titles`。
-
-### 推荐的消融对比矩阵
-
-| 实验组 | 关键开关 | 解释 |
-|---|---|---|
-| Baseline | `DISABLE_ALL_SKILLS=1` + `USE_TOP_60_PROMPT=0` + `USE_MID_PROMPT=0` | 纯 obs 决策，无任何 Skill / Guidance 注入 |
-| Legacy full guidance | `DISABLE_ALL_SKILLS=1` + `USE_*_PROMPT=1` | 旧机制：整文注入 |
-| Two-stage Top only | `ENABLE_SKILL_LAYERS=top_only` | 仅 Top 用 Skill，Mid 裸跑 |
-| Two-stage Mid only | `ENABLE_SKILL_LAYERS=mid_only` | 仅 Mid 用 Skill |
-| Generic only (Top) | `DISABLE_SPECIFIC_SKILLS_LAYERS=top` | Top 只见 Generic Skill，无 strategy-specific |
-| Forced strategy | `FORCE_STRATEGY=marine_rush` | 控制变量：固定策略观察 Phase 1/2 效果 |
-| Full | 全默认 | 完整双段式 + Generic+Specific 全开 |
+脚本从 `.log` 末尾解析 `Result for player 1 ... : Victory|Defeat|Tie`，并从日志 / 路径中提取 `--force_strategy`、对手种族与 AI 风格。
 
 ---
 
-## 📦 Python 环境安装
+## Python 环境安装
 
-请确保 Python 版本为 **3.8 - 3.10**（过高的版本可能导致 `s2clientprotocol` 兼容问题）。
+请确保 Python 版本为 **3.8 – 3.10**（过高版本可能导致 `s2clientprotocol` 兼容问题）。
 
 ```bash
-# 建议使用虚拟环境
 python3 -m venv venv
 source venv/bin/activate   # Windows: venv\Scripts\activate
 
 pip install -r requirements.txt
 ```
+
+需要本地安装 StarCraft II 客户端，并将地图放入 `maps/` 目录。Sharpy 底层说明见 [`README_sharpy.md`](README_sharpy.md)。
+
+---
+
+## 相关文档
+
+| 文档 | 内容 |
+|---|---|
+| [`readme_bot.md`](readme_bot.md) | Sharpy Bot 继承关系、dummies 目录说明 |
+| [`readme_test.md`](readme_test.md) | 测试与对战详细说明 |
+| [`sharpy模块与配置说明.md`](sharpy模块与配置说明.md) | Sharpy 模块与 config.ini 配置 |
+| [`note/llm_observation_recorder.md`](note/llm_observation_recorder.md) | 观测文本生成规则 |

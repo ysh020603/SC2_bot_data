@@ -89,6 +89,11 @@ DEFAULT_ENEMY_BUILD = "macro"  # 内置 AI 风格，如 macro / rush 等
 DEFAULT_TOP_MODEL = "DeepSeek-V4-flash"
 DEFAULT_MID_MODEL = "DeepSeek-V4-flash"
 DEFAULT_DOWN_MODEL = "DeepSeek-V4-flash"
+# --- 新五阶段增量驱动流水线各 LLM 调用点（可分别指定模型）---
+DEFAULT_INCREMENT_MODEL = "DeepSeek-V4-flash"
+DEFAULT_NAMING_MODEL = "DeepSeek-V4-flash"
+DEFAULT_ORDERING_MODEL = "DeepSeek-V4-flash"
+DEFAULT_EXECUTOR_MODEL = "DeepSeek-V4-flash"
 
 # --- 固定 t=0 策略（绕过 Top Agent 开局选策略的 LLM）---
 # 填 SKILL/<种族>/ 下的文件夹名，如 safe_tvt_raven → SKILL/terran/safe_tvt_raven/
@@ -162,6 +167,10 @@ def play_vs_ai(
     top_model: str = DEFAULT_TOP_MODEL,
     mid_model: str = DEFAULT_MID_MODEL,
     down_model: str = DEFAULT_DOWN_MODEL,
+    increment_model: str = DEFAULT_INCREMENT_MODEL,
+    naming_model: str = DEFAULT_NAMING_MODEL,
+    ordering_model: str = DEFAULT_ORDERING_MODEL,
+    executor_model: str = DEFAULT_EXECUTOR_MODEL,
     batch_name: Optional[str] = None,
     run_index: Optional[int] = None,
     output_base_dir: str = OUTPUT_BASE_DIR,
@@ -223,6 +232,14 @@ def play_vs_ai(
         args.extend(["--mid-model", mid_model])
     if down_model:
         args.extend(["--down-model", down_model])
+    if increment_model:
+        args.extend(["--increment-model", increment_model])
+    if naming_model:
+        args.extend(["--naming-model", naming_model])
+    if ordering_model:
+        args.extend(["--ordering-model", ordering_model])
+    if executor_model:
+        args.extend(["--executor-model", executor_model])
     if force_strategy:
         args.extend(["--force-strategy", force_strategy])
 
@@ -235,6 +252,10 @@ def play_vs_ai(
     print(f" ▷ 比赛地图 : {map_name}")
     print(f" ▷ 战术指令 : {bot_instruct}")
     print(f" ▷ 大模型簇 : Top=[{top_model}], Mid=[{mid_model}], Down=[{down_model}]")
+    print(
+        f" ▷ 流水线簇 : Increment=[{increment_model}], Naming=[{naming_model}], "
+        f"Ordering=[{ordering_model}], Executor=[{executor_model}]"
+    )
     print(f" ▷ 强制策略 : {force_strategy or 'None'}")
     if batch_name:
         print(f" ▷ 批次名称 : {batch_name} (任务序号: {run_index})")
@@ -266,8 +287,12 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     p.add_argument("--bot-instruct", default=DEFAULT_BOT_INSTRUCT, help="战术指令")
     p.add_argument("--bot-race", default=DEFAULT_BOT_RACE, help="我方种族")
     p.add_argument("--top-model", default=DEFAULT_TOP_MODEL, help="Top Agent")
-    p.add_argument("--mid-model", default=DEFAULT_MID_MODEL, help="Mid Agent")
-    p.add_argument("--down-model", default=DEFAULT_DOWN_MODEL, help="Down Agent")
+    p.add_argument("--mid-model", default=DEFAULT_MID_MODEL, help="Mid Agent (legacy)")
+    p.add_argument("--down-model", default=DEFAULT_DOWN_MODEL, help="Down Agent (legacy)")
+    p.add_argument("--increment-model", default=DEFAULT_INCREMENT_MODEL, help="Increment Agent (stage 1)")
+    p.add_argument("--naming-model", default=DEFAULT_NAMING_MODEL, help="Naming Agent (stage 2)")
+    p.add_argument("--ordering-model", default=DEFAULT_ORDERING_MODEL, help="Ordering Agent (stage 4)")
+    p.add_argument("--executor-model", default=DEFAULT_EXECUTOR_MODEL, help="Executor Agent (train/addon/morph)")
     p.add_argument("--batch-name", default="", help="记录写入 game_records/<batch-name>/ 归档")
     p.add_argument("--run-index", type=int, default=None, help="批处理序号以防并发冲突")
     p.add_argument("--output-base-dir", default=OUTPUT_BASE_DIR, help="记录根目录")
@@ -304,6 +329,10 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         top_model=ns.top_model,
         mid_model=ns.mid_model,
         down_model=ns.down_model,
+        increment_model=ns.increment_model,
+        naming_model=ns.naming_model,
+        ordering_model=ns.ordering_model,
+        executor_model=ns.executor_model,
         batch_name=ns.batch_name or None,
         run_index=ns.run_index,
         output_base_dir=ns.output_base_dir,

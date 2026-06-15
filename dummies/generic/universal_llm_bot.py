@@ -42,6 +42,8 @@ from sc2.ids.unit_typeid import UnitTypeId
 
 from sharpy.interfaces import IZoneManager
 from sharpy.knowledges import KnowledgeBot
+from sharpy.managers.core.manager_base import ManagerBase
+from sharpy.managers.extensions import BuildDetector
 from sharpy.plans import BuildOrder, SequentialList
 from sharpy.plans.acts import ActBase
 
@@ -64,6 +66,39 @@ from SC2_Agent.down_agent import (
     build_translation_messages,
     parse_translation_response,
 )
+
+# --- 新五阶段增量驱动流水线 ---
+from SC2_Agent.increment_agent import (
+    build_increment_messages,
+    parse_increment_response,
+)
+from SC2_Agent.naming_agent import (
+    build_naming_messages,
+    parse_naming_response,
+)
+from SC2_Agent.ordering_agent import (
+    build_ordering_messages,
+    parse_ordering_response,
+)
+from SC2_Agent.executor_agent import (
+    build_executor_messages,
+    parse_executor_response,
+)
+from SC2_Agent.data_tools import (
+    ALIAS_MAP,
+    actions_for_entities,
+    check_action_prerequisites,
+    cost_for_action,
+    detect_action_conflicts,
+    is_known_terran_entity,
+    plan_supply,
+    resolve_alias,
+    tech_chain_relations,
+    terran_unit_names,
+    terran_upgrade_names,
+)
+from SC2_Agent.data_tools.obs_entities import obs_entities as collect_obs_entities
+from SC2_Agent.execution.scheduler import ExecutionScheduler
 
 logger = logging.getLogger("UniversalLLMBot")
 
@@ -271,6 +306,14 @@ class UniversalLLMBot(KnowledgeBot):
     """跨种族、三层 Agent 架构的通用 LLM Bot。"""
 
     MID_AGENT_POLL_INTERVAL: float = 30.0
+    #: 宏观决策触发周期（秒）：每隔该时间或 Action 序列执行完触发一次增量流水线。
+    MACRO_POLL_INTERVAL: float = 30.0
+    #: 序列执行完后再次触发的最小间隔（秒），避免空序列时每帧反复触发 LLM。
+    MACRO_MIN_RETRIGGER: float = 5.0
+    #: Action 在等待队列中超过该时长（秒）则放弃并释放预留资源。
+    WAIT_ABANDON_SEC: float = 20.0
+    #: Supply 注入阈值：保证模拟人口余量不低于该值。
+    SUPPLY_THRESHOLD: float = 8.0
     #: t=0 多轮交互式策略选择的最大轮次，防止 LLM 死循环 VIEW。
     TOP_AGENT_INITIAL_MAX_TURNS: int = 5
     #: t=0 相似策略检索的 Top-K（用于 GENERATE 模式的参考样本）。
@@ -287,6 +330,10 @@ class UniversalLLMBot(KnowledgeBot):
         down_model_key: str = "",
         record_dir: str = "",
         *,
+        increment_model_key: str = "",
+        naming_model_key: str = "",
+        ordering_model_key: str = "",
+        executor_model_key: str = "",
         force_strategy: Optional[str] = None,
     ):
         super().__init__("Universal LLM Bot")
@@ -295,6 +342,11 @@ class UniversalLLMBot(KnowledgeBot):
         self.top_model_key = top_model_key.strip()
         self.mid_model_key = mid_model_key.strip()
         self.down_model_key = down_model_key.strip()
+        # 新五阶段流水线的各 LLM 调用点（可分别指定模型）。
+        self.increment_model_key = increment_model_key.strip()
+        self.naming_model_key = naming_model_key.strip()
+        self.ordering_model_key = ordering_model_key.strip()
+        self.executor_model_key = executor_model_key.strip()
         self.record_dir = record_dir.strip()
         force = (force_strategy or "").strip()
         self.force_strategy: Optional[str] = force if force and force.lower() != "none" else None
@@ -304,7 +356,12 @@ class UniversalLLMBot(KnowledgeBot):
         self.strategy_description: str = ""
         self._top_agent_initialized: bool = False
 
-        # --- Mid/Down Agent 状态 ---
+        # --- 命令式执行调度器 ---
+        self.scheduler: Optional[ExecutionScheduler] = None
+        self._last_macro_time: float = -self.MACRO_POLL_INTERVAL
+        self._macro_cycle_count: int = 0
+
+        # --- Mid/Down Agent 状态（保留兼容，新流水线不再使用） ---
         self.active_tasks: List[Dict[str, Any]] = []
         self.current_natural_tasks: List[str] = []
         self._last_mid_agent_time: float = -self.MID_AGENT_POLL_INTERVAL
@@ -542,6 +599,10 @@ class UniversalLLMBot(KnowledgeBot):
     # 生命周期
     # ------------------------------------------------------------------
 
+    def configure_managers(self) -> Optional[List[ManagerBase]]:
+        """Register optional extension managers not in KnowledgeBot defaults."""
+        return [BuildDetector()]
+
     async def on_start(self):
         # ★ 关键：种族模块加载 + Top Agent t=0 策略选择必须在 super().on_start() 之前完成。
         # 因为 super().on_start() → knowledge.start() → ActManager.post_start() → create_plan()，
@@ -560,16 +621,30 @@ class UniversalLLMBot(KnowledgeBot):
         await super().on_start()
 
         self.zone_manager = self.knowledge.get_required_manager(IZoneManager)
-        self.llm_observation_recorder.interval_seconds = self.MID_AGENT_POLL_INTERVAL
+        self.llm_observation_recorder.interval_seconds = self.MACRO_POLL_INTERVAL
         if self.record_dir:
             self.llm_observation_recorder.output_folder = self.record_dir
 
     async def pre_step_execute(self):
-        """每帧 Tick 入口：检查 Mid Agent 的触发条件。"""
-        # --- Mid Agent: N 秒轮询 ---
-        if self.time - self._last_mid_agent_time >= self.MID_AGENT_POLL_INTERVAL:
-            self._last_mid_agent_time = self.time
-            self._run_mid_agent_pipeline_blocking(trigger_reason="poll")
+        """每帧 Tick 入口：检查宏观增量流水线的触发条件。
+
+        触发机制（二选一）：
+        1. 距上次触发已超过 ``MACRO_POLL_INTERVAL`` 秒（固定周期）。
+        2. 当前 Action 序列已全部执行完（``scheduler.is_drained()``），且距上次触发
+           至少 ``MACRO_MIN_RETRIGGER`` 秒（避免空序列时每帧反复触发）。
+        """
+        since = self.time - self._last_macro_time
+        trigger_reason: Optional[str] = None
+        if since >= self.MACRO_POLL_INTERVAL:
+            trigger_reason = "poll"
+        elif since >= self.MACRO_MIN_RETRIGGER and (
+            self.scheduler is None or self.scheduler.is_drained()
+        ):
+            trigger_reason = "sequence_drained"
+
+        if trigger_reason is not None:
+            self._last_macro_time = self.time
+            self._run_macro_pipeline_blocking(trigger_reason=trigger_reason)
 
     # ------------------------------------------------------------------
     # Top Agent
@@ -1148,6 +1223,252 @@ class UniversalLLMBot(KnowledgeBot):
                 f"active_task_count={len(self.active_tasks)})"
             )
 
+    # ------------------------------------------------------------------
+    # 新五阶段增量驱动流水线（取代 Mid→Down→ActLLMOngoingTasks）
+    # ------------------------------------------------------------------
+
+    def _run_macro_pipeline_blocking(self, *, trigger_reason: str = "unknown") -> None:
+        """增量Agent → 命名Agent → 工具映射 → 排序Agent → Supply注入 → 调度器（同步阻塞）。"""
+        game_time = self.time
+        pipeline_start = _wall_time.monotonic()
+        self._macro_cycle_count += 1
+
+        obs_text: str = ""
+        obs_snapshot: Optional[Dict[str, Any]] = None
+        record: Dict[str, Any] = {
+            "game_time": round(game_time, 2),
+            "trigger_reason": trigger_reason,
+            "cycle": self._macro_cycle_count,
+            "top_agent_strategy": self.selected_strategy,
+        }
+
+        self._llm_infer_emit(
+            f">>> MACRO PIPELINE START (trigger={trigger_reason}, cycle={self._macro_cycle_count}, "
+            f"game_time={game_time:.1f}s)"
+        )
+
+        try:
+            obs_text, obs_snapshot = self._capture_observation_bundle()
+            record["observation_at_this_moment"] = obs_text
+            record["observation_structured"] = obs_snapshot
+
+            pending_summary = (
+                self.scheduler.pending_summary_text() if self.scheduler else "  (empty)"
+            )
+
+            # ---------- 阶段1：增量 Agent ----------
+            inc_msgs = build_increment_messages(
+                race=self.race_name,
+                obs_text=obs_text,
+                pending_actions_summary=pending_summary,
+                strategy_description=self.strategy_description,
+                interval_seconds=self.MACRO_POLL_INTERVAL,
+            )
+            inc_raw = self._call_llm(inc_msgs, agent="increment")
+            record["increment_raw"] = inc_raw
+            parsed_inc = parse_increment_response(inc_raw)
+            if not parsed_inc or not parsed_inc.get("increments"):
+                self._llm_infer_emit("    Increment Agent produced no usable increments; skipping cycle.")
+                record["error"] = "increment_empty"
+                return
+            mode = parsed_inc["mode"]
+            increments = parsed_inc["increments"]
+            record["mode"] = mode
+            record["increments"] = increments
+            self._llm_infer_emit(f"    Stage1 increments (mode={mode}): {increments}")
+
+            # ---------- 阶段2：命名 Agent ----------
+            name_msgs = build_naming_messages(
+                race=self.race_name,
+                increments=increments,
+                terran_unit_names=terran_unit_names(),
+                terran_upgrade_names=terran_upgrade_names(),
+                alias_pairs=ALIAS_MAP,
+            )
+            name_raw = self._call_llm(name_msgs, agent="naming")
+            record["naming_raw"] = name_raw
+            items = parse_naming_response(name_raw) or []
+            # 别名归一 + 合法性校验
+            valid_items: List[Dict[str, Any]] = []
+            for it in items:
+                canonical = resolve_alias(it["name"])
+                if is_known_terran_entity(canonical):
+                    valid_items.append({"name": canonical, "count": it["count"]})
+                else:
+                    self._llm_infer_emit(f"    Stage2 dropped unknown entity: {it['name']!r}")
+            record["named_items"] = valid_items
+            self._llm_infer_emit(f"    Stage2 named items: {valid_items}")
+            if not valid_items:
+                record["error"] = "naming_empty"
+                return
+
+            # ---------- 阶段3：工具映射（无 LLM）----------
+            qty_map: Dict[str, int] = {}
+            for it in valid_items:
+                action_name = self._primary_action_for_entity(it["name"])
+                if action_name is None:
+                    self._llm_infer_emit(f"    Stage3 no action for entity {it['name']!r}")
+                    continue
+                qty_map[action_name] = qty_map.get(action_name, 0) + int(it["count"])
+            actions = list(qty_map.keys())
+            record["mapped_actions"] = qty_map
+            self._llm_infer_emit(f"    Stage3 mapped actions: {qty_map}")
+            if not actions:
+                record["error"] = "mapping_empty"
+                return
+
+            # ---------- 阶段4：排序 Agent（带前置/冲突/成本提示）----------
+            entities = collect_obs_entities(self)
+            prereq_hints = self._build_prereq_hints(entities, actions)
+            conflict_hints = self._build_conflict_hints(actions)
+            cost_hints = self._build_cost_hints(actions)
+            order_msgs = build_ordering_messages(
+                race=self.race_name,
+                actions=actions,
+                obs_text=obs_text,
+                prereq_hints=prereq_hints,
+                conflict_hints=conflict_hints,
+                cost_hints=cost_hints,
+            )
+            order_raw = self._call_llm(order_msgs, agent="ordering")
+            record["ordering_raw"] = order_raw
+            ordered = parse_ordering_response(order_raw, legal_actions=set(actions))
+            if not ordered:
+                ordered = list(actions)  # fallback: keep mapping order
+                self._llm_infer_emit("    Stage4 ordering invalid; falling back to mapping order.")
+            # 确保未被 LLM 丢弃的 action 仍保留（补在末尾，去重）
+            for a in actions:
+                if a not in ordered:
+                    ordered.append(a)
+            record["ordered_actions"] = ordered
+            self._llm_infer_emit(f"    Stage4 ordered: {ordered}")
+
+            # ---------- 阶段5：Supply 注入（无 LLM）----------
+            ordered_with_supply = plan_supply(ordered, self, threshold=self.SUPPLY_THRESHOLD)
+            record["ordered_with_supply"] = ordered_with_supply
+            self._llm_infer_emit(f"    Stage5 with supply: {ordered_with_supply}")
+
+            # ---------- 装入调度器 ----------
+            pairs: List[Tuple[str, int]] = [
+                (name, qty_map.get(name, 1)) for name in ordered_with_supply
+            ]
+            if self.scheduler is not None:
+                self.scheduler.set_actions(pairs, mode=mode)
+            record["installed_pairs"] = pairs
+            self._llm_infer_emit(
+                f"    Installed {len(pairs)} planned actions into scheduler (mode={mode})."
+            )
+        except Exception as exc:
+            record["error"] = repr(exc)
+            self._llm_infer_emit(f"    MACRO PIPELINE EXCEPTION: {exc!r}")
+            logger.warning("[UniversalLLMBot] Macro pipeline failed: %s", exc)
+        finally:
+            record["wall_elapsed_seconds"] = round(_wall_time.monotonic() - pipeline_start, 3)
+            self._record_llm_interaction(record)
+            self._llm_infer_emit(
+                f"<<< MACRO PIPELINE END (total {record['wall_elapsed_seconds']:.2f}s wall)"
+            )
+
+    # --- 阶段3 实体→Action 选择 ----------------------------------------
+
+    def _primary_action_for_entity(self, entity_name: str) -> Optional[str]:
+        """把一个标准实体名映射到「主」Action 标准名（优先 Build/Train/Research/Morph）。"""
+        try:
+            mapping = actions_for_entities([entity_name], executor_race="Terran")
+        except Exception as exc:
+            logger.debug("actions_for_entities failed for %s: %s", entity_name, exc)
+            return None
+        entries = mapping.get(entity_name) or []
+        if not entries:
+            return None
+
+        def rank(entry: Dict[str, Any]) -> Tuple[int, str]:
+            kind = entry.get("target_kind") or ""
+            order = {"Build": 0, "BuildOnUnit": 0, "BuildInstant": 0, "Train": 1, "Research": 2, "Morph": 3}
+            return order.get(kind, 9), entry.get("ability_name") or ""
+
+        entries = sorted(entries, key=rank)
+        return entries[0].get("ability_name")
+
+    # --- 阶段4 提示构造 ------------------------------------------------
+
+    def _build_prereq_hints(self, entities: List[str], actions: List[str]) -> str:
+        lines: List[str] = []
+        try:
+            result = check_action_prerequisites(entities, actions)
+            for rep in result.get("ordered_reports", []):
+                missing = rep.get("missing_requirements") or []
+                if missing:
+                    names = ", ".join(m.get("entity_name", "?") for m in missing)
+                    lines.append(f"  - {rep['ability_name']} still missing: {names}")
+        except Exception as exc:
+            logger.debug("prereq hints failed: %s", exc)
+        try:
+            for rel in tech_chain_relations(actions):
+                lines.append(
+                    f"  - {rel['action']} requires {rel['depends_on']} first (via {rel['via_entity']})"
+                )
+        except Exception as exc:
+            logger.debug("tech_chain_relations failed: %s", exc)
+        return "\n".join(lines)
+
+    def _build_conflict_hints(self, actions: List[str]) -> str:
+        lines: List[str] = []
+        try:
+            result = detect_action_conflicts(actions)
+            for c in result.get("conflicts", []):
+                a, b = c["actions"]
+                shared = ", ".join(c.get("shared_resources", []))
+                lines.append(f"  - {a} and {b} share producer(s): {shared}")
+        except Exception as exc:
+            logger.debug("conflict hints failed: %s", exc)
+        return "\n".join(lines)
+
+    def _build_cost_hints(self, actions: List[str]) -> str:
+        lines: List[str] = []
+        for a in actions:
+            try:
+                info = cost_for_action(a)
+                cost = info.get("cost") or {}
+                frames = float(cost.get("time", 0) or 0)
+                seconds = frames / 22.4 if frames else 0.0
+                lines.append(
+                    f"  - {a}: minerals {cost.get('minerals', 0)}, gas {cost.get('gas', 0)}, "
+                    f"supply {cost.get('supply', 0)}, ~{seconds:.0f}s"
+                )
+            except Exception as exc:
+                logger.debug("cost hint failed for %s: %s", a, exc)
+        return "\n".join(lines)
+
+    # --- 执行者 Agent 回调（注入调度器，仅 train/addon/morph 多候选时调用）------
+
+    def _executor_llm_select(
+        self,
+        *,
+        ability_name: str,
+        candidate_text: str,
+        cost_hint: str,
+        pending_summary: str,
+        waiting_summary: str,
+        conflict_hints: str,
+        legal_tags: Optional[set] = None,
+    ) -> Optional[int]:
+        """供 ``ExecutionScheduler`` 调用：用执行者 Agent 从候选中挑一个 tag。"""
+        try:
+            msgs = build_executor_messages(
+                ability_name=ability_name,
+                candidate_units_text=candidate_text,
+                cost_hint=cost_hint,
+                pending_actions_summary=pending_summary,
+                waiting_actions_summary=waiting_summary,
+                executor_conflict_hints=conflict_hints,
+            )
+            raw = self._call_llm(msgs, agent="executor")
+            return parse_executor_response(raw, legal_tags=legal_tags)
+        except Exception as exc:
+            logger.debug("executor LLM select failed for %s: %s", ability_name, exc)
+            return None
+
     # --- 调用封装 ------------------------------------------------------
 
     def _call_llm(self, messages: List[Dict[str, str]], agent: str = "mid") -> str:
@@ -1156,6 +1477,10 @@ class UniversalLLMBot(KnowledgeBot):
             "top": self.top_model_key,
             "mid": self.mid_model_key,
             "down": self.down_model_key,
+            "increment": self.increment_model_key,
+            "naming": self.naming_model_key,
+            "ordering": self.ordering_model_key,
+            "executor": self.executor_model_key,
         }
         model_key = key_map.get(agent, "")
 
@@ -1311,18 +1636,32 @@ class UniversalLLMBot(KnowledgeBot):
     # ------------------------------------------------------------------
 
     async def create_plan(self) -> BuildOrder:
-        """组装 BuildOrder：基础战术（并行后台动作）+ LLM 动态运营（并行）。"""
-        base_tactics = self._load_dynamic_tactics()
+        """组装 BuildOrder：命令式执行调度器（并行）+ 仅含无消耗工具的后台战术（并行）。
 
-        llm_executor = ActLLMOngoingTasks(
-            active_tasks_ref=self.active_tasks,
-            log_emit=self._llm_infer_emit,
-        )
+        替换原 ``ActLLMOngoingTasks`` 声明式执行层与含耗资源工具的 base_tactics：
+        * ``ExecutionScheduler``：增量流水线产出的命令式 Action 序列的执行器。
+        * ``BackgroundTactics``：只保留不耗矿/气/supply 的侦察/防守/集结/进攻/运营工具。
+        """
+        self.scheduler = ExecutionScheduler(wait_abandon_sec=self.WAIT_ABANDON_SEC)
+        # 注入执行者 Agent 回调（train/addon/morph 多候选时由 LLM 选执行单位）。
+        self.scheduler.executor_llm = self._executor_llm_select
+
+        background = self._load_background_tactics()
 
         return BuildOrder([
-            llm_executor,
-            base_tactics,
+            self.scheduler,
+            background,
         ])
+
+    def _load_background_tactics(self) -> BuildOrder:
+        """加载只含无资源消耗工具的后台战术（人族）。失败时回退 EmptyTactics。"""
+        try:
+            from SKILL.terran.background_tactics import BackgroundTactics
+
+            return BackgroundTactics()
+        except Exception as exc:
+            logger.warning("Failed to load BackgroundTactics; using EmptyTactics: %s", exc)
+            return EmptyTactics()
 
 
 # ----------------------------------------------------------------------
