@@ -388,16 +388,13 @@ python parse_sc2_logs.py
 
 ## Python 环境安装
 
-请确保 Python 版本为 **3.8 – 3.10**（过高版本可能导致 `s2clientprotocol` 兼容问题）。
+环境安装以 [`docs/环境配置教程.md`](docs/环境配置教程.md) 为准。当前推荐统一使用
+conda 环境 `SC2_0615` 和 Python 3.11；Linux 与 Windows 的依赖安装、`SC2PATH`
+配置、pytest 自检和短时对局冒烟命令都维护在该文档中。
 
-```bash
-python3 -m venv venv
-source venv/bin/activate   # Windows: venv\Scripts\activate
-
-pip install -r requirements.txt
-```
-
-需要本地安装 StarCraft II 客户端，并将地图放入 `maps/` 目录。Sharpy 底层说明见 [`README_sharpy.md`](README_sharpy.md)。
+旧式 `requirements*.txt` 与 venv 安装方式已移除，避免和实测环境版本冲突。
+需要本地安装 StarCraft II 客户端，并确认地图位于 SC2 的 `Maps/` 目录。
+Sharpy 底层说明见 [`README_sharpy.md`](README_sharpy.md)。
 
 ---
 
