@@ -9,7 +9,7 @@ import run_vs_ai
 
 
 def short_match_id(**kw):
-    return f"{kw['timestamp']}_mr_hard_air"
+    return f"{kw['timestamp']}_mr_retest"
 
 
 run_vs_ai.build_match_id = short_match_id
