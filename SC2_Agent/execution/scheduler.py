@@ -394,16 +394,21 @@ class ExecutionScheduler(ActBase):
         if pa.category == mapping.CAT_BUILD and pa._act_target_count is not None:
             unit_type = mapping.unit_type_for(pa.target_result or "")
             if unit_type is not None and self._existing_plus_en_route(unit_type) >= pa._act_target_count:
-                pa.state = DONE
-                pa.issued_count = pa.quantity
-                pa.note = "done (build already in flight)"
-                pa.running_start_time = None
-                if getattr(pa._act, "clear_worker", None):
-                    try:
-                        pa._act.clear_worker()
-                    except Exception:  # pragma: no cover
-                        pass
-                return True
+                # ????????????????????10.5 / 15.6??
+                # ??????????????? DONE?fall through ? execute()?
+                existing = self._equivalent_existing_count(unit_type)
+                if existing >= pa._act_target_count:
+                    pa.state = DONE
+                    pa.issued_count = pa.quantity
+                    pa.note = "done (build already in flight)"
+                    pa.running_start_time = None
+                    if getattr(pa._act, "clear_worker", None):
+                        try:
+                            pa._act.clear_worker()
+                        except Exception:  # pragma: no cover
+                            pass
+                    return True
+                # else: fall through to execute() for a more reliable check
 
         try:
             done = await pa._act.execute()
@@ -412,6 +417,20 @@ class ExecutionScheduler(ActBase):
             done = False
 
         if done:
+            # ?????GridBuilding / ??????????????? True?
+            # ??????????????????? RUNNING?15.6??
+            if (pa.category == mapping.CAT_BUILD
+                    and pa._act_target_count is not None):
+                unit_type = mapping.unit_type_for(pa.target_result or "")
+                if unit_type is not None:
+                    existing = self._equivalent_existing_count(unit_type)
+                    if existing < pa._act_target_count:
+                        pa.state = RUNNING
+                        pa.wait_start_time = None
+                        if pa.running_start_time is None:
+                            pa.running_start_time = now
+                        pa.note = "building/researching"
+                        return True
             pa.state = DONE
             pa.issued_count = pa.quantity
             pa.note = "done"
@@ -420,8 +439,8 @@ class ExecutionScheduler(ActBase):
                     and hasattr(pa._act, "actual_placements")
                     and pa._act.actual_placements < pa.quantity):
                 logger.warning(
-                    "GridBuilding %s planned x%d but only placed %d building(s) ? "
-                    "possible premature DONE (see docs ??????).",
+                    "GridBuilding %s planned x%d but only placed %d building(s) "
+                    "- possible premature DONE (see docs ??????).",
                     pa.action_name, pa.quantity, pa._act.actual_placements,
                 )
         else:

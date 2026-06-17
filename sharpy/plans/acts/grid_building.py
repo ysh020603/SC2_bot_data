@@ -149,15 +149,30 @@ class GridBuilding(ActBuilding):
 
             return True  # Step is done
 
-        if (
-            count + self.pending_build(self.unit_type) >= self.to_count
-        ):
+        # ???????SCV ???????????/?????
+        # ????? count + pending_build ??????? worker-order ???
+        # ? scheduler ??????????? 15.6??
+        en_route = 0
+        try:
+            creation_ability_id = self.ai._game_data.units[self.unit_type.value].creation_ability.id
+            for worker in self.ai.workers:
+                for order in worker.orders:
+                    if order.ability.id == creation_ability_id:
+                        # ????????????????????? double-count
+                        target = Point2.from_proto(order.target)
+                        if not self.ai.structures.closer_than(1.0, target).exists:
+                            en_route += 1
+                        break
+        except Exception:
+            pass
+
+        if count + en_route >= self.to_count:
             if self.builder_tag is not None:
                 worker = self.cache.by_tag(self.builder_tag)
                 if worker is not None:
                     self.set_worker(worker)
                     await self.debug_draw()
-            return True  # Building is ordered
+            return True  # Building is ordered / done
 
         if self.knowledge.my_race == Race.Protoss:
             position = self.position_protoss(count)
