@@ -13,9 +13,23 @@ from __future__ import annotations
 import json
 import logging
 import re
+from collections import Counter
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger("SC2_Agent.ordering_agent")
+
+
+def _format_action_counts(actions: List[str]) -> str:
+    counts = Counter(actions)
+    seen = set()
+    lines: List[str] = []
+    for action in actions:
+        if action in seen:
+            continue
+        seen.add(action)
+        count = counts[action]
+        lines.append(f"{action} x {count}" if count > 1 else action)
+    return "\n".join(lines)
 
 
 def build_ordering_messages(
@@ -25,6 +39,7 @@ def build_ordering_messages(
     prereq_hints: str,
     conflict_hints: str,
     cost_hints: str,
+    strategy_step_text: str = "",
 ) -> List[Dict[str, str]]:
     """构建阶段4 排序 Agent Prompt。
 
@@ -50,10 +65,16 @@ Rules:
   parallel; sequence them sensibly so neither starves.
 * Cheaper / unlocking / short actions generally go earlier; expensive long-term
   goals later.
-* The input is an ALREADY-EXPANDED flat list: an action may appear multiple
-  times, meaning that many copies should be produced. Keep EXACTLY the same
-  multiset (the same number of occurrences of each action) — only reorder them.
-  Do NOT merge duplicates and do NOT write "xN" counts.
+* Use the Strategy Step to understand strategic priority and intended timing,
+  but the action list remains authoritative. Do not add or remove actions
+  because of the Strategy Step.
+* The input is a compact counted list: "ACTION x N" means that action must
+  appear N times in the final ordered action sequence. A line without "x N"
+  means exactly one occurrence.
+* Keep EXACTLY the same multiset (the same number of occurrences of each action)
+  and only reorder them.
+* The JSON output must be an expanded ordered list with repeated action strings;
+  do not use "x N" counts in the JSON.
 * IGNORE supply depots entirely (supply is inserted automatically afterwards). If
   any supply-depot action appears in the input, DROP it.
 * Do not invent new actions and do not add or remove occurrences.
@@ -71,10 +92,11 @@ Output ONLY one JSON object, no prose, no markdown fences. The output list must
 contain exactly the same items as the input (same multiset), just reordered:
 {{"ordered_actions":["TERRANBUILD_BARRACKS","BARRACKSTRAIN_MARINE","BARRACKSTRAIN_MARINE"]}}"""
 
-    actions_json = json.dumps(actions, ensure_ascii=False, indent=2)
+    actions_text = _format_action_counts(actions)
     user_msg = (
-        f"[Actions to order (flat list, keep every occurrence)]\n"
-        f"{actions_json}\n\n[Current Observation]\n{obs_text}"
+        f"[Actions to order]\n"
+        f"{actions_text}\n\n[Strategy Step]\n"
+        f"{strategy_step_text or '(none)'}\n\n[Current Observation]\n{obs_text}"
     )
 
     return [

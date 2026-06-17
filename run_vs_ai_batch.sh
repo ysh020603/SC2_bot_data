@@ -17,9 +17,7 @@ REAL_TIME="${REAL_TIME:-0}"
 ENEMY_RACE="${ENEMY_RACE:-terran}"
 ENEMY_DIFFICULTY="${ENEMY_DIFFICULTY:-hard}"
 ENEMY_BUILD="${ENEMY_BUILD:-macro}"
-BOT_INSTRUCT="${BOT_INSTRUCT:-打一波 以 大和为主的攻击}"
 BOT_RACE="${BOT_RACE:-terran}"
-TOP_MODEL="${TOP_MODEL:-DeepSeek-V4-pro-reasoning}"
 MID_MODEL="${MID_MODEL:-DeepSeek-V4-pro-reasoning}"
 DOWN_MODEL="${DOWN_MODEL:-DeepSeek-V4-flash}"
 FORCE_STRATEGY="${FORCE_STRATEGY:-}"
@@ -48,9 +46,7 @@ write_batch_env_file() {
     printf '%s\n' "ENEMY_RACE=$(printf '%q' "$ENEMY_RACE")"
     printf '%s\n' "ENEMY_DIFFICULTY=$(printf '%q' "$ENEMY_DIFFICULTY")"
     printf '%s\n' "ENEMY_BUILD=$(printf '%q' "$ENEMY_BUILD")"
-    printf '%s\n' "BOT_INSTRUCT=$(printf '%q' "$BOT_INSTRUCT")"
     printf '%s\n' "BOT_RACE=$(printf '%q' "$BOT_RACE")"
-    printf '%s\n' "TOP_MODEL=$(printf '%q' "$TOP_MODEL")"
     printf '%s\n' "MID_MODEL=$(printf '%q' "$MID_MODEL")"
     printf '%s\n' "DOWN_MODEL=$(printf '%q' "$DOWN_MODEL")"
     printf '%s\n' "FORCE_STRATEGY=$(printf '%q' "$FORCE_STRATEGY")"
@@ -98,9 +94,7 @@ if [[ "${1:-}" == "worker" ]]; then
       --enemy-race "$ENEMY_RACE" \
       --enemy-difficulty "$ENEMY_DIFFICULTY" \
       --enemy-build "$ENEMY_BUILD" \
-      --bot-instruct "$BOT_INSTRUCT" \
       --bot-race "$BOT_RACE" \
-      --top-model "$TOP_MODEL" \
       --mid-model "$MID_MODEL" \
       --down-model "$DOWN_MODEL" \
       "${extra_flags[@]}" \
@@ -124,7 +118,7 @@ MODE="${3:-fg}"
 
 if [[ -z "$BATCH_NAME" ]]; then
   TS="$(date +%Y%m%d_%H%M)"
-  BATCH_NAME="batch_${TS}_${MAP_NAME}_${BOT_RACE}V${ENEMY_RACE}_${ENEMY_DIFFICULTY}_$(slug_part "$TOP_MODEL")"
+  BATCH_NAME="batch_${TS}_${MAP_NAME}_${BOT_RACE}V${ENEMY_RACE}_${ENEMY_DIFFICULTY}_$(slug_part "$MID_MODEL")"
 fi
 
 RECORD_ROOT="${RECORD_ROOT:-./game_records}"

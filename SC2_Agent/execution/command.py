@@ -12,8 +12,7 @@ from SC2_Agent.execution import mapping
 
 # --- action lifecycle states ---
 PENDING = "PENDING"          # not yet started this cycle
-WAITING_RES = "WAITING_RES"  # prereq ok, blocked on minerals/gas
-WAITING_TECH = "WAITING_TECH"  # blocked on tech-chain / busy producer
+WAITING = "WAITING"          # blocked on tech-chain, producer, minerals/gas, or supply
 RUNNING = "RUNNING"          # issued, in progress (build/research act running)
 DONE = "DONE"                # finished / enough issued
 ABANDONED = "ABANDONED"      # waited too long, given up
@@ -35,6 +34,9 @@ class PlannedAction:
     state: str = PENDING
     enqueue_time: float = 0.0
     wait_start_time: Optional[float] = None
+    # 进入 RUNNING（已下达 build/research act，但尚未成功下单）的时刻；
+    # 用于侦测「act 反复返回 False、永远 RUNNING」的卡死并超时放弃。
+    running_start_time: Optional[float] = None
     note: str = ""
 
     # --- internal runtime handles (not serialised) ---
@@ -74,7 +76,7 @@ class PlannedAction:
         return self.state in (DONE, ABANDONED)
 
     def is_waiting(self) -> bool:
-        return self.state in (WAITING_RES, WAITING_TECH)
+        return self.state == WAITING
 
     def short_label(self) -> str:
         if self.quantity > 1:

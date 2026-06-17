@@ -3,6 +3,16 @@ from sharpy.plans.acts import ActBase
 from sc2.unit import Unit
 from sc2.constants import *
 
+TOWNHALL_TYPES = {
+    UnitTypeId.COMMANDCENTER,
+    UnitTypeId.ORBITALCOMMAND,
+    UnitTypeId.PLANETARYFORTRESS,
+    UnitTypeId.NEXUS,
+    UnitTypeId.HATCHERY,
+    UnitTypeId.LAIR,
+    UnitTypeId.HIVE,
+}
+
 
 class PlanCancelBuilding(ActBase):
     # Cancels a building when it's about to get destroyed
@@ -15,6 +25,11 @@ class PlanCancelBuilding(ActBase):
 
     async def execute(self) -> bool:
         for building in self.ai.structures:  # type: Unit
+            # Do not auto-cancel townhalls. In the LLM macro pipeline this caused
+            # repeated "expand -> cancel damaged CC -> expand again" loops under
+            # pressure, burning resources and keeping the scheduler non-drained.
+            if building.type_id in TOWNHALL_TYPES:
+                continue
             if 1 > building.build_progress > 0:
                 if self.building_going_down(building):
                     self.print(

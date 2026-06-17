@@ -58,7 +58,7 @@ Selection rules:
 [Action cost/time] {cost_hint or '(unknown)'}
 [Pending actions not yet executed] {pending_actions_summary or '(none)'}
 [Actions currently waiting] {waiting_actions_summary or '(none)'}
-[Possible conflicts between candidates and pending actions]
+[Possible conflicts in pending actions]
 {executor_conflict_hints or '(none)'}
 
 Output ONLY a JSON list with exactly one tag, no prose, no markdown fences:
@@ -75,10 +75,12 @@ Output ONLY a JSON list with exactly one tag, no prose, no markdown fences:
 def parse_executor_response(
     text: str,
     legal_tags: Optional[set] = None,
+    tag_map: Optional[Dict[int, int]] = None,
 ) -> Optional[int]:
     """解析执行者 Agent 输出的 ``[tag]``，返回单个 tag（int）。
 
     :param legal_tags: 若提供，则校验 tag 必须在候选集合内，否则返回 ``None``。
+    :param tag_map:    可选的 ``{prompt_tag: real_tag}`` 映射，用于短 tag 还原。
     """
     if not text:
         return None
@@ -107,4 +109,9 @@ def parse_executor_response(
     if legal_tags is not None and tag not in legal_tags:
         logger.warning("Executor Agent returned illegal tag %r (not a candidate).", tag)
         return None
+    if tag_map is not None:
+        if tag not in tag_map:
+            logger.warning("Executor Agent returned unmapped prompt tag %r.", tag)
+            return None
+        return tag_map[tag]
     return tag

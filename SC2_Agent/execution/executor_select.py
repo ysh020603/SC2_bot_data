@@ -10,7 +10,7 @@ there is a single candidate (then the rule pick is used directly).
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from sc2.ids.ability_id import AbilityId
 
@@ -88,16 +88,30 @@ def _unit_status_text(unit: Any) -> str:
     return ", ".join(parts)
 
 
-def candidates_text(candidates: List[Tuple[Any, str]]) -> str:
+def prompt_tag_aliases(candidates: List[Tuple[Any, str]], modulus: int = 1000) -> Dict[int, int]:
+    """Return ``{real_tag: prompt_tag}`` for compact LLM prompts."""
+    return {int(unit.tag): int(unit.tag) % modulus for unit, _ in candidates}
+
+
+def candidates_text(
+    candidates: List[Tuple[Any, str]],
+    tag_aliases: Optional[Dict[int, int]] = None,
+) -> str:
     """Render candidate executors for the LLM prompt."""
     lines: List[str] = []
     for unit, status in candidates:
         name = unit.type_id.name
-        lines.append(f"  - tag={unit.tag} {name} [{status}]")
+        tag = tag_aliases.get(unit.tag, unit.tag) if tag_aliases else unit.tag
+        lines.append(f"  - tag={tag} {name} [{status}]")
     return "\n".join(lines) or "  (none)"
 
 
-def candidate_tags(candidates: List[Tuple[Any, str]]) -> set:
+def candidate_tags(
+    candidates: List[Tuple[Any, str]],
+    tag_aliases: Optional[Dict[int, int]] = None,
+) -> set:
+    if tag_aliases:
+        return {tag_aliases.get(unit.tag, unit.tag) for unit, _ in candidates}
     return {unit.tag for unit, _ in candidates}
 
 
@@ -105,7 +119,7 @@ def executor_conflict_hints(
     candidates: List[Tuple[Any, str]],
     pending_action_names: List[str],
 ) -> str:
-    """Flag candidates that are also (potential) executors of pending actions.
+    """List pending action names that may conflict with the candidate producers.
 
     Helps the LLM avoid occupying a producer that a still-pending action needs
     (e.g. a bare Barracks that a pending BUILD_TECHLAB_BARRACKS will require).
@@ -113,16 +127,19 @@ def executor_conflict_hints(
     if not candidates or not pending_action_names:
         return ""
     index = _executor_index()
-    lines: List[str] = []
+    candidate_executor_names = set()
     for unit, _status in candidates:
         unit_db_name = db_name_for_enum(unit.type_id.name)
-        if not unit_db_name:
+        if unit_db_name:
+            candidate_executor_names.add(unit_db_name)
+
+    conflict_actions: List[str] = []
+    seen = set()
+    for action in pending_action_names:
+        if action in seen:
             continue
-        for action in pending_action_names:
-            execs = index.get(action, set())
-            if unit_db_name in execs:
-                lines.append(
-                    f"  - {unit.type_id.name}#tag{unit.tag} is also a valid executor "
-                    f"for pending action {action}"
-                )
-    return "\n".join(lines)
+        execs = index.get(action, set())
+        if candidate_executor_names.intersection(execs):
+            conflict_actions.append(action)
+            seen.add(action)
+    return "\n".join(f"  - {action}" for action in conflict_actions)

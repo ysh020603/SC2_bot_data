@@ -120,3 +120,27 @@ def make_research_act(target_result: Optional[str]):
     if upgrade is None:
         return None
     return Tech(upgrade)
+
+
+def make_addon_act(action_name: str, to_count: int):
+    """Instantiate a sharpy ``BuildAddon`` Act for a ``BUILD_TECHLAB_*`` /
+    ``BUILD_REACTOR_*`` action.
+
+    ``BuildAddon`` checks for free space to the building's right via
+    ``find_placement`` BEFORE issuing the addon, so a building never lifts off
+    to chase addon space (the raw ability issue used previously would make the
+    structure fly, e.g. a Factory floating away when a Tech Lab is ordered with
+    no room — which then breaks tech-chain prerequisites that need a *landed*
+    producer). Returns ``None`` if the names cannot be resolved.
+    """
+    from sharpy.plans.acts.terran import BuildAddon
+
+    parts = action_name.upper().split("_")  # e.g. BUILD_TECHLAB_FACTORY
+    if len(parts) < 3:
+        return None
+    kind, base = parts[1], parts[2]  # TECHLAB|REACTOR , BARRACKS|FACTORY|STARPORT
+    from_type = unit_type_for(base)
+    addon_type = unit_type_for(base + kind)  # e.g. FactoryTechLab -> FACTORYTECHLAB
+    if from_type is None or addon_type is None:
+        return None
+    return BuildAddon(addon_type, from_type, int(to_count))

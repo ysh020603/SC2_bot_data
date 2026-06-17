@@ -1,17 +1,24 @@
 # Summary
 
-All-in Marine rush: mineral-only economy capped at 20 SCVs, 6 Barracks producing Marines non-stop. Skip gas, skip second base, launch a 20-Marine zone attack across the map. Designed to end the game in the early phases.
+This is an aggressive one-base Marine rush build that skips an early expansion and focuses entirely on constant Marine production from three Barracks, using an Orbital Command for faster SCV and supply efficiency. After opening with Supply Depots and three Barracks, the build prioritises non-stop SCV and Marine training to quickly mass a large infantry force for early map control or a decisive timing attack on the opponent's base, with no investment in Factory, Starport, or additional tech structures.
 
 # Details
 
-This is a one-base, Marine-only, six-Barracks production strategy.
+[Step 1] Begin by building the first and second Supply Depot to maintain a steady flow of production, then construct the first, second, and third Barracks for a strong early army; meanwhile, train 6 SCVs to keep your mineral income high.
 
-At the start, keep mining normally and continue producing SCVs. When supply reaches 14, build the first Supply Depot.
+[Step 2] Morph your Command Center into an Orbital Command, then start building two Barracks. While they complete, train 6 Marines for early map control and produce 1 SCV to keep your economy humming.
 
-After the first Supply Depot is completed, build the first Barracks immediately. Then add the second Supply Depot to avoid getting supply blocked during later Marine production.
+[Step 3] Build a Supply Depot and a Barracks while producing 1 SCV from your Command Center, then train 7 Marines from the Barracks for early defense.
 
-Once the first Barracks is ready, upgrade the Command Center into an Orbital Command. At the same time, keep producing SCVs until reaching around 20 workers.
+[Step 4] Build the first and second Supply Depots while training 8 Marines to reinforce your army.
 
-After that, continuously add more Barracks, aiming for a total of six Barracks. This build does not transition into gas, tech, Factory, or Starport production. The main goal is to increase Barracks production capacity as quickly as possible.
+[Step 5] Build a Supply Depot and train 9 Marines to bolster your infantry force.
 
-Once the Barracks count is established, all Barracks should continuously produce Marines. The later macro focus is to maintain SCV economy, avoid supply blocks, and keep producing Marines from six Barracks until approaching the supply cap.
+[Step 6] Train 10 Marines for early defense or map control.
+
+[Step 7] Build a Supply Depot to keep up with production and train 9 Marines to expand your army presence.
+
+[Step 8] Build 3 Supply Depots and train 7 Marines to maintain your supply capacity and strengthen your ground forces.
+
+[Step 9] Build a Supply Depot to expand your supply capacity, then train 11 Marines to establish a formidable early-game fighting force.
+

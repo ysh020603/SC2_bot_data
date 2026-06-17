@@ -139,16 +139,6 @@ Builds:
             help="File prefix for this match's log, replay, and LLM JSON.",
         )
         parser.add_argument(
-            "--instruct",
-            help="Natural-language tactical instruction for the LLM bot.",
-            default="",
-        )
-        parser.add_argument(
-            "--top-model",
-            help="Model key from config.json for Top Agent.",
-            default="",
-        )
-        parser.add_argument(
             "--mid-model",
             help="Model key from config.json for Mid Agent.",
             default="",
@@ -156,11 +146,6 @@ Builds:
         parser.add_argument(
             "--down-model",
             help="Model key from config.json for Down Agent.",
-            default="",
-        )
-        parser.add_argument(
-            "--increment-model",
-            help="Model key from config.json for Increment Agent (stage 1).",
             default="",
         )
         parser.add_argument(
@@ -180,7 +165,7 @@ Builds:
         )
         parser.add_argument(
             "--force-strategy",
-            help="Force a specific strategy folder name (e.g. 'marine_rush'); bypasses t=0 LLM.",
+            help="Required strategy folder name for UniversalLLMBot (e.g. 'marine_rush').",
             default="",
         )
 
@@ -300,16 +285,10 @@ Builds:
                 recorder = getattr(my_bot, "llm_observation_recorder", None)
                 if recorder is not None:
                     recorder.output_folder = record_dir
-            if getattr(args, "instruct", None) and hasattr(my_bot, "instruct"):
-                my_bot.instruct = args.instruct
-            if getattr(args, "top_model", None) and hasattr(my_bot, "top_model_key"):
-                my_bot.top_model_key = args.top_model
             if getattr(args, "mid_model", None) and hasattr(my_bot, "mid_model_key"):
                 my_bot.mid_model_key = args.mid_model
             if getattr(args, "down_model", None) and hasattr(my_bot, "down_model_key"):
                 my_bot.down_model_key = args.down_model
-            if getattr(args, "increment_model", None) and hasattr(my_bot, "increment_model_key"):
-                my_bot.increment_model_key = args.increment_model
             if getattr(args, "naming_model", None) and hasattr(my_bot, "naming_model_key"):
                 my_bot.naming_model_key = args.naming_model
             if getattr(args, "ordering_model", None) and hasattr(my_bot, "ordering_model_key"):
@@ -318,7 +297,7 @@ Builds:
                 my_bot.executor_model_key = args.executor_model
             if hasattr(my_bot, "force_strategy"):
                 fs = (getattr(args, "force_strategy", "") or "").strip()
-                my_bot.force_strategy = fs if fs and fs.lower() != "none" else None
+                my_bot.force_strategy = fs
             if args.release:
                 my_bot.config = get_config(False)
 

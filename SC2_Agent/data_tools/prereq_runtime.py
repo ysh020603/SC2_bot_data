@@ -82,7 +82,7 @@ def missing_chain(ai: Any, action: str) -> list[str]:
 def chain_in_progress(ai: Any, action: str) -> bool:
     """True if EVERY missing prerequisite is already being built / researched.
 
-    When this holds, the scheduler should keep the action WAITING_TECH and let it
+    When this holds, the scheduler should keep the action WAITING and let it
     fire as soon as the prerequisite finishes, rather than inserting a new action.
     """
     missing = missing_chain(ai, action)

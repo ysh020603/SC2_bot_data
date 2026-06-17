@@ -1,9 +1,9 @@
-"""启动与内置 AI 的自定义对战（可单独运行，也可由批处理脚本调用）。
+﻿"""启动与内置 AI 的自定义对战（可单独运行，也可由批处理脚本调用）。
 
 **首选改法**：编辑本文件 **「运行配置」** 区的 ``DEFAULT_*`` 常量后执行
 ``python run_vs_ai.py``；无需记一长串 CLI 参数。
 
-固定策略（绕过 t=0 Top Agent 的 LLM 选策略）
+固定策略
 ------------------------------------------------
 使用 ``--force-strategy <文件夹名>``，或调用 ``play_vs_ai(force_strategy="...")``。
 策略名对应 ``SKILL/<种族>/<文件夹名>/``（如人族 ``marine_rush`` → ``SKILL/terran/marine_rush/``）。
@@ -19,7 +19,7 @@ CLI 示例::
 
 所有默认值集中在文件内 **「运行配置」** 常量区（``DEFAULT_*``），
 直接 ``python run_vs_ai.py`` 即生效；CLI 显式传参会覆盖对应项。
-取消固定策略请传 ``--force-strategy none``。
+当前版本必须指定固定策略；``--force-strategy none`` 会报错。
 
 批量脚本可通过环境变量 ``FORCE_STRATEGY`` 传入（见 ``run_vs_ai_batch.sh``）。
 
@@ -76,7 +76,6 @@ OUTPUT_BASE_DIR = "./game_records"
 # --- 对战：我方 ---
 DEFAULT_MY_BOT_NAME = "universal_llm"  # universal_llm 时自动拼接种族：universal_llm.terran
 DEFAULT_BOT_RACE = "terran"  # protoss | terran | zerg
-DEFAULT_BOT_INSTRUCT = "打一波 以 大和为主的攻击"  # 自然语言战术指令（传给 Top/Mid Agent）
 DEFAULT_MAP_NAME = "KairosJunctionLE"
 DEFAULT_REAL_TIME = False  # True：实时模式，便于人类观战
 
@@ -86,18 +85,16 @@ DEFAULT_ENEMY_DIFFICULTY = "harder"  # 如 easy / medium / hard / veryhard
 DEFAULT_ENEMY_BUILD = "macro"  # 内置 AI 风格，如 macro / rush 等
 
 # --- LLM 模型（model_key，见项目模型配置）---
-DEFAULT_TOP_MODEL = "DeepSeek-V4-flash"
 DEFAULT_MID_MODEL = "DeepSeek-V4-flash"
 DEFAULT_DOWN_MODEL = "DeepSeek-V4-flash"
 # --- 新五阶段增量驱动流水线各 LLM 调用点（可分别指定模型）---
-DEFAULT_INCREMENT_MODEL = "DeepSeek-V4-flash"
 DEFAULT_NAMING_MODEL = "DeepSeek-V4-flash"
 DEFAULT_ORDERING_MODEL = "DeepSeek-V4-flash"
 DEFAULT_EXECUTOR_MODEL = "DeepSeek-V4-flash"
 
-# --- 固定 t=0 策略（绕过 Top Agent 开局选策略的 LLM）---
+# --- 固定策略 ---
 # 填 SKILL/<种族>/ 下的文件夹名，如 safe_tvt_raven → SKILL/terran/safe_tvt_raven/
-# 须与 DEFAULT_BOT_RACE 一致。空字符串 "" 表示不强制；CLI 可用 --force-strategy none 取消。
+# 须与 DEFAULT_BOT_RACE 一致。运行时必须指定一个策略文件夹名。
 DEFAULT_FORCE_STRATEGY = "marine_rush"
 
 # --- 其它 ---
@@ -108,14 +105,14 @@ def _resolve_force_strategy(explicit: Optional[str]) -> Optional[str]:
     """解析 force_strategy。
 
     * ``explicit is None`` — 未在 CLI/调用方指定，使用 ``DEFAULT_FORCE_STRATEGY``
-    * ``''`` / ``'none'`` — 显式取消强制
+    * ``''`` / ``'none'`` — 非法；UniversalLLMBot 必须有固定策略
     * 其它非空字符串 — 策略文件夹名
     """
     if explicit is None:
         explicit = DEFAULT_FORCE_STRATEGY
     s = str(explicit or "").strip()
     if not s or s.lower() == "none":
-        return None
+        raise ValueError("force_strategy is required; pass a strategy folder name.")
     return s
 
 
@@ -131,7 +128,6 @@ def build_match_id(
     enemy_build: str,
     map_name: str,
     bot_race: str,
-    top_model: str,
     mid_model: str,
     down_model: str,
     run_index: Optional[int],
@@ -145,7 +141,6 @@ def build_match_id(
         enemy_difficulty,
         enemy_build,
         map_name,
-        _safe_match_part(top_model or "no_top"),
         _safe_match_part(mid_model or "no_mid"),
         _safe_match_part(down_model or "no_down"),
     )
@@ -162,12 +157,9 @@ def play_vs_ai(
     enemy_race: str = DEFAULT_ENEMY_RACE,
     enemy_difficulty: str = DEFAULT_ENEMY_DIFFICULTY,
     enemy_build: str = DEFAULT_ENEMY_BUILD,
-    bot_instruct: str = DEFAULT_BOT_INSTRUCT,
     bot_race: str = DEFAULT_BOT_RACE,
-    top_model: str = DEFAULT_TOP_MODEL,
     mid_model: str = DEFAULT_MID_MODEL,
     down_model: str = DEFAULT_DOWN_MODEL,
-    increment_model: str = DEFAULT_INCREMENT_MODEL,
     naming_model: str = DEFAULT_NAMING_MODEL,
     ordering_model: str = DEFAULT_ORDERING_MODEL,
     executor_model: str = DEFAULT_EXECUTOR_MODEL,
@@ -197,7 +189,6 @@ def play_vs_ai(
         enemy_build=enemy_build,
         map_name=map_name,
         bot_race=bot_race,
-        top_model=top_model,
         mid_model=mid_model,
         down_model=down_model,
         run_index=run_index,
@@ -224,16 +215,10 @@ def play_vs_ai(
     
     if real_time:
         args.append("-rt")
-    if bot_instruct:
-        args.extend(["--instruct", bot_instruct])
-    if top_model:
-        args.extend(["--top-model", top_model])
     if mid_model:
         args.extend(["--mid-model", mid_model])
     if down_model:
         args.extend(["--down-model", down_model])
-    if increment_model:
-        args.extend(["--increment-model", increment_model])
     if naming_model:
         args.extend(["--naming-model", naming_model])
     if ordering_model:
@@ -250,10 +235,9 @@ def play_vs_ai(
     print(f" ▷ 我方阵营 : {my_bot_name} ({bot_race})")
     print(f" ▷ 对手 AI  : {enemy_race.upper()} | 难度: {enemy_difficulty} | 风格: {enemy_build}")
     print(f" ▷ 比赛地图 : {map_name}")
-    print(f" ▷ 战术指令 : {bot_instruct}")
-    print(f" ▷ 大模型簇 : Top=[{top_model}], Mid=[{mid_model}], Down=[{down_model}]")
+    print(f" ▷ Legacy模型簇 : Mid=[{mid_model}], Down=[{down_model}]")
     print(
-        f" ▷ 流水线簇 : Increment=[{increment_model}], Naming=[{naming_model}], "
+        f" ▷ 流水线簇 : Naming=[{naming_model}], "
         f"Ordering=[{ordering_model}], Executor=[{executor_model}]"
     )
     print(f" ▷ 强制策略 : {force_strategy or 'None'}")
@@ -284,12 +268,9 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     p.add_argument("--enemy-race", default=DEFAULT_ENEMY_RACE, help="对手种族")
     p.add_argument("--enemy-difficulty", default=DEFAULT_ENEMY_DIFFICULTY, help="对手难度")
     p.add_argument("--enemy-build", default=DEFAULT_ENEMY_BUILD, help="对手 AI 风格")
-    p.add_argument("--bot-instruct", default=DEFAULT_BOT_INSTRUCT, help="战术指令")
     p.add_argument("--bot-race", default=DEFAULT_BOT_RACE, help="我方种族")
-    p.add_argument("--top-model", default=DEFAULT_TOP_MODEL, help="Top Agent")
     p.add_argument("--mid-model", default=DEFAULT_MID_MODEL, help="Mid Agent (legacy)")
     p.add_argument("--down-model", default=DEFAULT_DOWN_MODEL, help="Down Agent (legacy)")
-    p.add_argument("--increment-model", default=DEFAULT_INCREMENT_MODEL, help="Increment Agent (stage 1)")
     p.add_argument("--naming-model", default=DEFAULT_NAMING_MODEL, help="Naming Agent (stage 2)")
     p.add_argument("--ordering-model", default=DEFAULT_ORDERING_MODEL, help="Ordering Agent (stage 4)")
     p.add_argument("--executor-model", default=DEFAULT_EXECUTOR_MODEL, help="Executor Agent (train/addon/morph)")
@@ -307,9 +288,9 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
         default=None,
         metavar="NAME",
         help=(
-            f"强制锁定 t=0 策略（SKILL/<race>/<name> 文件夹名）；"
-            f"未指定时默认 {DEFAULT_FORCE_STRATEGY!r}（见 DEFAULT_FORCE_STRATEGY）；"
-            f"传 none 取消强制。"
+            "Strategy folder name under SKILL/<race>/; "
+            f"default is {DEFAULT_FORCE_STRATEGY!r}. "
+            "UniversalLLMBot requires a strategy."
         ),
     )
 
@@ -324,12 +305,9 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         enemy_race=ns.enemy_race,
         enemy_difficulty=ns.enemy_difficulty,
         enemy_build=ns.enemy_build,
-        bot_instruct=ns.bot_instruct,
         bot_race=ns.bot_race,
-        top_model=ns.top_model,
         mid_model=ns.mid_model,
         down_model=ns.down_model,
-        increment_model=ns.increment_model,
         naming_model=ns.naming_model,
         ordering_model=ns.ordering_model,
         executor_model=ns.executor_model,

@@ -143,7 +143,6 @@ def build_skill_selection_messages(
     race: str,
     layer: str,
     obs_text: str,
-    instruct: str,
     strategy_name: str,
     strategy_description: str,
     phase: str,
@@ -177,9 +176,6 @@ def build_skill_selection_messages(
         system_lines.append(f"* Commander-assessed game phase: {phase}")
     if focus:
         system_lines.append(f"* Commander focus directive: {focus}")
-    if instruct:
-        system_lines.append(f"* Player instruction: {instruct}")
-
     system_lines.extend([
         "",
         "Below is the candidate skill catalog. You MUST pick AT MOST "
@@ -196,8 +192,6 @@ def build_skill_selection_messages(
     ])
 
     user_lines = [f"[Current Observation]\n{obs_text}" if obs_text else "[Current Observation]\n(unavailable)"]
-    if instruct:
-        user_lines.append(f"[Player Instruction]\n{instruct}")
 
     return [
         {"role": "system", "content": "\n".join(system_lines)},
