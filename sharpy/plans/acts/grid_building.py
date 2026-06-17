@@ -116,6 +116,8 @@ class GridBuilding(ActBuilding):
         self.priority = priority
         self.only_roles = [UnitTask.Idle, UnitTask.Building, UnitTask.Gathering]
         self.builder_tag: Optional[int] = None
+        # ??????????? DONE ?? WARN ??????7.4 / ?11.8?
+        self.actual_placements: int = 0
         self.iterator: Optional[int] = iterator
         self.consider_worker_production = consider_worker_production
         self.building_solver: IBuildingSolver = None
@@ -148,8 +150,7 @@ class GridBuilding(ActBuilding):
             return True  # Step is done
 
         if (
-            count + (self.pending_build(self.unit_type) - self.cache.own(self.unit_type).not_ready.amount)
-            >= self.to_count
+            count + self.pending_build(self.unit_type) >= self.to_count
         ):
             if self.builder_tag is not None:
                 worker = self.cache.by_tag(self.builder_tag)
@@ -544,16 +545,19 @@ class GridBuilding(ActBuilding):
 
         # TODO: Remake the error handling with frame delay
         worker.build(self.unit_type, position)
+        self.actual_placements += 1
 
     async def build_zerg(self, worker: Unit, count, position: Point2):
         # try the selected position first
         # TODO: Remake the error handling with frame delay
         worker.build(self.unit_type, position)
+        self.actual_placements += 1
 
     async def build_terran(self, worker: Unit, count, position: Point2):
         # try the selected position first
         # TODO: Remake the error handling with frame delay
         worker.build(self.unit_type, position)
+        self.actual_placements += 1
 
     def is_on_creep(self, creep: PixelMap, point: Point2) -> bool:
         x_original = floor(point.x) - 1

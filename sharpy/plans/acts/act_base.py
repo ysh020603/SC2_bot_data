@@ -151,7 +151,7 @@ class ActBase(Component, ABC):
 
         if include_not_ready and include_pending:
             count += self.unit_pending_count(unit_type)
-            count += type_count.ready.amount
+            count += type_count.amount
         elif include_not_ready and not include_pending:
             count += type_count.amount
         elif not include_not_ready and include_pending:

@@ -837,6 +837,10 @@ class UniversalLLMBot(KnowledgeBot):
             # 把扁平列表按「连续相同」折叠回 (name, count) 交给调度器：
             # build/research 用绝对 to_count，需要单条带数量；train 折叠成连发也正确。
             pairs: List[Tuple[str, int]] = self._collapse_runs(ordered_with_supply)
+            # prefetch ???append ??????????????????
+            # ? set_actions ? P1 ??????????3.3 / ?11.5??
+            if mode == "append" and self.scheduler is not None:
+                pairs = self._guard_prefetch_build_quantity(pairs)
             if self.scheduler is not None:
                 self.scheduler.set_actions(pairs, mode=mode)
             self._advance_strategy_step_after_install(current_step)
@@ -858,6 +862,42 @@ class UniversalLLMBot(KnowledgeBot):
             )
 
     # --- 阶段4 多重集对账 / 折叠 ---------------------------------------
+
+    # --- prefetch guard (P2) -----------------------------------------------
+
+    def _guard_prefetch_build_quantity(
+        self, pairs: List[Tuple[str, int]]
+    ) -> List[Tuple[str, int]]:
+        """When prefetch-append occurs while existing same-type builds are
+        not yet DONE, skip redundant new entries to avoid stacking independent
+        PlannedActions (sec 3.3 / 11.5). The P1 merge in set_actions handles
+        quantity boost at the queue level."""
+        from SC2_Agent.execution import mapping
+
+        active_build_types: set = set()
+        active_names: set = set()
+        for a in self.scheduler.actions:
+            if a.is_terminal():
+                continue
+            if a.category in (mapping.CAT_BUILD, mapping.CAT_ADDON):
+                active_names.add(a.action_name)
+                unit_type = mapping.unit_type_for(a.target_result or "")
+                if unit_type is not None:
+                    active_build_types.add(unit_type)
+
+        if not active_names:
+            return pairs
+
+        adjusted: List[Tuple[str, int]] = []
+        for name, qty in pairs:
+            unit_type = mapping.unit_type_for(name)
+            if unit_type is not None and unit_type in active_build_types:
+                continue
+            if name in active_names:
+                continue
+            adjusted.append((name, qty))
+        return adjusted
+
 
     @staticmethod
     def _reconcile_multiset(
@@ -887,18 +927,18 @@ class UniversalLLMBot(KnowledgeBot):
 
     @staticmethod
     def _collapse_runs(flat: List[str]) -> List[Tuple[str, int]]:
-        """把扁平动作列表按「连续相同」折叠成 ``[(name, run_length), ...]``。"""
+        """????????????????????????????????"""
+        from collections import Counter
+
+        merged = Counter(flat)
+        # ?? flat ???????
         pairs: List[Tuple[str, int]] = []
+        seen: set = set()
         for name in flat:
-            if pairs and pairs[-1][0] == name:
-                prev, cnt = pairs[-1]
-                pairs[-1] = (prev, cnt + 1)
-            else:
-                pairs.append((name, 1))
+            if name not in seen:
+                seen.add(name)
+                pairs.append((name, merged[name]))
         return pairs
-
-    # --- 阶段3 实体→Action 选择 ----------------------------------------
-
     def _primary_action_for_entity(self, entity_name: str) -> Optional[str]:
         """把一个标准实体名映射到「主」Action 标准名（优先 Build/Train/Research/Morph）。"""
         try:

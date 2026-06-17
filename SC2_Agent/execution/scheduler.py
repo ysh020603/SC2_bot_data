@@ -98,8 +98,34 @@ class ExecutionScheduler(ActBase):
 
         if mode == "append":
             kept = [a for a in self.actions if not a.is_terminal()]
-            self.actions = kept + new_actions
+            # ?????????????? PlannedAction ???????
+            # ?? to_count???????????? docs ?????? ?3.2 + ?10.6??
+            merged_new = []
+            for pa in new_actions:
+                merged = False
+                if pa.category in (mapping.CAT_BUILD, mapping.CAT_ADDON):
+                    for existing in kept:
+                        if existing.action_name == pa.action_name and not existing.is_terminal():
+                            existing.quantity += pa.quantity
+                            if existing._act is not None:
+                                if existing.category == mapping.CAT_BUILD and existing._act_target_count is not None:
+                                    existing._act_target_count += pa.quantity
+                                if hasattr(existing._act, 'to_count'):
+                                    existing._act.to_count += pa.quantity
+                            merged = True
+                            break
+                if not merged:
+                    merged_new.append(pa)
+            self.actions = kept + merged_new
         else:
+            # replace ???????? action ? worker ???
+            # ?? GridBuilding ??? SCV ??????? ?10.3??
+            for old in self.actions:
+                if getattr(old._act, "clear_worker", None):
+                    try:
+                        old._act.clear_worker()
+                    except Exception:
+                        pass
             self.actions = new_actions
         self._executor_cache.clear()
         logger.info("Scheduler installed %d actions (mode=%s)", len(new_actions), mode)
@@ -198,6 +224,13 @@ class ExecutionScheduler(ActBase):
             if pa.running_start_time is None:
                 continue
             if (now - pa.running_start_time) > self.running_abandon_sec:
+                # ????????? worker ????? SCV ????? Building ??
+                # ??? ?10.4??
+                if getattr(pa._act, "clear_worker", None):
+                    try:
+                        pa._act.clear_worker()
+                    except Exception:
+                        pass
                 pa.state = ABANDONED
                 pa.note = "abandoned: build stuck (no placement / cannot order)"
                 pa.running_start_time = None
@@ -383,6 +416,14 @@ class ExecutionScheduler(ActBase):
             pa.issued_count = pa.quantity
             pa.note = "done"
             pa.running_start_time = None
+            if (pa.category == mapping.CAT_BUILD
+                    and hasattr(pa._act, "actual_placements")
+                    and pa._act.actual_placements < pa.quantity):
+                logger.warning(
+                    "GridBuilding %s planned x%d but only placed %d building(s) ? "
+                    "possible premature DONE (see docs ??????).",
+                    pa.action_name, pa.quantity, pa._act.actual_placements,
+                )
         else:
             pa.state = RUNNING
             pa.wait_start_time = None
@@ -445,7 +486,11 @@ class ExecutionScheduler(ActBase):
         for worker in self.ai.workers:
             for order in worker.orders:
                 if order.ability.id == creation_ability_id:
-                    en_route += 1
+                    # ????????? double-count?sharpy cache ????
+                    # worker order ???????????? ?10.5??
+                    target = Point2.from_proto(order.target)
+                    if not self.ai.structures.closer_than(1.0, target).exists:
+                        en_route += 1
                     break
         return existing + en_route
 
