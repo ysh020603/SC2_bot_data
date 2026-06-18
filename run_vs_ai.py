@@ -23,34 +23,10 @@ CLI 示例::
 
 批量脚本可通过环境变量 ``FORCE_STRATEGY`` 传入（见 ``run_vs_ai_batch.sh``）。
 
-各层是否启用 SKILL（两段式 Skill 路由 / 消融实验）
---------------------------------------------------
-优先级：``--disable-all-skills`` > ``--enable-skill-layers``。
-
-``--disable-all-skills``
-    完全关闭 Skill：Top/Mid 均不做 Phase 1 筛选，Phase 2 不注入 Skill（基线）。
-
-``--enable-skill-layers {all,top_only,mid_only,none}``  （默认 ``all``）
-    * ``all``      — Top(t=0) 与 Mid 均启用 Skill 路由
-    * ``top_only`` — 仅 Top 层启用
-    * ``mid_only`` — 仅 Mid 层启用
-    * ``none``     — 两层均不启用 Skill 路由
-
-``--disable-specific-skills-layers {all,top,mid,none}``  （默认 ``none``）
-    在已启用 Skill 的层上，强制只用 ``generic`` 目录下的通用 Skill，不用策略专属 Skill：
-    * ``top`` / ``mid`` — 仅禁用对应层的 Specific Skill
-    * ``all``           — 两层均只用 Generic
-    * ``none``          — 不限制（Specific + Generic 均可）
-
-CLI 示例（仅 Top 启用 Skill，且 Top 只用 Generic；同时锁定 marine_rush）::
-
-    python run_vs_ai.py \\
-        --enable-skill-layers top_only \\
-        --disable-specific-skills-layers top \\
-        --force-strategy marine_rush
-
-批量脚本对应环境变量：``DISABLE_ALL_SKILLS``、``ENABLE_SKILL_LAYERS``、
-``DISABLE_SPECIFIC_SKILLS_LAYERS``、``FORCE_STRATEGY``（见 ``start_experiments.sh``）。
+模型参数
+------------------------------------------------
+当前主线只保留五阶段增量流水线中的 LLM 调用点：
+``--naming-model``、``--ordering-model``、``--executor-model``。
 """
 
 from __future__ import annotations
@@ -81,13 +57,10 @@ DEFAULT_REAL_TIME = False  # True：实时模式，便于人类观战
 
 # --- 对战：内置 AI 对手 ---
 DEFAULT_ENEMY_RACE = "terran"
-DEFAULT_ENEMY_DIFFICULTY = "harder"  # 如 easy / medium / hard / veryhard
-DEFAULT_ENEMY_BUILD = "macro"  # 内置 AI 风格，如 macro / rush 等
+DEFAULT_ENEMY_DIFFICULTY = "medium"  # 如 easy / medium / hard / veryhard
+DEFAULT_ENEMY_BUILD = "random"  # 内置 AI 风格；random 对应 RandomBuild
 
-# --- LLM 模型（model_key，见项目模型配置）---
-DEFAULT_MID_MODEL = "DeepSeek-V4-flash"
-DEFAULT_DOWN_MODEL = "DeepSeek-V4-flash"
-# --- 新五阶段增量驱动流水线各 LLM 调用点（可分别指定模型）---
+# --- 五阶段增量驱动流水线各 LLM 调用点（model_key，见 API_config/config.json）---
 DEFAULT_NAMING_MODEL = "DeepSeek-V4-flash"
 DEFAULT_ORDERING_MODEL = "DeepSeek-V4-flash"
 DEFAULT_EXECUTOR_MODEL = "DeepSeek-V4-flash"
@@ -128,8 +101,9 @@ def build_match_id(
     enemy_build: str,
     map_name: str,
     bot_race: str,
-    mid_model: str,
-    down_model: str,
+    naming_model: str,
+    ordering_model: str,
+    executor_model: str,
     run_index: Optional[int],
 ) -> str:
     parts: Sequence[str] = (
@@ -141,8 +115,9 @@ def build_match_id(
         enemy_difficulty,
         enemy_build,
         map_name,
-        _safe_match_part(mid_model or "no_mid"),
-        _safe_match_part(down_model or "no_down"),
+        _safe_match_part(naming_model or "no_naming"),
+        _safe_match_part(ordering_model or "no_ordering"),
+        _safe_match_part(executor_model or "no_executor"),
     )
     match_str = "_".join(_safe_match_part(p) for p in parts)
     if run_index is not None:
@@ -158,8 +133,6 @@ def play_vs_ai(
     enemy_difficulty: str = DEFAULT_ENEMY_DIFFICULTY,
     enemy_build: str = DEFAULT_ENEMY_BUILD,
     bot_race: str = DEFAULT_BOT_RACE,
-    mid_model: str = DEFAULT_MID_MODEL,
-    down_model: str = DEFAULT_DOWN_MODEL,
     naming_model: str = DEFAULT_NAMING_MODEL,
     ordering_model: str = DEFAULT_ORDERING_MODEL,
     executor_model: str = DEFAULT_EXECUTOR_MODEL,
@@ -189,8 +162,9 @@ def play_vs_ai(
         enemy_build=enemy_build,
         map_name=map_name,
         bot_race=bot_race,
-        mid_model=mid_model,
-        down_model=down_model,
+        naming_model=naming_model,
+        ordering_model=ordering_model,
+        executor_model=executor_model,
         run_index=run_index,
     )
 
@@ -215,10 +189,6 @@ def play_vs_ai(
     
     if real_time:
         args.append("-rt")
-    if mid_model:
-        args.extend(["--mid-model", mid_model])
-    if down_model:
-        args.extend(["--down-model", down_model])
     if naming_model:
         args.extend(["--naming-model", naming_model])
     if ordering_model:
@@ -235,7 +205,6 @@ def play_vs_ai(
     print(f" ▷ 我方阵营 : {my_bot_name} ({bot_race})")
     print(f" ▷ 对手 AI  : {enemy_race.upper()} | 难度: {enemy_difficulty} | 风格: {enemy_build}")
     print(f" ▷ 比赛地图 : {map_name}")
-    print(f" ▷ Legacy模型簇 : Mid=[{mid_model}], Down=[{down_model}]")
     print(
         f" ▷ 流水线簇 : Naming=[{naming_model}], "
         f"Ordering=[{ordering_model}], Executor=[{executor_model}]"
@@ -269,8 +238,6 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     p.add_argument("--enemy-difficulty", default=DEFAULT_ENEMY_DIFFICULTY, help="对手难度")
     p.add_argument("--enemy-build", default=DEFAULT_ENEMY_BUILD, help="对手 AI 风格")
     p.add_argument("--bot-race", default=DEFAULT_BOT_RACE, help="我方种族")
-    p.add_argument("--mid-model", default=DEFAULT_MID_MODEL, help="Mid Agent (legacy)")
-    p.add_argument("--down-model", default=DEFAULT_DOWN_MODEL, help="Down Agent (legacy)")
     p.add_argument("--naming-model", default=DEFAULT_NAMING_MODEL, help="Naming Agent (stage 2)")
     p.add_argument("--ordering-model", default=DEFAULT_ORDERING_MODEL, help="Ordering Agent (stage 4)")
     p.add_argument("--executor-model", default=DEFAULT_EXECUTOR_MODEL, help="Executor Agent (train/addon/morph)")
@@ -306,8 +273,6 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         enemy_difficulty=ns.enemy_difficulty,
         enemy_build=ns.enemy_build,
         bot_race=ns.bot_race,
-        mid_model=ns.mid_model,
-        down_model=ns.down_model,
         naming_model=ns.naming_model,
         ordering_model=ns.ordering_model,
         executor_model=ns.executor_model,

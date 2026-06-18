@@ -40,7 +40,7 @@ if TYPE_CHECKING:
 
 
 DEFAULT_INTERVAL_SECONDS: float = 20.0
-DEFAULT_OUTPUT_FOLDER: str = "games"
+DEFAULT_OUTPUT_FOLDER: str = "game_records"
 DEFAULT_FILENAME_PREFIX: str = "Replay"
 
 # Short race tags used inside the auto-generated file name (PvT, ZvP, ...).

@@ -17,7 +17,7 @@ import logging
 import os
 import re
 import time as _wall_time
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from sc2.data import Race
 from sc2.ids.unit_typeid import UnitTypeId
@@ -27,18 +27,9 @@ from sharpy.knowledges import KnowledgeBot
 from sharpy.managers.core.manager_base import ManagerBase
 from sharpy.managers.extensions import BuildDetector
 from sharpy.plans import BuildOrder, SequentialList
-from sharpy.plans.acts import ActBase
 
 from API_Tools.llm_caller import call_openai
 from SC2_Agent.top_agent import parse_top_agent_0_md
-from SC2_Agent.mid_agent import (
-    build_planning_messages,
-    parse_planning_response,
-)
-from SC2_Agent.down_agent import (
-    build_translation_messages,
-    parse_translation_response,
-)
 
 # --- 新五阶段增量驱动流水线 ---
 from SC2_Agent.naming_agent import (
@@ -81,169 +72,6 @@ _RACE_MAP = {
 
 
 # ======================================================================
-# 动态运营层执行器（与原版一致）
-# ======================================================================
-
-
-class ActLLMOngoingTasks(ActBase):
-    """每帧扫一遍动作历史，把每个目标态翻译成具体 Sharpy 调用。"""
-
-    #: 同一任务预留日志的最小间隔（游戏内秒），避免每帧刷屏。
-    _RESERVE_LOG_DEBOUNCE_SEC: float = 5.0
-    _RESERVE_WAIT_REASON: str = (
-        "前置条件已满足，正在等待经济/人口积累以执行"
-    )
-
-    def __init__(
-        self,
-        active_tasks_ref: List[Dict[str, Any]],
-        log_emit: Optional[Callable[[str], None]] = None,
-    ):
-        super().__init__()
-        self.active_tasks = active_tasks_ref
-        self._log_emit = log_emit
-
-    @staticmethod
-    def _reserved_snapshot(knowledge: Any) -> Tuple[int, int, int]:
-        """读取 Sharpy 预留池快照（矿/气）及当前可用人口余量。"""
-        return (
-            knowledge.reserved_minerals,
-            knowledge.reserved_gas,
-            knowledge.ai.supply_left,
-        )
-
-    def _format_task_label(self, task: Dict[str, Any], action_key: str) -> str:
-        to_count = task.get("to_count")
-        priority = task.get("priority", False)
-        if to_count is not None:
-            label = f"{action_key}(to_count={to_count})"
-            if priority:
-                label += ", priority=True"
-            return label
-        return action_key
-
-    def _maybe_log_resource_reservation(
-        self,
-        task: Dict[str, Any],
-        action_key: str,
-        delta_minerals: int,
-        delta_gas: int,
-        supply_left_before: int,
-        supply_left_after: int,
-    ) -> None:
-        if delta_minerals <= 0 and delta_gas <= 0:
-            return
-
-        game_time = self.ai.time
-        last_log_time = task.get("_last_reserve_log_time", -self._RESERVE_LOG_DEBOUNCE_SEC)
-        if game_time - last_log_time < self._RESERVE_LOG_DEBOUNCE_SEC:
-            return
-        task["_last_reserve_log_time"] = game_time
-
-        parts: List[str] = []
-        if delta_minerals > 0:
-            parts.append(f"矿+{delta_minerals}")
-        if delta_gas > 0:
-            parts.append(f"气+{delta_gas}")
-
-        supply_delta = supply_left_before - supply_left_after
-        if supply_delta > 0:
-            parts.append(f"人口占用+{supply_delta}")
-
-        task_label = self._format_task_label(task, action_key)
-        supply_hint = ""
-        if supply_left_after <= 4:
-            supply_hint = f"（当前可用人口余量 {supply_left_after}）"
-
-        message = (
-            f"[任务 {task_label}] 预留了 {', '.join(parts)}，原因："
-            f"{self._RESERVE_WAIT_REASON}{supply_hint}"
-        )
-        if self._log_emit is not None:
-            self._log_emit(message)
-        else:
-            self.knowledge.print(
-                f"[ActLLMOngoingTasks][RESERVE] {message}",
-                stats=False,
-            )
-
-    async def execute(self) -> bool:
-        for task in self.active_tasks:
-            if task.get("_disabled", False):
-                continue
-
-            action_key = task.get("action")
-            try:
-                to_count = int(task.get("to_count", 1))
-            except (TypeError, ValueError):
-                logger.warning("Invalid to_count in action history item %s; disabling.", task)
-                task["_disabled"] = True
-                task["_error"] = "invalid_to_count"
-                continue
-
-            if not action_key:
-                task["_disabled"] = True
-                task["_error"] = "missing_action"
-                continue
-
-            act: Optional[ActBase] = task.get("_act")
-            if act is None:
-                get_action_fn = task.get("_get_action_fn")
-                if get_action_fn is None:
-                    task["_disabled"] = True
-                    task["_error"] = "no_action_resolver"
-                    continue
-                is_priority = bool(task.get("priority", False))
-                try:
-                    if is_priority:
-                        act = get_action_fn(action_key, to_count, priority=True)
-                    else:
-                        act = get_action_fn(action_key, to_count)
-                except Exception as exc:
-                    logger.warning(
-                        "Failed to instantiate act for action=%s to_count=%s priority=%s: %s",
-                        action_key, to_count, is_priority, exc,
-                    )
-                    task["_disabled"] = True
-                    task["_error"] = f"instantiate_failed: {exc}"
-                    continue
-                task["_act"] = act
-                task["_started"] = False
-
-            if not task.get("_started", False):
-                try:
-                    await self.start_component(act, self.knowledge)
-                except Exception as exc:
-                    logger.warning("Failed to start act for action=%s: %s", action_key, exc)
-                    task["_disabled"] = True
-                    task["_error"] = f"start_failed: {exc}"
-                    continue
-                task["_started"] = True
-
-            baseline_min, baseline_gas, supply_before = self._reserved_snapshot(
-                self.knowledge
-            )
-            try:
-                await act.execute()
-            except Exception as exc:
-                logger.warning("Act execute failed for action=%s: %s", action_key, exc)
-            else:
-                after_min, after_gas, supply_after = self._reserved_snapshot(
-                    self.knowledge
-                )
-                self._maybe_log_resource_reservation(
-                    task,
-                    action_key,
-                    after_min - baseline_min,
-                    after_gas - baseline_gas,
-                    supply_before,
-                    supply_after,
-                )
-
-        return True
-
-
-# ======================================================================
 # 默认空战术（当无策略可加载时的兜底）
 # ======================================================================
 
@@ -273,9 +101,8 @@ class EmptyTactics(BuildOrder):
 
 
 class UniversalLLMBot(KnowledgeBot):
-    """跨种族、三层 Agent 架构的通用 LLM Bot。"""
+    """Forced-strategy LLM bot using the five-stage macro pipeline."""
 
-    MID_AGENT_POLL_INTERVAL: float = 30.0
     #: 宏观决策触发周期（秒）：每隔该时间或 Action 序列执行完触发一次增量流水线。
     MACRO_POLL_INTERVAL: float = 60.0
     #: 序列执行完后再次触发的最小间隔（秒），避免空序列时每帧反复触发 LLM。
@@ -292,8 +119,6 @@ class UniversalLLMBot(KnowledgeBot):
     def __init__(
         self,
         race_name: str = "terran",
-        mid_model_key: str = "",
-        down_model_key: str = "",
         record_dir: str = "",
         *,
         naming_model_key: str = "",
@@ -303,9 +128,6 @@ class UniversalLLMBot(KnowledgeBot):
     ):
         super().__init__("Universal LLM Bot")
         self.race_name = race_name.strip().lower()
-        self.mid_model_key = mid_model_key.strip()
-        self.down_model_key = down_model_key.strip()
-        # 新五阶段流水线的各 LLM 调用点（可分别指定模型）。
         self.naming_model_key = naming_model_key.strip()
         self.ordering_model_key = ordering_model_key.strip()
         self.executor_model_key = executor_model_key.strip()
@@ -327,40 +149,8 @@ class UniversalLLMBot(KnowledgeBot):
         self._llm_call_records: List[Dict[str, Any]] = []
         self._llm_call_seq: int = 0
 
-        # --- Mid/Down Agent 状态（保留兼容，新流水线不再使用） ---
-        self.active_tasks: List[Dict[str, Any]] = []
-        self.current_natural_tasks: List[str] = []
-        self._last_mid_agent_time: float = -self.MID_AGENT_POLL_INTERVAL
-
-        # --- 种族动态模块 ---
-        self._get_action_fn: Optional[Callable] = None
-        self._get_action_space_fn: Optional[Callable] = None
-        self._action_supports_priority_fn: Optional[Callable[[str], bool]] = None
-        self._action_space_cache: Optional[Dict[str, str]] = None
         if self.record_dir:
             self.llm_observation_recorder.output_folder = self.record_dir
-
-    # ------------------------------------------------------------------
-    # 种族动态加载
-    # ------------------------------------------------------------------
-
-    def _load_race_action_module(self) -> None:
-        """动态加载 ``SKILL.{race}.Action`` 模块。"""
-        module_path = f"SKILL.{self.race_name}.Action"
-        try:
-            mod = importlib.import_module(module_path)
-            self._get_action_fn = getattr(mod, "get_action", None)
-            self._get_action_space_fn = getattr(mod, "get_action_space", None)
-            self._action_supports_priority_fn = getattr(mod, "action_supports_priority", None)
-        except ImportError:
-            logger.warning("Action module %s not found; action space will be empty.", module_path)
-            self._get_action_fn = None
-            self._get_action_space_fn = None
-            self._action_supports_priority_fn = None
-
-        self._action_space_cache = (
-            self._get_action_space_fn() if self._get_action_space_fn else {}
-        )
 
     # ------------------------------------------------------------------
     # SKILL 目录工具
@@ -393,8 +183,6 @@ class UniversalLLMBot(KnowledgeBot):
     async def on_start(self):
         # The strategy must be fixed before super().on_start(), because
         # knowledge.start() -> ActManager.post_start() -> create_plan().
-        self._load_race_action_module()
-
         if not self.force_strategy:
             raise ValueError(
                 "UniversalLLMBot requires force_strategy. "
@@ -540,136 +328,7 @@ class UniversalLLMBot(KnowledgeBot):
             self._next_strategy_step_index = len(self.strategy_steps) - 1
 
     # ------------------------------------------------------------------
-    # Mid Agent + Down Agent Pipeline
-    # ------------------------------------------------------------------
-
-    def _run_mid_agent_pipeline_blocking(self, *, trigger_reason: str = "unknown") -> None:
-        """Mid Agent → Down Agent 双阶段流水线（同步阻塞）。"""
-        game_time = self.time
-        pipeline_start = _wall_time.monotonic()
-        obs_text: str = ""
-        obs_snapshot: Optional[Dict[str, Any]] = None
-        previous_natural_tasks = list(self.current_natural_tasks)
-        mid_agent_text: str = ""
-        mid_agent_tasks: List[str] = []
-        down_agent_translations: List[Dict[str, Any]] = []
-        parsed_tasks: List[Dict[str, Any]] = []
-        error_text: Optional[str] = None
-
-        self._llm_infer_emit(
-            f">>> MID AGENT START (trigger={trigger_reason}, game_time={game_time:.1f}s, "
-            f"active_task_count={len(self.active_tasks)})",
-            include_active_tasks=True,
-        )
-
-        try:
-            obs_text, obs_snapshot = self._capture_observation_bundle()
-            self._llm_infer_emit(
-                f"observation_at_decision_time (game_time={game_time:.1f}s):\n{obs_text}"
-            )
-
-            self._llm_infer_emit("    calling Mid Agent (planning)...")
-            s1_start = _wall_time.monotonic()
-            mid_agent_text = self._call_mid_agent(
-                obs_text,
-                previous_natural_tasks,
-            )
-            s1_elapsed = _wall_time.monotonic() - s1_start
-
-            if not mid_agent_text:
-                self._llm_infer_emit(f"    Mid Agent returned EMPTY ({s1_elapsed:.2f}s).")
-                return
-
-            self._llm_infer_emit(
-                f"    Mid Agent done in {s1_elapsed:.2f}s, {len(mid_agent_text)} chars."
-            )
-            self._llm_infer_emit(f"    Mid Agent output: {mid_agent_text.strip()!r}")
-
-            parsed_mid_tasks = parse_planning_response(mid_agent_text)
-            if parsed_mid_tasks is None:
-                error_text = "invalid_mid_agent_json"
-                self._llm_infer_emit("    Mid Agent output failed JSON validation.")
-                return
-            mid_agent_tasks = parsed_mid_tasks
-            self._llm_infer_emit(
-                f"    Mid Agent parsed {len(mid_agent_tasks)} natural-language tasks."
-            )
-
-            # ===================== Down Agent: Translation ================
-            for index, natural_task in enumerate(mid_agent_tasks, start=1):
-                self._llm_infer_emit(
-                    f"    calling Down Agent #{index}/{len(mid_agent_tasks)} "
-                    f"for task={natural_task!r}..."
-                )
-                translation_record: Dict[str, Any] = {
-                    "raw": natural_task, "response": "", "parsed": None,
-                }
-                s2_start = _wall_time.monotonic()
-                try:
-                    down_text = self._call_down_agent(natural_task, obs_text)
-                    translation_record["response"] = down_text
-                    s2_elapsed = _wall_time.monotonic() - s2_start
-
-                    if not down_text:
-                        translation_record["error"] = "empty_response"
-                        self._llm_infer_emit(
-                            f"    Down Agent #{index} returned EMPTY ({s2_elapsed:.2f}s)."
-                        )
-                        continue
-
-                    legal_keys = set((self._action_space_cache or {}).keys())
-                    parsed_task = parse_translation_response(down_text, legal_keys)
-                    if parsed_task is None:
-                        translation_record["error"] = "invalid_json_or_action"
-                        self._llm_infer_emit(f"    Down Agent #{index} failed validation.")
-                        continue
-
-                    translation_record["parsed"] = self._slim_action(parsed_task)
-                    parsed_tasks.append(parsed_task)
-                    self._llm_infer_emit(
-                        f"    Down Agent #{index} accepted in {s2_elapsed:.2f}s: "
-                        f"{translation_record['parsed']}"
-                    )
-                except Exception as exc:
-                    translation_record["error"] = repr(exc)
-                    self._llm_infer_emit(
-                        f"    Down Agent #{index} EXCEPTION: {exc!r}"
-                    )
-                finally:
-                    down_agent_translations.append(translation_record)
-
-            self._replace_active_tasks(parsed_tasks)
-            self.current_natural_tasks = list(mid_agent_tasks)
-            self._llm_infer_emit(
-                f"    REFRESHED active_tasks with {len(parsed_tasks)} parsed actions."
-            )
-        except Exception as exc:
-            error_text = repr(exc)
-            self._llm_infer_emit(f"    EXCEPTION: {exc!r}")
-            logger.warning("[UniversalLLMBot] Pipeline failed: %s", exc)
-        finally:
-            total_elapsed = _wall_time.monotonic() - pipeline_start
-            self._record_llm_interaction({
-                "game_time": round(game_time, 2),
-                "trigger_reason": trigger_reason,
-                "wall_elapsed_seconds": round(total_elapsed, 3),
-                "top_agent_strategy": self.selected_strategy,
-                "observation_at_this_moment": obs_text,
-                "observation_structured": obs_snapshot,
-                "mid_agent_input_previous_tasks": previous_natural_tasks,
-                "mid_agent_raw_response": mid_agent_text,
-                "mid_agent_output_new_tasks": mid_agent_tasks,
-                "down_agent_translations": down_agent_translations,
-                "active_tasks_after_refresh": self._serialise_active_tasks(),
-                "error": error_text,
-            })
-            self._llm_infer_emit(
-                f"<<< MID AGENT END (total {total_elapsed:.2f}s wall, "
-                f"active_task_count={len(self.active_tasks)})"
-            )
-
-    # ------------------------------------------------------------------
-    # 新五阶段增量驱动流水线（取代 Mid→Down→ActLLMOngoingTasks）
+    # 五阶段增量驱动流水线
     # ------------------------------------------------------------------
 
     def _run_macro_pipeline_blocking(
@@ -1153,11 +812,9 @@ class UniversalLLMBot(KnowledgeBot):
 
     # --- 调用封装 ------------------------------------------------------
 
-    def _call_llm(self, messages: List[Dict[str, str]], agent: str = "mid") -> str:
+    def _call_llm(self, messages: List[Dict[str, str]], agent: str = "naming") -> str:
         """根据 agent 类型选择对应的 model_key 调用 LLM。"""
         key_map = {
-            "mid": self.mid_model_key,
-            "down": self.down_model_key,
             "naming": self.naming_model_key,
             "ordering": self.ordering_model_key,
             "executor": self.executor_model_key,
@@ -1166,7 +823,7 @@ class UniversalLLMBot(KnowledgeBot):
 
         if not model_key:
             logger.warning(
-                "[UniversalLLMBot] No model_key for agent=%r; set top/mid/down_model_key.",
+                "[UniversalLLMBot] No model_key for agent=%r; set naming/ordering/executor model key.",
                 agent,
             )
             return ""
@@ -1230,30 +887,6 @@ class UniversalLLMBot(KnowledgeBot):
         except Exception as exc:
             logger.debug("[UniversalLLMBot] failed to flush llm_calls log: %s", exc)
 
-    def _call_mid_agent(
-        self,
-        obs_text: str,
-        previous_tasks: List[str],
-    ) -> str:
-        """构造 Mid Agent Prompt 并调用 LLM。"""
-        messages = build_planning_messages(
-            race=self.race_name,
-            obs_text=obs_text,
-            previous_tasks=previous_tasks,
-            strategy_description=self.strategy_description,
-        )
-        return self._call_llm(messages, agent="mid")
-
-    def _call_down_agent(self, task_description: str, obs_text: str) -> str:
-        """构造 Down Agent Prompt 并调用 LLM。"""
-        messages = build_translation_messages(
-            race=self.race_name,
-            task_description=task_description,
-            obs_text=obs_text,
-            action_space=self._action_space_cache or {},
-        )
-        return self._call_llm(messages, agent="down")
-
     # --- 观测 ---------------------------------------------------------
 
     def _capture_observation_bundle(self) -> Tuple[str, Optional[Dict[str, Any]]]:
@@ -1266,65 +899,6 @@ class UniversalLLMBot(KnowledgeBot):
         except Exception as exc:
             logger.warning("[UniversalLLMBot] failed to build observation: %s", exc)
             return "(observation unavailable)", None
-
-    def _capture_observation_text(self) -> str:
-        text, _ = self._capture_observation_bundle()
-        return text
-
-    # --- 任务管理 -----------------------------------------------------
-
-    def _replace_active_tasks(self, tasks: List[Dict[str, Any]]) -> None:
-        self.active_tasks.clear()
-        for idx, task in enumerate(tasks, start=1):
-            action_key = task.get("action")
-            priority = bool(task.get("priority", False))
-            if priority and action_key and self._action_supports_priority_fn is not None:
-                if not self._action_supports_priority_fn(action_key):
-                    logger.warning(
-                        "Stripping priority for action %r (does not support priority).",
-                        action_key,
-                    )
-                    priority = False
-            self.active_tasks.append({
-                "sequence": idx,
-                "action": action_key,
-                "to_count": task.get("to_count"),
-                "priority": priority,
-                "_get_action_fn": self._get_action_fn,
-            })
-
-    @staticmethod
-    def _slim_action(task: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-        if task is None:
-            return None
-        slim = {
-            "action": task.get("action"),
-            "to_count": task.get("to_count"),
-            "priority": bool(task.get("priority", False)),
-        }
-        if "sequence" in task:
-            slim["sequence"] = task.get("sequence")
-        return slim
-
-    def _serialise_active_tasks(self) -> List[Dict[str, Any]]:
-        tasks: List[Dict[str, Any]] = []
-        for idx, task in enumerate(self.active_tasks, start=1):
-            item: Dict[str, Any] = {
-                "sequence": task.get("sequence", idx),
-                "action": task.get("action"),
-                "to_count": task.get("to_count"),
-                "priority": bool(task.get("priority", False)),
-            }
-            if task.get("_disabled", False):
-                item["disabled"] = True
-                if task.get("_error"):
-                    item["error"] = task.get("_error")
-            tasks.append(item)
-        return tasks
-
-    def _active_tasks_snapshot(self) -> str:
-        tasks = self._serialise_active_tasks()
-        return json.dumps(tasks, ensure_ascii=False) if tasks else "[]"
 
     # --- 日志与记录 ---------------------------------------------------
 
@@ -1340,12 +914,10 @@ class UniversalLLMBot(KnowledgeBot):
         except Exception as exc:
             logger.warning("[UniversalLLMBot] failed to record LLM interaction: %s", exc)
 
-    def _llm_infer_emit(self, message: str, *args, include_active_tasks: bool = False) -> None:
+    def _llm_infer_emit(self, message: str, *args) -> None:
         if args:
             message = message % args
         line = f"[UniversalLLMBot][LLM-INFER] {message}"
-        if include_active_tasks:
-            line += f" | active_tasks={self._active_tasks_snapshot()}"
 
         # 优先经由 knowledge.print (loguru, 进 .log 文件) 输出。
         # During pre-start strategy loading, ``self.knowledge`` is not

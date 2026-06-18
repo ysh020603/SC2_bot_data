@@ -342,7 +342,7 @@
 - 调用 `version.update_version_txt()` 更新版本文件。
 - 构造 `BotDefinitions(ladder_bots_path)`（默认扫描仓库下 `Bots/`），再构造 **`GameStarter(definitions)`** 并 `starter.play()`。
 - **`GameStarter`**（`bot_loader/game_starter.py`）构造时使用 **`get_config()`**（即默认合并 `config-local.ini`）；解析命令行参数后：
-  - 若 `general.log_file` 为真，按 `log_level` 写入 `games/` 下对局同名 `.log`；否则仅控制台/logger。
+  - 若 `general.log_file` 为真，按 `log_level` 写入 `game_records/` 下对局同名 `.log`；否则仅控制台/logger。
   - **`setup_bot`**：对 Bot 实例设置 `opponent_id`、`run_custom=True`，以及 **`--release` 时** 将 **`my_bot.config = get_config(False)`**，强制忽略本地覆盖，仅使用发布用 `config.ini`。
 
 ### 5.4 配置在运行时的传递链

@@ -18,8 +18,9 @@ ENEMY_RACE="${ENEMY_RACE:-terran}"
 ENEMY_DIFFICULTY="${ENEMY_DIFFICULTY:-hard}"
 ENEMY_BUILD="${ENEMY_BUILD:-macro}"
 BOT_RACE="${BOT_RACE:-terran}"
-MID_MODEL="${MID_MODEL:-DeepSeek-V4-pro-reasoning}"
-DOWN_MODEL="${DOWN_MODEL:-DeepSeek-V4-flash}"
+NAMING_MODEL="${NAMING_MODEL:-DeepSeek-V4-flash}"
+ORDERING_MODEL="${ORDERING_MODEL:-DeepSeek-V4-flash}"
+EXECUTOR_MODEL="${EXECUTOR_MODEL:-DeepSeek-V4-flash}"
 FORCE_STRATEGY="${FORCE_STRATEGY:-}"
 BATCH_NAME="${BATCH_NAME:-}"
 
@@ -47,8 +48,9 @@ write_batch_env_file() {
     printf '%s\n' "ENEMY_DIFFICULTY=$(printf '%q' "$ENEMY_DIFFICULTY")"
     printf '%s\n' "ENEMY_BUILD=$(printf '%q' "$ENEMY_BUILD")"
     printf '%s\n' "BOT_RACE=$(printf '%q' "$BOT_RACE")"
-    printf '%s\n' "MID_MODEL=$(printf '%q' "$MID_MODEL")"
-    printf '%s\n' "DOWN_MODEL=$(printf '%q' "$DOWN_MODEL")"
+    printf '%s\n' "NAMING_MODEL=$(printf '%q' "$NAMING_MODEL")"
+    printf '%s\n' "ORDERING_MODEL=$(printf '%q' "$ORDERING_MODEL")"
+    printf '%s\n' "EXECUTOR_MODEL=$(printf '%q' "$EXECUTOR_MODEL")"
     printf '%s\n' "FORCE_STRATEGY=$(printf '%q' "$FORCE_STRATEGY")"
     printf '%s\n' "BATCH_NAME=$(printf '%q' "$BATCH_NAME")"
     printf '%s\n' "RECORD_ROOT=$(printf '%q' "$RECORD_ROOT")"
@@ -95,8 +97,9 @@ if [[ "${1:-}" == "worker" ]]; then
       --enemy-difficulty "$ENEMY_DIFFICULTY" \
       --enemy-build "$ENEMY_BUILD" \
       --bot-race "$BOT_RACE" \
-      --mid-model "$MID_MODEL" \
-      --down-model "$DOWN_MODEL" \
+      --naming-model "$NAMING_MODEL" \
+      --ordering-model "$ORDERING_MODEL" \
+      --executor-model "$EXECUTOR_MODEL" \
       "${extra_flags[@]}" \
       --batch-name "$BATCH_NAME" \
       --run-index "$idx" \
@@ -118,7 +121,7 @@ MODE="${3:-fg}"
 
 if [[ -z "$BATCH_NAME" ]]; then
   TS="$(date +%Y%m%d_%H%M)"
-  BATCH_NAME="batch_${TS}_${MAP_NAME}_${BOT_RACE}V${ENEMY_RACE}_${ENEMY_DIFFICULTY}_$(slug_part "$MID_MODEL")"
+  BATCH_NAME="batch_${TS}_${MAP_NAME}_${BOT_RACE}V${ENEMY_RACE}_${ENEMY_DIFFICULTY}_$(slug_part "$NAMING_MODEL")_$(slug_part "$ORDERING_MODEL")"
 fi
 
 RECORD_ROOT="${RECORD_ROOT:-./game_records}"

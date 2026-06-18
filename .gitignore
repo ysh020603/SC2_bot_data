@@ -113,8 +113,8 @@ tools/build_order.json
 data/
 
 # Game records
-game_records/
-gr/
+game_records/*
+!game_records/.gitkeep
 
 # LLM API keys (copy from API_config/config.example.json)
 API_config/config.json

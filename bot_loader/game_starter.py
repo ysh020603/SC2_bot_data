@@ -139,16 +139,6 @@ Builds:
             help="File prefix for this match's log, replay, and LLM JSON.",
         )
         parser.add_argument(
-            "--mid-model",
-            help="Model key from config.json for Mid Agent.",
-            default="",
-        )
-        parser.add_argument(
-            "--down-model",
-            help="Model key from config.json for Down Agent.",
-            default="",
-        )
-        parser.add_argument(
             "--naming-model",
             help="Model key from config.json for Naming Agent (stage 2).",
             default="",
@@ -213,7 +203,7 @@ Builds:
 
         player1_bot: AbstractPlayer = self.players[player1_type](player1_split)
 
-        folder = os.path.abspath(args.record_dir) if args.record_dir else "games"
+        folder = os.path.abspath(args.record_dir) if args.record_dir else "game_records"
         if not os.path.isdir(folder):
             os.makedirs(folder, exist_ok=True)
 
@@ -285,10 +275,6 @@ Builds:
                 recorder = getattr(my_bot, "llm_observation_recorder", None)
                 if recorder is not None:
                     recorder.output_folder = record_dir
-            if getattr(args, "mid_model", None) and hasattr(my_bot, "mid_model_key"):
-                my_bot.mid_model_key = args.mid_model
-            if getattr(args, "down_model", None) and hasattr(my_bot, "down_model_key"):
-                my_bot.down_model_key = args.down_model
             if getattr(args, "naming_model", None) and hasattr(my_bot, "naming_model_key"):
                 my_bot.naming_model_key = args.naming_model
             if getattr(args, "ordering_model", None) and hasattr(my_bot, "ordering_model_key"):

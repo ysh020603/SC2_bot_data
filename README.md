@@ -1,408 +1,378 @@
-# StarCraft II LLM Multi-Agent Framework
+# SC2 Agent OLD
 
-> 📌 **当前版本（2026-06）已升级为「LLM 增量驱动宏观决策 + 命令式执行调度」架构**（5 个 LLM 阶段
-> + DATA_TOOLS 知识库 + `ExecutionScheduler`）。完整说明请看 **[`docs/系统文档.md`](docs/系统文档.md)**；
-> 环境搭建请看 **[`docs/环境配置教程.md`](docs/环境配置教程.md)**。
-> 下文保留的 Top/Mid/Down 声明式说明为 **legacy**（仍在仓库中、但默认不再走该执行路径）。
+这是一个基于 Sharpy / python-sc2 的《星际争霸 II》LLM Bot 实验仓库。当前代码的主线已经从旧版 `Top/Mid/Down` 声明式三层 Agent，迁移为：
 
-本项目是一个基于大语言模型 (LLM) 驱动的《星际争霸 II》自动化 AI 框架。底层封装了基于规则的 SC2 运行平台（`sharpy`），并在其之上构建了 **三层多智能体 (Multi-Agent) 架构**（`SC2_Agent` + `UniversalLLMBot`），将自然语言指令逐步降维、拆解，最终转化为游戏内的宏观运营与动作指令。
-
-当前版本的核心设计：
-
-1. **Top Agent（t=0 策略选择）** — 开局从策略库中 SELECT / VIEW / GENERATE，确定本局宏观打法；
-2. **Mid Agent（周期性规划）** — 每 30 秒根据观测 + 策略全文输出自然语言任务列表；
-3. **Down Agent（动作翻译）** — 将每条任务翻译为带 **优先级锁资源** 的目标导向 JSON 动作；
-4. **双轨执行层** — LLM 动态运营（`ActLLMOngoingTasks`）与策略静态战术（`base_tactics.py`）并行运行。
-
----
-
-## 项目结构
-
-```
-sharpy-sc2/
-├── SC2_Agent/              # 三层 Agent 的 Prompt 构建与解析
-│   ├── top_agent.py        # t=0 策略选择 / GENERATE 持久化
-│   ├── mid_agent.py        # 宏观任务规划
-│   └── down_agent.py       # 自然语言 → 动作 JSON
-├── dummies/generic/
-│   └── universal_llm_bot.py  # 核心 Bot：UniversalLLMBot
-├── SKILL/                  # 战术知识库（当前已实现 terran）
-│   └── terran/
-│       ├── Action.py       # 合法动作空间 + priority 支持
-│       ├── registry.json   # 策略白名单
-│       ├── generic/        # 兜底战术（GENERATE 拷贝源）
-│       └── <strategy>/     # 各策略目录
-├── API_config/config.json  # LLM 模型池配置
-├── API_Tools/llm_caller.py # OpenAI 兼容 API 调用封装
-├── bot_loader/             # Bot 注册与对战启动
-├── run_vs_ai.py            # 单局对战入口（含 DEFAULT_* 运行配置）
-├── run_vs_ai_batch.sh      # 批量并发引擎
-├── start_experiments.sh    # 实验参数预设 + 启动批量
-├── parse_sc2_logs.py       # 批次胜率 / 策略维度统计
-└── game_records/           # 对局录像、日志、JSON 记录
+```text
+固定策略 Top_agent_0.md
+  -> Naming Agent
+  -> DATA_TOOLS 映射
+  -> Ordering Agent
+  -> Supply Planner
+  -> ExecutionScheduler
+  -> Sharpy / SC2
 ```
 
-更详细的 Sharpy Bot 继承关系见 [`readme_bot.md`](readme_bot.md)。
+一句话说：玩家先固定一个人族策略目录，系统读取该策略的阶段说明，把每个阶段拆成标准单位、建筑、科技动作，再用命令式调度器逐帧执行。
 
----
+当前主线只适配 Terran。Protoss / Zerg 的 Sharpy dummy bot 仍在仓库里，但 LLM 增量流水线和 `SKILL` 策略库目前按人族维护。
 
-## SC2_Agent 三层架构
+## 当前状态
 
-`SC2_Agent` 是 LLM 决策核心；`UniversalLLMBot`（`dummies/generic/universal_llm_bot.py`）负责调度三层 Agent 并与 Sharpy 执行层对接。
+- 主入口：`run_vs_ai.py`
+- 通用 LLM Bot：`dummies/generic/universal_llm_bot.py`
+- 策略目录：`SKILL/terran/<strategy>/`
+- 策略文件：`SKILL/terran/<strategy>/Top_agent_0.md`
+- 策略工具轨：`SKILL/terran/<strategy>/strategy_tools.py`
+- 模型配置：`API_config/config.json`
+- 对局记录：`game_records/`
 
-| 层 | 角色 | 触发节奏 | 输出 |
-|---|---|---|---|
-| **Top Agent** | 全局指挥官 | 仅 t=0（开局一次） | 策略名 + `Top_agent_0.md` 全文 |
-| **Mid Agent** | 运营规划师 | 每 **30s**（`MID_AGENT_POLL_INTERVAL`） | `{"tasks": ["自然语言任务", ...]}` |
-| **Down Agent** | 动作翻译官 | Mid 每输出一条任务即触发一次 | `{"action": "<key>", "to_count": <int>, "priority": <bool>}` |
+重要变化：
 
-### Top Agent（t=0 策略选择）
+- `UniversalLLMBot` 现在必须指定固定策略，`--force-strategy none` 会报错。
+- 旧的 t=0 交互式策略选择、Mid/Down Agent 声明式执行路径已删除。
+- 当前关键 LLM 调用点是 `--naming-model`、`--ordering-model`、`--executor-model`。
 
-开局将 `SKILL/<race>/` 下经注册表过滤的策略摘要展示给 LLM，支持最多 `TOP_AGENT_INITIAL_MAX_TURNS=5` 轮交互：
+## 仓库结构
 
-| 动作 | 含义 |
-|---|---|
-| `SELECT` | 直接选定某个已登记策略 |
-| `VIEW` | 请求查看一个或多个策略的完整 `Top_agent_0.md` 后再决定 |
-| `GENERATE` | 触发新策略生成并持久化到磁盘（见下文） |
+```text
+SC2_Agent/
+  naming_agent.py              # Stage 2: 策略 step + obs -> 标准实体名和数量
+  ordering_agent.py            # Stage 4: 对标准 action 排序
+  executor_agent.py            # 为 train/addon/morph 选择执行单位
+  data_tools/                  # 内置 SC2 数据库、别名、成本、前置、冲突、补给规划
+  execution/
+    command.py                 # PlannedAction 状态对象
+    direct_build.py            # Terran 普通建筑直接建造执行器
+    executor_select.py         # 候选执行单位筛选
+    mapping.py                 # 标准 action 与 SC2 / Sharpy 枚举映射
+    scheduler.py               # ExecutionScheduler 核心调度器
 
-选定策略后，`strategy_description`（`Top_agent_0.md` 的 `# Details` 段）会作为 **Mid Agent 全程的宏观指导**，不再做额外的 60 秒阶段评估轮询。
+dummies/generic/
+  universal_llm_bot.py         # 编排策略读取、五阶段流水线、调度器和记录落盘
 
-### Mid Agent（宏观规划）
-
-* **决策周期**：每 30 秒执行一次（可在 `UniversalLLMBot.MID_AGENT_POLL_INTERVAL` 调整）。
-* **输入**：当前 obs + 上一轮自然语言任务 + t=0 选定的策略全文（`strategy_description`）。
-* **输出**：自然语言宏观任务列表。**列表顺序 = 资源分配优先级**（靠前的任务优先占用矿/气/工人）。
-* **Priority 约定**：若某任务需要锁资源等待高价值单位/建筑，在任务字符串末尾追加 `(Priority)`，Down Agent 会将其翻译为 `priority: true`（详见下文）。
-
-Mid Agent 只负责宏观运营（造建筑、训单位），不规划侦察或微操；执行位置由下层 Sharpy Act 自行决定。
-
-#### 游戏观测（obs）与 `BuildDetector`
-
-Mid / Down Agent 每轮决策前，由 `LLMObservationRecorder` 生成英文观测文本（`observation_at_decision_time`）。其中 **`[Threat Flags]`** 段依赖 Sharpy 扩展管理器 **`BuildDetector`**（对手 rush / 宏观开局识别）。
-
-`UniversalLLMBot` 在 `configure_managers()` 中显式加载 `BuildDetector()`，与 `KnowledgeBot` 默认栈合并后：
-
-| 能力 | 说明 |
-|---|---|
-| `[Threat Flags]` | 无威胁时为 `none.`；检测到 rush 时形如 `enemy rush detected (ProxyRax)`；非标准宏观为 `enemy macro build = Mmm` 等 |
-| `DataManager` | 可将对手 `rush_build` / `macro_build` 写入对局数据（需 `write_data=yes`） |
-| 结构化快照 | `observation_structured.memory_flags` 含 `is_rushing`、`rush_build`、`macro_build` |
-
-**注意**：`BuildDetector` 根据**已侦察到的敌方建筑与单位**推断开局；前期无侦察时 `[Threat Flags]` 仍可能为 `none.`，与 Manager 是否加载无关。更完整的观测字段说明见 [`note/llm_observation_recorder.md`](note/llm_observation_recorder.md)。
-
-### Down Agent（动作翻译）
-
-* **角色**：无状态纯翻译层。
-* **输入**：Mid 输出的**单条**自然语言任务 + obs + 合法动作空间（`SKILL/<race>/Action.py::get_action_space()`）。
-* **输出**：严格 JSON `{"action": "<key>", "to_count": <int>, "priority": <bool>}`；不合法动作直接被丢弃。
-* **`to_count`**：场上（含建造中）的**绝对目标数量**，非增量。
-* **`priority`**：仅当任务含 `(Priority)` 且该 action 支持 priority 时为 `true`。
-
----
-
-## 决策与执行流程
-
-```
-[Player Instruct]
-       │
-       ▼
-┌── Top Agent (t=0) ──────────────────────────────┐
-│  SELECT / VIEW / GENERATE                        │
-│  → selected_strategy + strategy_description      │
-└──────────────────────┬──────────────────────────┘
-                       │
-       ┌───────────────┴───────────────┐
-       │  每 30s                        │
-       ▼                                │
-┌── Mid Agent ─────────────────────────┤
-│  obs + strategy_desc + prev_tasks    │
-│  → {"tasks": [...]}  (有序优先级)    │
-└──────────────┬───────────────────────┘
-               │ 逐条
-               ▼
-┌── Down Agent ────────────────────────┐
-│  task + obs + action_space             │
-│  → {"action", "to_count", "priority"}  │
-└──────────────┬─────────────────────────┘
-               ▼
-       active_tasks
-               │
-               ▼
-   ActLLMOngoingTasks（每帧 await act.execute()）
-               ║  并行
-               ║
-   base_tactics.py（策略静态战术：防守/进攻/收尾）
-```
-
-`create_plan()` 返回 `BuildOrder([ActLLMOngoingTasks, base_tactics])`，两条执行轨并行运行。
-
----
-
-## Priority 资源锁机制
-
-部分动作支持 `priority=True`，触发 Sharpy 的资源预留（锁矿/锁气），防止低优先级任务在资源不足时"偷走"高价值目标的积累。
-
-**Mid → Down 协作方式**：
-
-* Mid 在任务字符串末尾写 `(Priority)`，例如 `"Train Battlecruiser to 3 (Priority)"`；
-* Down 解析为 `"priority": true`；
-* Bot 在写入 `active_tasks` 前会调用 `action_supports_priority(key)` 校验，不支持则自动降级为 `false`。
-
-**支持 priority 的动作类型**（人族 `Action.py`）：
-
-* 所有 `type=unit` 的训练动作；
-* `expand`（扩张）；
-* 部分 GridBuilding 类建筑（Supply Depot、Barracks、Factory、Starport 等）。
-
-动作空间中支持 priority 的 key 会在 description 末尾标注 `[Supports Priority]`，供 Down Agent 参考。
-
----
-
-## SKILL 战术知识库
-
-当前已实现 **人族 (`terran`)** 策略库；Bot 通过 `race_name` 动态加载 `SKILL.{race}.Action` 与对应策略目录，其他种族需自行补充 `Action.py` 与策略文件夹。
-
-### 目录结构
-
-```
 SKILL/terran/
-├── registry.json              ← 策略白名单
-├── Action.py                  ← 合法动作空间（Down Agent 用）
-├── generic/
-│   ├── base_tactics.py        ← 兜底战术 + GENERATE 拷贝源
-│   └── base_des.md            ← 人类可读的战术说明（不参与运行时加载）
-├── marine_rush/
-│   ├── Top_agent_0.md         ← # Summary / # Details（Top/Mid 共用）
-│   ├── base_tactics.py        ← 静态战术（防守/进攻/收尾）
-│   └── base_des.md            ← 可选，人类参考
-├── battle_cruisers/
-├── two_base_tanks/
-├── two_base_tanks_marine_rush_2 … _8   ← GENERATE 或手工迭代版本
-└── …
+  registry.json                # 人族策略白名单/索引
+  marine_rush/
+  battle_cruisers/
+  banshees/
+  bio/
+  cyclones/
+  one_base_turtle/
+  rusty/
+  safe_tvt_raven/
+  terran_silver_bio/
+  two_base_tanks/
+
+API_config/
+  config.example.json          # OpenAI 兼容模型配置模板
+  config.json                  # 本地实际模型配置，不要提交真实 key
+
+bot_loader/                    # Bot 注册、对局启动、内置 AI 参数解析
+sharpy/                        # Sharpy 框架主体
+docs/                          # 系统说明、环境配置、测试记录和经验总结
 ```
 
-### `Top_agent_0.md` 格式
+## 核心流程
 
-由 `parse_top_agent_0_md` 解析，兼容中英文标题：
+### 1. 固定策略
 
-| 字段 | 标题（任选其一） | 用途 |
-|---|---|---|
-| `summary` | `# Summary` / `# 摘要` | t=0 策略列表中的短摘要 |
-| `detail` | `# Details` / `# 详细内容` | Mid Agent 全程宏观指导正文 |
-
-### 策略注册表 `registry.json`
-
-```json
-{
-  "_comment": "Whitelist...",
-  "registered_strategies": [
-    "marine_rush", "battle_cruisers", "two_base_tanks",
-    "safe_tvt_raven", "cyclones", "rusty", "bio", "banshees",
-    "one_base_turtle", "two_base_tanks_marine_rush_2", "…"
-  ]
-}
-```
-
-* `_discover_strategies()` 优先读注册表：**仅**列出 `registered_strategies` 中的策略；
-* 物理目录存在但未登记的会被忽略；
-* GENERATE 新策略由 `_register_strategy(name)` 自动追加（幂等去重）。
-
-### 静态战术 `base_tactics.py`
-
-每个策略目录下的 `base_tactics.py` 定义 **与 LLM 并行的后台战术**（如区域防守、阈值进攻、收尾）。Bot 在 `create_plan()` 时通过 `importlib` 动态加载：
-
-```
-SKILL.{race}.{selected_strategy}.base_tactics
-```
-
-模块中第一个继承 `BuildOrder` 或 `SequentialList` 的战术类会被实例化。GENERATE 新策略时，会自动从 `generic/base_tactics.py` 拷贝一份作为起点。
-
----
-
-## T=0 动态策略生成与持久化
-
-当 t=0 交互中 LLM 返回 `{"action": "GENERATE", ...}` 时，Bot 执行完整落盘流程：
-
-1. **相似策略检索**（`find_similar_strategies`）：用玩家指令 + LLM 草稿 + 开局 obs 拼接 query，按 Jaccard 相似度取 `STRATEGY_GENERATION_TOPK=3` 条参考；
-2. **第二次 LLM 调用**（`build_strategy_generation_messages`）：强制输出 `{"Strategy_Name": "<snake_case>", "Strategy_Description": "..."}`；
-3. **文件系统持久化**（`_materialise_strategy_folder`）：
-   * 创建 `SKILL/<race>/<Strategy_Name>/`
-   * 写入 `Top_agent_0.md`（`# Summary` + `# Details`）
-   * 拷贝 `generic/base_tactics.py` → 新策略目录
-4. **自动注册**到 `registry.json`
-
-命名自动规范化（仅 `[a-z0-9_]`），重名时追加 `_v2/_v3...`。
-
----
-
-## `--force-strategy` 策略锁定
-
-调试或控制变量实验时，用 `--force-strategy <name>` **完全绕过 t=0 LLM**：
-
-* `on_start()` 检测到非空 `force_strategy` 后直接调 `_apply_forced_strategy(name)`；
-* 不发起任何 LLM 调用；
-* `selected_strategy / strategy_description` 直接从 `SKILL/<race>/<name>/Top_agent_0.md` 读取；
-* 写入 `trigger_reason="top_agent_initial_t0_forced"` 的 JSON 记录。
+运行时通过 `--force-strategy <name>` 指定策略目录，例如：
 
 ```bash
-python run_vs_ai.py --force-strategy battle_cruisers
-python run_vs_ai.py --force-strategy none   # 取消强制，走 LLM 选择
+python run_vs_ai.py --force-strategy marine_rush
 ```
 
-`run_vs_ai.py` 文件顶部的 `DEFAULT_FORCE_STRATEGY` 常量也可预设默认锁定策略。
+策略名对应：
 
----
+```text
+SKILL/terran/marine_rush/
+  Top_agent_0.md
+  strategy_tools.py
+```
+
+`Top_agent_0.md` 中的 `# Details` 会被解析为若干 `[Step N]`。每次宏观流水线触发时，Bot 取当前 step 原文作为本轮宏观目标。
+
+### 2. 五阶段宏观流水线
+
+触发入口在 `UniversalLLMBot.pre_step_execute()`。首次进入、动作序列执行完、或队列只剩 deferred 动作时，会 append 下一阶段动作。
+
+五阶段如下：
+
+| 阶段 | 作用 |
+|---|---|
+| Strategy Step Source | 读取当前策略 step 文本 |
+| Naming Agent | 将自然语言目标转成 Terran 标准实体名和数量 |
+| DATA_TOOLS | 将实体名映射成标准 action key，并提供成本、前置、冲突信息 |
+| Ordering Agent | 在前置、冲突、成本提示下对 action 排序 |
+| Supply Planner | 默认托管补给站插入，避免供给卡死 |
+
+Ordering 阶段不会用代码补齐 LLM 漏掉的动作。漏项和非法项会写入轨迹 JSON，用来保留模型评估信号。
+
+### 3. 命令式执行调度
+
+`ExecutionScheduler` 每帧执行 action 队列，核心机制包括：
+
+- `PENDING / WAITING / RUNNING / DONE / ABANDONED` 状态机
+- 独立 waiter 槽，等待资源、科技、人口或执行单位
+- P0 / P1 / P2 优先级扫描：补 supply 的动作优先，不耗 supply 的动作次之，训练单位最后
+- waiter 资源预留和同档超车
+- 科技前置检测和缺失前置自动插入
+- Terran 普通建筑的 DirectBuild 独立 reservation / target
+- train / addon / morph 可调用 Executor Agent 选择执行单位
+- waiting 超时和 running 卡死放弃，避免宏观队列永久堵塞
+
+### 4. 策略工具轨
+
+`create_plan()` 并行运行两条轨：
+
+- `ExecutionScheduler`：执行五阶段流水线产出的资源动作。
+- 当前策略自己的 `strategy_tools.py`：只放不消耗 minerals / gas / supply 的辅助战术工具。
+
+没有全局后台战术 fallback。某个策略缺少侦察、攻击或防守工具时，需要在该策略自己的 `strategy_tools.py` 中补。
+
+## 环境配置
+
+推荐环境：
+
+- Python 3.11
+- conda 环境名：`SC2_0615`
+- 本地安装 StarCraft II，并设置 `SC2PATH`
+- Windows 下建议设置 `PYTHONUTF8=1`
+
+详细步骤请看：
+
+- [docs/环境配置教程.md](docs/环境配置教程.md)
+- [docs/系统文档.md](docs/系统文档.md)
+
+最小安装示例：
+
+```bash
+conda create -n SC2_0615 python=3.11 pip -y
+conda activate SC2_0615
+
+pip install \
+  "burnysc2==7.1.3" \
+  "s2clientprotocol" \
+  "mpyq" "portpicker" \
+  "openai" "requests" "aiohttp" \
+  "numpy" "scipy" "scikit-learn" \
+  "opencv-python-headless" \
+  "more-itertools" "six" \
+  "protobuf==3.20.3" \
+  "loguru"
+
+pip install "pytest<7.0.0" "pytest-asyncio==0.20.3"
+```
+
+Windows PowerShell 常用环境变量：
+
+```powershell
+$env:SC2PATH='C:\Program Files (x86)\StarCraft II'
+$env:PYTHONUTF8='1'
+```
+
+Linux 示例：
+
+```bash
+export SC2PATH=/data2/SC2/StarCraftII/
+```
 
 ## LLM 配置
 
-大模型调用由 `API_config/config.json` 的 `llm_agents_pool` 统一管理。Top / Mid / Down 三层各自指定一个 `model_key`：
+复制或参考 `API_config/config.example.json`，编辑 `API_config/config.json`：
 
 ```json
 {
   "llm_agents_pool": {
-    "DeepSeek-V4-flash": { "api_url": "...", "model_name": "deepseek-v4-flash", "is_reasoning": false },
-    "DeepSeek-V4-flash-reasoning": { "...", "is_reasoning": true },
-    "Kimi-k2.5": { "..." }
+    "DeepSeek-V4-flash": {
+      "api_url": "https://api.example.com/v1",
+      "api_key": "YOUR_SECRET_API_KEY",
+      "model_name": "vendor-model-name",
+      "temperature": 0.7,
+      "top_p": null,
+      "max_tokens": null,
+      "is_reasoning": false,
+      "enable_identity": false,
+      "identity_prompt": ""
+    }
   }
 }
 ```
 
-**建议组合**：
+`model_key` 必须和运行参数一致。例如默认配置会使用：
 
-* **`top_model` / `mid_model`**：带 Reasoning 能力的大模型（如 `DeepSeek-V4-flash-reasoning`），规划更稳定；
-* **`down_model`**：速度快的 Flash 级模型，温度低、强制 JSON 返回。
+- `DeepSeek-V4-flash`
 
-`API_Tools/llm_caller.py` 会根据 `is_reasoning` 字段向厂商 API 注入 thinking 开关，并自动剥离 `<think>` 等推理段。
+可按阶段覆盖：
 
----
+```bash
+python run_vs_ai.py \
+  --force-strategy marine_rush \
+  --naming-model DeepSeek-V4-flash \
+  --ordering-model DeepSeek-V4-flash \
+  --executor-model DeepSeek-V4-flash
+```
 
-## 运行与测试
+注意：`API_config/config.json` 可能包含真实 API key，请不要提交或公开。
 
-对局录像、日志、JSON 默认存放在 `./game_records/`。
+## 运行
 
-### 1. 单局测试 `run_vs_ai.py`
+### 单局对战
 
-**推荐方式**：直接编辑 `run_vs_ai.py` 中 **「运行配置」** 区的 `DEFAULT_*` 常量，然后：
+最简单方式是先编辑 `run_vs_ai.py` 顶部的 `DEFAULT_*` 常量，然后运行：
 
 ```bash
 python run_vs_ai.py
 ```
 
-常用 CLI 参数（显式传参会覆盖文件默认值）：
+当前默认值包括：
 
-| 参数 | 作用 |
-|---|---|
-| `--bot-instruct` | 自然语言战术指令 |
-| `--bot-race` / `--enemy-race` | 双方种族 |
-| `--enemy-difficulty` / `--enemy-build` | 内置 AI 难度 + 风格（macro / rush / timing / air 等） |
-| `--top-model` / `--mid-model` / `--down-model` | 三层 LLM 的 `model_key` |
-| `--force-strategy` | 锁定 t=0 策略，绕过 LLM；传 `none` 取消 |
-| `--real-time` | 实时模式，便于人类观战 |
-| `--batch-name` / `--run-index` / `--output-base-dir` | 批量调度用 |
+- 我方：`universal_llm.terran`
+- 地图：`KairosJunctionLE`
+- 对手：内置 AI `terran.harder.macro`
+- 固定策略：`marine_rush`
+
+也可以用 CLI 覆盖：
 
 ```bash
-# 自定义指令 + 对手
 python run_vs_ai.py \
-  --bot-instruct "速二矿，以坦克+枪兵推进" \
   --bot-race terran \
-  --enemy-race zerg \
-  --enemy-difficulty harder \
-  --enemy-build rush \
-  --force-strategy two_base_tanks_marine_rush_5
+  --enemy-race terran \
+  --enemy-difficulty medium \
+  --enemy-build random \
+  --force-strategy battle_cruisers \
+  --batch-name demo
 ```
 
-### 2. 批量并发 `start_experiments.sh` + `run_vs_ai_batch.sh`
-
-编辑 `start_experiments.sh` 中的环境变量后启动：
+短时冒烟测试可限制游戏时长：
 
 ```bash
-# start_experiments.sh 关键变量
-export BOT_INSTRUCT="打一波，以大和战列巡洋舰为主的攻击"
+SC2_GAME_TIME_LIMIT=240 python run_vs_ai.py \
+  --enemy-difficulty medium \
+  --enemy-build random \
+  --force-strategy marine_rush \
+  --batch-name smoke
+```
+
+Windows 如果路径过长，推荐用 `run_custom.py` 指定短记录目录：
+
+```powershell
+$env:SC2_GAME_TIME_LIMIT='60'
+New-Item -ItemType Directory -Force -Path .\game_records\smoke | Out-Null
+
+python run_custom.py `
+  -m KairosJunctionLE `
+  -p1 universal_llm.terran `
+  -p2 ai.terran.easy.macro `
+  --record-dir .\game_records\smoke `
+  --match-id smoke `
+  --force-strategy marine_rush
+```
+
+### 批量对战
+
+```bash
+bash start_experiments.sh
+```
+
+或直接调用底层脚本：
+
+```bash
+bash run_vs_ai_batch.sh <总局数> <并发数> [fg|tmux]
+```
+
+批量脚本常用环境变量：
+
+```bash
+export MY_BOT_NAME="universal_llm"
 export BOT_RACE="terran"
 export ENEMY_RACE="zerg"
 export ENEMY_DIFFICULTY="harder"
 export ENEMY_BUILD="air"
-export FORCE_STRATEGY="two_base_tanks_marine_rush_6"   # 留空 = 走 LLM 选择
-export TOP_MODEL="DeepSeek-V4-flash"
-export MID_MODEL="DeepSeek-V4-flash-reasoning"
-export DOWN_MODEL="DeepSeek-V4-flash"
-
-bash start_experiments.sh       # 默认 10 局 / 10 并发 / tmux
-# 或直接调用底层引擎
-bash run_vs_ai_batch.sh <总局数> <并发数> [fg|tmux]
+export FORCE_STRATEGY="marine_rush"
+export NAMING_MODEL="DeepSeek-V4-flash"
+export ORDERING_MODEL="DeepSeek-V4-flash"
+export EXECUTOR_MODEL="DeepSeek-V4-flash"
 ```
 
-tmux 模式启动后会打印 `tmux attach -t sc2_batch_<pid>`，附加进去可看到每个 worker 的实时日志。
+## 对局产物
 
----
+默认写入：
 
-## 实验结果与分析
+```text
+game_records/<batch_name>/<match_id>/
+```
 
-### 单局产出
-
-每局结束后 `game_records/<batch_name>/<match_id>/` 目录下会写出：
+常见文件：
 
 | 文件 | 内容 |
 |---|---|
-| `<match_id>.log` | Sharpy + Bot 完整运行日志，含 `[UniversalLLMBot][LLM-INFER]` 行 |
-| `<match_id>.SC2Replay` | 录像文件 |
-| `<match_id>.json` | **LLM 交互完整记录**（关键产物） |
+| `<match_id>.log` | Sharpy 与 UniversalLLMBot 运行日志 |
+| `<match_id>.SC2Replay` | SC2 录像 |
+| `<match_id>.json` | 宏观流水线交互记录和结构化观测 |
+| `<match_id>.llm_calls.json` | 每一次 LLM 调用的 prompt 和 output |
 
-### `<match_id>.json` 关键字段
+轨迹 JSON 会记录：
 
-```json
-{
-  "metadata": {
-    "result": "Victory|Defeat|Tie",
-    "interval_seconds": 30.0,
-    "llm_interaction_count": 52
-  },
-  "interactions": [ "..." ]
-}
-```
+- 固定策略名和策略说明
+- 每次触发原因：`initial_step`、`sequence_drained`、`executable_drained`
+- 当前 strategy step
+- Naming 原始输出和解析后的实体
+- DATA_TOOLS 映射结果
+- Ordering 原始输出、合法排序、漏项和丢弃项
+- Supply Planner 插入的补给动作
+- 注入 scheduler 的 action 序列
+- 决策时英文 obs 和结构化快照
 
-**`interactions[]` 中可能出现的 `trigger_reason`**：
+## 测试
 
-| `trigger_reason` | 来自 | 关键字段 |
-|---|---|---|
-| `top_agent_initial_t0` | t=0 LLM 选择 | `top_agent_initial.turns[]`、`final_action`（SELECT/VIEW/GENERATE/…）、`selected_strategy`、`strategy_description` |
-| `top_agent_initial_t0_forced` | `--force-strategy` 旁路 | `forced_strategy`、`final_action="FORCED"` |
-| `poll` | 每 30s Mid Pipeline | `mid_agent_input_previous_tasks`、`mid_agent_output_new_tasks`、`down_agent_translations[]`（含 `priority`）、`active_tasks_after_refresh`、`observation_at_this_moment` |
-
-`down_agent_translations[]` 中每条记录包含 Mid 原始任务、Down 原始响应、解析后的 `{action, to_count, priority}`。
-
-### 批次统计 `parse_sc2_logs.py`
-
-按 **策略 → 对手种族 → 对手风格** 三维度聚合胜率：
+安装测试依赖后运行：
 
 ```bash
-# 编辑 parse_sc2_logs.py 末尾的 my_paths 列表（指向 batch 目录或 game_records 根目录）
-python parse_sc2_logs.py
-# 输出至 game_records/strategy_statistics.json
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONPATH="$PWD" \
+  python -m pytest tools/tests -q -p pytest_asyncio
 ```
 
-脚本从 `.log` 末尾解析 `Result for player 1 ... : Victory|Defeat|Tie`，并从日志 / 路径中提取 `--force_strategy`、对手种族与 AI 风格。
+Windows PowerShell：
 
----
+```powershell
+$env:PYTEST_DISABLE_PLUGIN_AUTOLOAD='1'
+$env:PYTHONPATH=(Resolve-Path .).Path
+python -m pytest tools/tests -q -p pytest_asyncio
+```
 
-## Python 环境安装
+当前仓库里的轻量测试主要覆盖 prompt 标签、Ordering Agent prompt 等逻辑。完整游戏验证仍需要本地 SC2 客户端、地图和可用 LLM API。
 
-环境安装以 [`docs/环境配置教程.md`](docs/环境配置教程.md) 为准。当前推荐统一使用
-conda 环境 `SC2_0615` 和 Python 3.11；Linux 与 Windows 的依赖安装、`SC2PATH`
-配置、pytest 自检和短时对局冒烟命令都维护在该文档中。
+## 常用策略名
 
-旧式 `requirements*.txt` 与 venv 安装方式已移除，避免和实测环境版本冲突。
-需要本地安装 StarCraft II 客户端，并确认地图位于 SC2 的 `Maps/` 目录。
-Sharpy 底层说明见 [`README_sharpy.md`](README_sharpy.md)。
+当前 `SKILL/terran/registry.json` 中登记的策略：
 
----
+- `marine_rush`
+- `battle_cruisers`
+- `banshees`
+- `bio`
+- `cyclones`
+- `one_base_turtle`
+- `rusty`
+- `safe_tvt_raven`
+- `terran_silver_bio`
+- `two_base_tanks`
 
 ## 相关文档
 
 | 文档 | 内容 |
 |---|---|
-| [`readme_bot.md`](readme_bot.md) | Sharpy Bot 继承关系、dummies 目录说明 |
-| [`readme_test.md`](readme_test.md) | 测试与对战详细说明 |
-| [`sharpy模块与配置说明.md`](sharpy模块与配置说明.md) | Sharpy 模块与 config.ini 配置 |
-| [`note/llm_observation_recorder.md`](note/llm_observation_recorder.md) | 观测文本生成规则 |
+| [docs/系统文档.md](docs/系统文档.md) | 新版 LLM 增量驱动和命令式执行系统总览 |
+| [docs/环境配置教程.md](docs/环境配置教程.md) | Linux / Windows 环境安装、SC2PATH、冒烟测试 |
+| [docs/测试运行流程记录.md](docs/测试运行流程记录.md) | 测试和运行记录 |
+| [docs/直接建造执行器经验总结_20260617.md](docs/直接建造执行器经验总结_20260617.md) | DirectBuild、reservation、deferred 机制经验 |
+| [docs/readme_bot.md](docs/readme_bot.md) | Sharpy Bot 继承关系和 dummies 说明 |
+| [docs/README_sharpy.md](docs/README_sharpy.md) | Sharpy 底层框架说明 |
+| [docs/sharpy模块与配置说明.md](docs/sharpy模块与配置说明.md) | Sharpy 模块和配置说明 |
+
+## 维护建议
+
+- README 只保留入口级信息；实现细节放到 `docs/系统文档.md`。
+- 策略改动优先同步 `SKILL/terran/<strategy>/Top_agent_0.md` 和 `strategy_tools.py`。
+- 新增策略后检查 `registry.json`、运行参数和批量脚本中的 `FORCE_STRATEGY`。
+- 修改执行调度后，用短时冒烟对局确认 `.json` 和 `.llm_calls.json` 能正常落盘。

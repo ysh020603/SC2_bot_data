@@ -1,5 +1,5 @@
 {
-  "_comment": "Whitelist of Terran strategy folders exposed to the T=0 LLM selection list. Strategies NOT listed here will be ignored by _discover_strategies even if their folder exists on disk. New strategies generated at runtime via the GENERATE action are auto-registered here by UniversalLLMBot._materialise_strategy_folder().",
+  "_comment": "Terran strategy folders available for fixed --force-strategy runs. Keep this list in sync with SKILL/terran/<strategy>/ directories.",
   "registered_strategies": [
     "marine_rush",
     "battle_cruisers",

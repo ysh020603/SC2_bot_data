@@ -1,5 +1,6 @@
+from collections import deque
 from math import floor
-from typing import Dict, Optional, Set
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 from sc2.data import Race
 from sc2.ids.ability_id import AbilityId
@@ -51,6 +52,21 @@ TERRAN_ADDONS = {
 }
 
 TERRAN_ADDON_CLEARANCE_RADIUS = 2.05
+TERRAN_TRAFFIC_CHECK_TYPES = {
+    UnitTypeId.SUPPLYDEPOT,
+    UnitTypeId.BARRACKS,
+    UnitTypeId.ENGINEERINGBAY,
+    UnitTypeId.FACTORY,
+    UnitTypeId.ARMORY,
+    UnitTypeId.BUNKER,
+    UnitTypeId.SENSORTOWER,
+    UnitTypeId.GHOSTACADEMY,
+    UnitTypeId.STARPORT,
+    UnitTypeId.FUSIONCORE,
+}
+TERRAN_PASSABLE_STRUCTURES = {
+    UnitTypeId.SUPPLYDEPOTLOWERED,
+}
 
 
 class WorkerStuckStatus:
@@ -405,7 +421,224 @@ class GridBuilding(ActBuilding):
             self._bump_invalid_position(point)
             return False
 
+        if not self._preserves_terran_ground_paths(point):
+            self._bump_invalid_position(point)
+            return False
+
+        if self.unit_type in TERRAN_PRODUCTION_BUILDINGS and not self._has_reachable_terran_production_exit(point):
+            self._bump_invalid_position(point)
+            return False
+
         return True
+
+    def _preserves_terran_ground_paths(self, point: Point2) -> bool:
+        if self.unit_type not in TERRAN_TRAFFIC_CHECK_TYPES:
+            return True
+        pairs = self._main_traffic_pairs()
+        if not pairs:
+            return True
+
+        baseline = self._build_terran_walk_grid()
+        candidate = self._build_terran_walk_grid((point, self.unit_type))
+
+        for start, end in pairs:
+            if self._path_exists_on_grid(baseline, start, end, clearance=1):
+                if not self._path_exists_on_grid(candidate, start, end, clearance=1):
+                    return False
+            elif self._path_exists_on_grid(baseline, start, end, clearance=0):
+                if not self._path_exists_on_grid(candidate, start, end, clearance=0):
+                    return False
+        return True
+
+    def _has_reachable_terran_production_exit(self, point: Point2) -> bool:
+        pairs = self._main_traffic_pairs()
+        if not pairs:
+            return True
+
+        target = pairs[0][1]
+        grid = self._build_terran_walk_grid((point, self.unit_type), include_candidate_addon=True)
+        for exit_point in self._terran_production_exit_points(point):
+            if self._path_exists_on_grid(grid, exit_point, target, clearance=0, start_radius=2):
+                return True
+        return False
+
+    def _main_traffic_pairs(self) -> List[Tuple[Point2, Point2]]:
+        try:
+            main = self.zone_manager.own_main_zone
+            natural = self.zone_manager.expansion_zones[1] if len(self.zone_manager.expansion_zones) > 1 else None
+        except Exception:
+            return []
+
+        if main is None:
+            return []
+
+        ramp = getattr(main, "ramp", None)
+        if ramp is not None:
+            exit_point = ramp.bottom_center
+            inner_point = ramp.top_center.towards(main.center_location, 4)
+        elif natural is not None:
+            exit_point = natural.center_location
+            inner_point = main.center_location.towards(natural.center_location, 5)
+        else:
+            exit_point = main.center_location.towards(self.ai.game_info.map_center, 12)
+            inner_point = main.center_location.towards(exit_point, 5)
+
+        pairs = [(inner_point, exit_point)]
+        if getattr(main, "behind_mineral_position_center", None):
+            pairs.append((main.behind_mineral_position_center.towards(main.center_location, 3), exit_point))
+        return pairs
+
+    def _build_terran_walk_grid(
+        self,
+        candidate: Optional[Tuple[Point2, UnitTypeId]] = None,
+        *,
+        include_candidate_addon: bool = False,
+    ):
+        grid = self.ai.game_info.pathing_grid.data_numpy.T.copy().astype(bool)
+
+        for mineral in self.ai.mineral_field:
+            self._block_walk_grid(grid, mineral.position, (2, 1))
+        for geyser in self.ai.vespene_geyser:
+            self._block_walk_grid(grid, geyser.position, (3, 3))
+        for structure in self.ai.structures:
+            if structure.is_flying or structure.type_id in TERRAN_PASSABLE_STRUCTURES:
+                continue
+            size = self._terran_structure_block_size(structure.type_id)
+            if size is not None:
+                self._block_walk_grid(grid, structure.position, size)
+
+        for reserved in self._reserved_terran_production_positions():
+            self._block_walk_grid(grid, reserved, (3, 3))
+        for reserved_addon in self._reserved_terran_addon_positions():
+            self._block_walk_grid(grid, reserved_addon, (2, 2))
+
+        if candidate is not None:
+            position, unit_type = candidate
+            size = self._terran_structure_block_size(unit_type)
+            if size is not None:
+                self._block_walk_grid(grid, position, size)
+            if include_candidate_addon and unit_type in TERRAN_PRODUCTION_BUILDINGS:
+                self._block_walk_grid(grid, position.offset(Point2((2.5, -0.5))), (2, 2))
+
+        return grid
+
+    def _terran_structure_block_size(self, unit_type: UnitTypeId) -> Optional[Tuple[int, int]]:
+        if unit_type in TERRAN_ADDONS or unit_type in {
+            UnitTypeId.SUPPLYDEPOT,
+            UnitTypeId.SUPPLYDEPOTDROP,
+            UnitTypeId.MISSILETURRET,
+        }:
+            return (2, 2)
+        if unit_type in {
+            UnitTypeId.BARRACKS,
+            UnitTypeId.ENGINEERINGBAY,
+            UnitTypeId.FACTORY,
+            UnitTypeId.ARMORY,
+            UnitTypeId.BUNKER,
+            UnitTypeId.SENSORTOWER,
+            UnitTypeId.GHOSTACADEMY,
+            UnitTypeId.STARPORT,
+            UnitTypeId.FUSIONCORE,
+        }:
+            return (3, 3)
+        if unit_type in {
+            UnitTypeId.COMMANDCENTER,
+            UnitTypeId.ORBITALCOMMAND,
+            UnitTypeId.PLANETARYFORTRESS,
+        }:
+            return (5, 5)
+        return None
+
+    @staticmethod
+    def _block_walk_grid(grid, center: Point2, size: Tuple[int, int]) -> None:
+        width, height = size
+        start_x = int(round(center.x - width / 2))
+        start_y = int(round(center.y - height / 2))
+        end_x = start_x + width
+        end_y = start_y + height
+        max_x, max_y = grid.shape
+        for x in range(max(0, start_x), min(max_x, end_x)):
+            for y in range(max(0, start_y), min(max_y, end_y)):
+                grid[x, y] = False
+
+    def _path_exists_on_grid(
+        self,
+        grid,
+        start: Point2,
+        end: Point2,
+        *,
+        clearance: int,
+        start_radius: int = 8,
+        end_radius: int = 8,
+    ) -> bool:
+        start_cell = self._nearest_open_cell(grid, start, clearance, radius=start_radius)
+        end_cell = self._nearest_open_cell(grid, end, clearance, radius=end_radius)
+        if start_cell is None or end_cell is None:
+            return False
+        if start_cell == end_cell:
+            return True
+
+        margin = 28
+        min_x = max(0, min(start_cell[0], end_cell[0]) - margin)
+        max_x = min(grid.shape[0] - 1, max(start_cell[0], end_cell[0]) + margin)
+        min_y = max(0, min(start_cell[1], end_cell[1]) - margin)
+        max_y = min(grid.shape[1] - 1, max(start_cell[1], end_cell[1]) + margin)
+
+        queue = deque([start_cell])
+        visited = {start_cell}
+        while queue:
+            x, y = queue.popleft()
+            for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                if nx < min_x or nx > max_x or ny < min_y or ny > max_y:
+                    continue
+                cell = (nx, ny)
+                if cell in visited:
+                    continue
+                if not self._grid_cell_open(grid, nx, ny, clearance):
+                    continue
+                if cell == end_cell:
+                    return True
+                visited.add(cell)
+                queue.append(cell)
+        return False
+
+    def _nearest_open_cell(self, grid, point: Point2, clearance: int, radius: int = 8) -> Optional[Tuple[int, int]]:
+        origin_x = int(round(point.x))
+        origin_y = int(round(point.y))
+        best: Optional[Tuple[int, int]] = None
+        best_distance = 10**9
+        for dx in range(-radius, radius + 1):
+            for dy in range(-radius, radius + 1):
+                x = origin_x + dx
+                y = origin_y + dy
+                if not self._grid_cell_open(grid, x, y, clearance):
+                    continue
+                distance = dx * dx + dy * dy
+                if distance < best_distance:
+                    best = (x, y)
+                    best_distance = distance
+        return best
+
+    @staticmethod
+    def _grid_cell_open(grid, x: int, y: int, clearance: int) -> bool:
+        if x < clearance or y < clearance:
+            return False
+        if x >= grid.shape[0] - clearance or y >= grid.shape[1] - clearance:
+            return False
+        for cx in range(x - clearance, x + clearance + 1):
+            for cy in range(y - clearance, y + clearance + 1):
+                if not grid[cx, cy]:
+                    return False
+        return True
+
+    @staticmethod
+    def _terran_production_exit_points(point: Point2) -> Iterable[Point2]:
+        return (
+            point.offset(Point2((-2.5, 0.0))),
+            point.offset(Point2((0.0, 2.5))),
+            point.offset(Point2((0.0, -2.5))),
+            point.offset(Point2((2.5, 1.5))),
+        )
 
     def _blocks_reserved_terran_addon_slot(self, point: Point2, building_half_size: float) -> bool:
         """True if this candidate would occupy another producer's addon slot."""

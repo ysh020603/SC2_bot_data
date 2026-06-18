@@ -11,7 +11,6 @@ from dummies.zerg import *
 from dummies.debug import *
 from sc2.player import Human, Bot, Computer, AbstractPlayer
 
-from dummies.terran.llm_bot import LLMBot, MyLLMBot
 from dummies.generic.universal_llm_bot import UniversalLLMBot
 
 races = {
@@ -320,23 +319,6 @@ class BotDefinitions:
             DummyBuilder("terranturtle", "RustyOneBaseTurtle", Race.Terran, "one_base_turtle.py", OneBaseTurtle),
             DummyBuilder("saferaven", "SafeRaven", Race.Terran, "safe_tvt_raven.py", TerranSafeTvT),
             DummyBuilder("silverbio", "TerranSilverBio", Race.Terran, "terran_silver_bio.py", TerranSilverBio),
-            DummyBuilder(
-                "llm_bot",
-                "LLMBot",
-                Race.Terran,
-                "llm_bot.py",
-                LLMBot,
-                params_count=2,
-                param_defaults=("default", ""),
-            ),
-            DummyBuilder(
-                "llm_bot2",
-                "MyLLMBot",
-                Race.Terran,
-                "llm_bot.py",
-                MyLLMBot,
-                params_count=1,
-            ),
         ]
 
         for bot in bots:

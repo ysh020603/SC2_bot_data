@@ -1,58 +1,45 @@
 #!/usr/bin/env bash
 # start_experiments.sh
-# 专门用于设置参数、大模型配置，并启动批量对战�?
+# Configure a batch of SC2 Agent matches, then launch run_vs_ai_batch.sh.
 
-set -e
+set -euo pipefail
 
-# =============================================================================
-# 0. 核心配置：指�?Conda 环境�?Python 绝对路径 (解决 tmux 环境迷失问题)
-# =============================================================================
-# 请在你的终端激�?hw 环境后，输入 `which python` 获取该路径并替换下方变量�?
-export PYTHON="/home/wyq/miniconda3/envs/hw/bin/python" 
+# ---------------------------------------------------------------------------
+# 0. Python runtime
+# ---------------------------------------------------------------------------
+# Override this before running if needed, for example:
+#   export PYTHON=/path/to/conda/env/bin/python
+export PYTHON="${PYTHON:-python3}"
 
-# =============================================================================
-# 1. 游戏与战术配�?
-# =============================================================================
-export MY_BOT_NAME="universal_llm"
-export MAP_NAME="KairosJunctionLE"
-export REAL_TIME="0" # 1为实时模式，0为加速模�?
+# ---------------------------------------------------------------------------
+# 1. Match configuration
+# ---------------------------------------------------------------------------
+export MY_BOT_NAME="${MY_BOT_NAME:-universal_llm}"
+export MAP_NAME="${MAP_NAME:-KairosJunctionLE}"
+export REAL_TIME="${REAL_TIME:-0}"  # 1 = realtime, 0 = accelerated
 
-# 对手配置 ("protoss", "zerg", "terran")
-# 难度: "veryeasy", "easy", "medium", "mediumhard", "hard", "harder", "veryhard", "cheatvision", "cheatmoney", "cheatinsane"
+export ENEMY_RACE="${ENEMY_RACE:-zerg}"
+export ENEMY_DIFFICULTY="${ENEMY_DIFFICULTY:-harder}"
+export ENEMY_BUILD="${ENEMY_BUILD:-air}"
 
-# random  随机风格
-# rush    前期速攻
-# timing  Timing 一�?
-# power   强力正面推进
-# macro   运营扩张
-# air     空军科技
+export BOT_RACE="${BOT_RACE:-terran}"
+export FORCE_STRATEGY="${FORCE_STRATEGY:-marine_rush}"
 
-export ENEMY_RACE="zerg"
-export ENEMY_DIFFICULTY="harder"
-export ENEMY_BUILD="air"
+# ---------------------------------------------------------------------------
+# 2. Five-stage pipeline model keys
+# ---------------------------------------------------------------------------
+export NAMING_MODEL="${NAMING_MODEL:-DeepSeek-V4-flash}"
+export ORDERING_MODEL="${ORDERING_MODEL:-DeepSeek-V4-flash}"
+export EXECUTOR_MODEL="${EXECUTOR_MODEL:-DeepSeek-V4-flash}"
 
-# 我方 Agent 配置
-export BOT_RACE="terran"
+# ---------------------------------------------------------------------------
+# 3. Batch controls
+# ---------------------------------------------------------------------------
+TOTAL_MATCHES="${TOTAL_MATCHES:-10}"
+CONCURRENCY="${CONCURRENCY:-10}"
+RUN_MODE="${RUN_MODE:-tmux}"  # tmux or fg
 
-# 强制固定 t=0 开局策略 (填策略文件夹名，�?marine_rush, battle_cruisers)
-# Required fixed opening strategy folder name.
-export FORCE_STRATEGY="marine_rush"
+export BATCH_NAME="${BATCH_NAME:-}"
 
-# =============================================================================
-# Required fixed opening strategy folder name.
-# =============================================================================
-export MID_MODEL="DeepSeek-V4-flash-reasoning"
-export DOWN_MODEL="DeepSeek-V4-flash"
-
-# =============================================================================
-# 3. 运行控制 (总局�?/ 并发�?/ 运行模式)
-# =============================================================================
-TOTAL_MATCHES=10      # 运行的总局�?
-CONCURRENCY=10        # 并发执行的数�?
-RUN_MODE="tmux"      # 选项: 'tmux' (推荐,每个窗口一个线�? �?'fg' (当前终端后台运行)
-
-# 批次名称(可�?，留空则会自动根据上方配置生成带时间戳和模型信息的文件夹�?
-export BATCH_NAME="" 
-
-echo "正在应用配置并启动批处理任务..."
+echo "Starting SC2 Agent batch..."
 bash ./run_vs_ai_batch.sh "$TOTAL_MATCHES" "$CONCURRENCY" "$RUN_MODE"

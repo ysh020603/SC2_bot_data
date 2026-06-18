@@ -62,7 +62,7 @@ def run_ladder_game(bot):
         opponent = "unknown"
 
     ensure_directories()
-    folder = os.path.join("data", "games")
+    folder = os.path.join("game_records", "ladder")
 
     time = datetime.now().strftime("%Y-%m-%d %H_%M_%S")
     file_name = f"{opponent}_{time}"
@@ -101,11 +101,11 @@ async def join_ladder_game(
 
 
 def ensure_directories():
-    folder = os.path.join("data")
+    folder = os.path.join("game_records")
     if not os.path.isdir(folder):
         os.mkdir(folder)
 
-    folder = os.path.join("data", "games")
+    folder = os.path.join("game_records", "ladder")
     if not os.path.isdir(folder):
         os.mkdir(folder)
 
@@ -130,7 +130,8 @@ def stand_alone_game(bot):
 
     map_name = random.choice(maps)
 
-    folder = os.path.join("data", "games")
+    ensure_directories()
+    folder = os.path.join("game_records", "ladder")
 
     time = datetime.now().strftime("%Y-%m-%d %H_%M_%S")
 
