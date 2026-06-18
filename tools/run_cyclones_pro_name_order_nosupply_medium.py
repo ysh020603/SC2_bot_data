@@ -1,4 +1,4 @@
-"""Full game experiment: battle_cruisers strategy (Top_agent_0.md)."""
+"""Temporary launcher: cyclones vs Terran medium, pro naming/ordering, no supply managed."""
 
 import os
 import sys
@@ -12,7 +12,7 @@ UniversalLLMBot.SUPPLY_MANAGED = False
 
 
 def short_match_id(**kw):
-    return f"{kw['timestamp']}_bc_macro"
+    return f"{kw['timestamp']}_cy_pro_name_order_nosupply"
 
 
 run_vs_ai.build_match_id = short_match_id
@@ -20,15 +20,15 @@ run_vs_ai.build_match_id = short_match_id
 run_vs_ai.play_vs_ai(
     map_name="KairosJunctionLE",
     enemy_race="terran",
-    enemy_difficulty="hard",
-    enemy_build="macro",
+    enemy_difficulty="medium",
+    enemy_build="air",
     mid_model="DeepSeek-V4-flash",
     down_model="DeepSeek-V4-flash",
     naming_model="DeepSeek-V4-pro",
     ordering_model="DeepSeek-V4-pro",
     executor_model="DeepSeek-V4-flash",
-    batch_name="battle_cruisers_full",
+    batch_name="cyclones_pro_name_order_nosupply_medium",
     output_base_dir=r"C:\code\SC2_Agent_OLD\game_records",
     skip_version_update=True,
-    force_strategy="battle_cruisers",
+    force_strategy="cyclones",
 )

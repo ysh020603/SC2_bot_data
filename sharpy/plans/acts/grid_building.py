@@ -50,7 +50,7 @@ TERRAN_ADDONS = {
     UnitTypeId.STARPORTREACTOR,
 }
 
-TERRAN_ADDON_CLEARANCE_RADIUS = 3.0
+TERRAN_ADDON_CLEARANCE_RADIUS = 2.05
 
 
 class WorkerStuckStatus:
@@ -437,7 +437,7 @@ class GridBuilding(ActBuilding):
                 return False
 
         for reserved_addon_center in self._reserved_terran_addon_positions():
-            if addon_center.distance_to(reserved_addon_center) < TERRAN_ADDON_CLEARANCE_RADIUS:
+            if self._footprints_overlap(addon_center, 1.0, reserved_addon_center, 1.0):
                 return False
 
         for reserved_landing in self.building_solver.structure_target_move_location.values():
@@ -494,14 +494,12 @@ class GridBuilding(ActBuilding):
 
     @staticmethod
     def _footprints_overlap(a: Point2, a_half_size: float, b: Point2, b_half_size: float) -> bool:
-        limit = a_half_size + b_half_size + 0.1
-        return abs(a.x - b.x) <= limit and abs(a.y - b.y) <= limit
+        limit = a_half_size + b_half_size
+        return abs(a.x - b.x) < limit and abs(a.y - b.y) < limit
 
     @staticmethod
     def _blocks_terran_addon_clearance(point: Point2, half_size: float, addon_center: Point2) -> bool:
-        if GridBuilding._footprints_overlap(point, half_size, addon_center, 1.0):
-            return True
-        return point.distance_to(addon_center) < TERRAN_ADDON_CLEARANCE_RADIUS
+        return GridBuilding._footprints_overlap(point, half_size, addon_center, 1.0)
 
     async def position_terran(self, count) -> Optional[Point2]:
         is_depot = self.unit_type == UnitTypeId.SUPPLYDEPOT

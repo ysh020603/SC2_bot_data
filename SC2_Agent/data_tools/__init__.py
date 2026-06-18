@@ -32,6 +32,7 @@ from .sc2_data_common import (
     canonical_entity_name,
     load_database,
 )
+from .supply_planner import SUPPLY_DEPOT_ACTION
 from .supply_planner import plan as plan_supply
 from .supply_planner import plan_with_trace as plan_supply_with_trace
 from .terran_names import (
@@ -58,6 +59,7 @@ __all__ = [
     "canonical_ability_name",
     "canonical_entity_name",
     "load_database",
+    "SUPPLY_DEPOT_ACTION",
     "plan_supply",
     "plan_supply_with_trace",
     "ALIAS_MAP",

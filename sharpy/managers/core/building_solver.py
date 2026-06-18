@@ -448,19 +448,21 @@ class BuildingSolver(ManagerBase, IBuildingSolver):
             self.grid.fill_rect(padding, fill_padding)
 
     def terran_grid(self, pos):
-        rect = Rectangle(pos.x, pos.y, 6, 5)
-        padding = Rectangle(pos.x, pos.y, 7, 5)
+        rect = Rectangle(pos.x, pos.y, 5, 6)
+        padding = Rectangle(pos.x, pos.y, 5, 6)
 
         if self.grid.query_rect(rect, is_empty):
-            depots = [pos + Point2((1, 4)), pos + Point2((1 + 2, 4)), pos + Point2((1 + 4, 4))]
             raxes = [
                 pos + Point2((1.5, 1.5)),
+                pos + Point2((1.5, 4.5)),
             ]
-            for depot_pos in depots:
-                self.fill_and_save(depot_pos, BlockerType.Building2x2, BuildArea.Pylon)
-
             for rax_pos in raxes:
                 self.fill_and_save(rax_pos, BlockerType.Building3x3, BuildArea.Building)
+                self.fill_and_save(
+                    rax_pos.offset(Point2((2.5, -0.5))),
+                    BlockerType.Building2x2,
+                    BuildArea.BuildingPadding,
+                )
 
             self.grid.fill_rect(padding, fill_padding)
 

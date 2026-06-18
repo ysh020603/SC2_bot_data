@@ -5,7 +5,8 @@
 * 执行者冲突提示（``detect_action_conflicts``）
 * 每个 action 的资源/时间成本（``action_cost``，时间为游戏帧）
 
-排序时 **忽略 SupplyDepot**（补给由 supply_planner 自动注入）。
+SupplyDepot（``TERRANBUILD_SUPPLYDEPOT``）作为普通动作参与排序；
+Stage5 根据 ``SUPPLY_MANAGED`` 决定是否用算法覆盖 LLM 的 depot 位置。
 """
 
 from __future__ import annotations
@@ -44,9 +45,10 @@ def build_ordering_messages(
     """构建阶段4 排序 Agent Prompt。
 
     :param race:           当前种族名（固定 terran）。
-    :param actions:        待排序的 Action 标准名列表（**已按数量展开的扁平列表**，
-                           不含 SupplyDepot）。同一个 action 可能出现多次，表示要
-                           生产/建造多个；排序只决定先后，不增删、不改变出现次数。
+    :param actions:        待排序的 Action 标准名列表（**已按数量展开的扁平列表**）。
+                           同一个 action 可能出现多次，表示要生产/建造多个；
+                           排序只决定先后，不增删、不改变出现次数。
+                           可能包含 ``TERRANBUILD_SUPPLYDEPOT``。
     :param obs_text:       当前观测文本。
     :param prereq_hints:   前置缺失 + 科技链路关系提示文本。
     :param conflict_hints: 执行者冲突提示文本。
@@ -75,8 +77,9 @@ Rules:
   and only reorder them.
 * The JSON output must be an expanded ordered list with repeated action strings;
   do not use "x N" counts in the JSON.
-* IGNORE supply depots entirely (supply is inserted automatically afterwards). If
-  any supply-depot action appears in the input, DROP it.
+* Supply depots (TERRANBUILD_SUPPLYDEPOT) are ordinary actions; order them just
+  like any other build action, placing them before the training actions that need
+  the supply headroom.
 * Do not invent new actions and do not add or remove occurrences.
 
 [Prerequisite & tech-chain hints]

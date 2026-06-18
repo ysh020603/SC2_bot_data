@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from sharpy.knowledges import Knowledge
 
 
-TERRAN_ADDON_CLEARANCE_RADIUS = 3.0
+TERRAN_ADDON_CLEARANCE_RADIUS = 2.05
 
 
 class BuildAddon(ActBase):
@@ -108,14 +108,12 @@ class BuildAddon(ActBase):
 
     @staticmethod
     def _footprints_overlap(a: Point2, a_half_size: float, b: Point2, b_half_size: float) -> bool:
-        limit = a_half_size + b_half_size + 0.1
-        return abs(a.x - b.x) <= limit and abs(a.y - b.y) <= limit
+        limit = a_half_size + b_half_size
+        return abs(a.x - b.x) < limit and abs(a.y - b.y) < limit
 
     @staticmethod
     def _blocks_terran_addon_clearance(point: Point2, half_size: float, addon_center: Point2) -> bool:
-        if BuildAddon._footprints_overlap(point, half_size, addon_center, 1.0):
-            return True
-        return point.distance_to(addon_center) < TERRAN_ADDON_CLEARANCE_RADIUS
+        return BuildAddon._footprints_overlap(point, half_size, addon_center, 1.0)
 
     @staticmethod
     def _addon_types() -> set:

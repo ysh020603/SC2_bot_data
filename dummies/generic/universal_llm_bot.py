@@ -55,6 +55,7 @@ from SC2_Agent.executor_agent import (
 )
 from SC2_Agent.data_tools import (
     ALIAS_MAP,
+    SUPPLY_DEPOT_ACTION,
     actions_for_entities,
     check_action_prerequisites,
     cost_for_action,
@@ -283,6 +284,9 @@ class UniversalLLMBot(KnowledgeBot):
     WAIT_ABANDON_SEC: float = 60.0
     #: Supply 注入阈值：保证模拟人口余量不低于该值。
     SUPPLY_THRESHOLD: float = 8.0
+    #: 实验参数：True = 从 LLM 输出中提取 depot 并通过算法重新插入（稳定托管）；
+    #: False = 直接执行 LLM 排好的序列（含 LLM 自行放置的 depot，实验性）。
+    SUPPLY_MANAGED: bool = True
     zone_manager: IZoneManager
 
     def __init__(
@@ -319,8 +323,6 @@ class UniversalLLMBot(KnowledgeBot):
         self.scheduler: Optional[ExecutionScheduler] = None
         self._last_macro_time: float = -self.MACRO_POLL_INTERVAL
         self._macro_cycle_count: int = 0
-        #: 单等待者预取：已为该 waiter 追加过下一步 macro，避免重复 append。
-        self._prefetched_while_waiter_key: Optional[Tuple[str, float]] = None
         # 记录每一次 LLM 调用的完整 prompt 与 output，落到专门的 *.llm_calls.json。
         self._llm_call_records: List[Dict[str, Any]] = []
         self._llm_call_seq: int = 0
@@ -418,47 +420,35 @@ class UniversalLLMBot(KnowledgeBot):
     async def pre_step_execute(self):
         """每帧 Tick 入口：检查宏观增量流水线的触发条件。
 
-        触发机制（三选一）：
-        1. 距上次触发已超过 ``MACRO_POLL_INTERVAL`` 秒（固定周期）。
-        2. 当前 Action 序列已全部执行完（``scheduler.is_drained()``），且距上次触发
-           至少 ``MACRO_MIN_RETRIGGER`` 秒（``replace`` 安装下一步）。
-        3. 仅剩一个 ``WAITING`` 动作（``scheduler.is_single_waiter_remaining()``），且距上次
-           触发至少 ``MACRO_MIN_RETRIGGER`` 秒 → ``append`` 预取下一步（最后一步除外）。
+        触发机制（全程 append，不再使用 replace）。``ExecutionScheduler`` 已
+        将 ``WAITING`` 动作放在独立的 ``waiter`` 槽中；宏触发会同时考虑
+        ``actions`` 列表和 ``waiter``，避免关键等待动作被下一步掩盖：
+
+        1. 首次且 ``actions`` 列表为空 → ``initial_step``。
+        2. ``actions`` 列表全部 terminal → ``sequence_drained`` 装下一步。
+        3. ``actions`` 中无可执行动作（只剩 deferred）→ ``executable_drained``。
         """
         since = self.time - self._last_macro_time
         trigger_reason: Optional[str] = None
-        install_mode = "replace"
-
-        if self.scheduler is not None and not self.scheduler.is_single_waiter_remaining():
-            self._prefetched_while_waiter_key = None
 
         scheduler_drained = self.scheduler is None or self.scheduler.is_drained()
-        single_waiter = (
-            self.scheduler is not None and self.scheduler.is_single_waiter_remaining()
+        macro_drained = self.scheduler is None or self.scheduler.is_drained_for_macro()
+        executable_drained = (
+            self.scheduler is not None and self.scheduler.has_no_executable_actions()
         )
 
         if self._macro_cycle_count == 0 and scheduler_drained:
             trigger_reason = "initial_step"
         elif since >= self.MACRO_MIN_RETRIGGER and scheduler_drained:
             trigger_reason = "sequence_drained"
-        elif since >= self.MACRO_MIN_RETRIGGER and single_waiter:
-            current_step = self._current_strategy_step()
-            waiter_key = self.scheduler.waiter_identity() if self.scheduler else None
-            if (
-                current_step is not None
-                and not current_step.get("is_last")
-                and waiter_key is not None
-                and waiter_key != self._prefetched_while_waiter_key
-            ):
-                trigger_reason = "single_waiter_prefetch"
-                install_mode = "append"
-                self._prefetched_while_waiter_key = waiter_key
+        elif since >= self.MACRO_MIN_RETRIGGER and (macro_drained or executable_drained):
+            trigger_reason = "executable_drained"
 
         if trigger_reason is not None:
             self._last_macro_time = self.time
             self._run_macro_pipeline_blocking(
                 trigger_reason=trigger_reason,
-                install_mode=install_mode,
+                install_mode="append",
             )
 
     # ------------------------------------------------------------------
@@ -686,9 +676,13 @@ class UniversalLLMBot(KnowledgeBot):
         self,
         *,
         trigger_reason: str = "unknown",
-        install_mode: str = "replace",
+        install_mode: str = "append",
     ) -> None:
-        """增量Agent → 命名Agent → 工具映射 → 排序Agent → Supply注入 → 调度器（同步阻塞）。"""
+        """增量Agent → 命名Agent → 工具映射 → 排序Agent → Supply注入 → 调度器（同步阻塞）。
+
+        All step transitions use ``mode="append"`` so that waiting/deferred
+        actions from prior steps are never dropped.
+        """
         game_time = self.time
         pipeline_start = _wall_time.monotonic()
         self._macro_cycle_count += 1
@@ -757,20 +751,47 @@ class UniversalLLMBot(KnowledgeBot):
             name_raw = self._call_llm(name_msgs, agent="naming")
             record["naming_raw"] = name_raw
             items = parse_naming_response(name_raw) or []
-            # 别名归一 + 合法性校验
+            # 别名归一 + 合法性校验；SupplyDepot 与其他实体一样正常流入 valid_items
             valid_items: List[Dict[str, Any]] = []
+            macro_normalizations: List[Dict[str, str]] = []
             for it in items:
-                canonical = resolve_alias(it["name"])
-                if canonical == "SupplyDepot":
-                    self._llm_infer_emit("    Stage2 dropped SupplyDepot (handled by Stage5).")
-                    continue
+                raw_name = str(it.get("name", ""))
+                resolved = self._generic_addon_from_raw(raw_name) or resolve_alias(raw_name)
+                canonical = self._normalize_macro_entity_name(resolved, plan_text)
+                if canonical != resolved:
+                    macro_normalizations.append({
+                        "raw": raw_name,
+                        "resolved": resolved,
+                        "normalized": canonical,
+                    })
+                    self._llm_infer_emit(
+                        f"    Stage2 normalized macro entity {resolved!r} -> {canonical!r}."
+                    )
                 if is_known_terran_entity(canonical):
                     valid_items.append({"name": canonical, "count": it["count"]})
                 else:
                     self._llm_infer_emit(f"    Stage2 dropped unknown entity: {it['name']!r}")
+            record["macro_normalizations"] = macro_normalizations
             record["named_items"] = valid_items
             self._llm_infer_emit(f"    Stage2 named items: {valid_items}")
             if not valid_items:
+                if self._is_supply_depot_step(plan_text):
+                    self._llm_infer_emit(
+                        "    Stage2 found no remaining depot demand; advancing supply-only step."
+                    )
+                    self._advance_strategy_step_after_install(current_step)
+                    record["next_strategy_step_index"] = self._next_strategy_step_index
+                    record["installed_pairs"] = []
+                    record["scheduler_active_after_install"] = (
+                        [
+                            a.short_label()
+                            for a in self.scheduler.all_planned_actions()
+                            if not a.is_terminal()
+                        ]
+                        if self.scheduler is not None
+                        else []
+                    )
+                    return
                 record["error"] = "naming_empty"
                 return
 
@@ -813,19 +834,50 @@ class UniversalLLMBot(KnowledgeBot):
             order_raw = self._call_llm(order_msgs, agent="ordering")
             record["ordering_raw"] = order_raw
             llm_ordered = parse_ordering_response(order_raw, legal_actions=set(actions)) or []
-            # 多重集对账：以 Stage3 的展开列表为准，按 LLM 给出的顺序消费配额，
-            # 多出的丢弃、缺的按原始顺序补在末尾。保证每个 action 出现次数 = qty_map。
-            ordered = self._reconcile_multiset(llm_ordered, expanded_actions)
+            ordered, ordering_gaps = self._filter_llm_ordered_actions(
+                llm_ordered, expanded_actions
+            )
+            record["ordering_gaps"] = ordering_gaps
+            if ordering_gaps:
+                self._llm_infer_emit(f"    Stage4 ordering gaps: {ordering_gaps}")
             if not ordered:
-                ordered = list(expanded_actions)
-                self._llm_infer_emit("    Stage4 ordering invalid; falling back to expanded order.")
+                record["error"] = "ordering_empty"
+                self._llm_infer_emit(
+                    "    Stage4 ordering invalid; no fallback installed."
+                )
+                return
             record["ordered_actions"] = ordered
             self._llm_infer_emit(f"    Stage4 ordered: {ordered}")
 
-            # ---------- 阶段5：Supply 注入（无 LLM）----------
-            ordered_with_supply, supply_trace = plan_supply_with_trace(
-                ordered, self, threshold=self.SUPPLY_THRESHOLD
-            )
+            # ---------- 阶段5：Supply 处理 ----------
+            record["supply_managed"] = self.SUPPLY_MANAGED
+            llm_depot_count = ordered.count(SUPPLY_DEPOT_ACTION)
+            record["llm_depot_count"] = llm_depot_count
+
+            if self.SUPPLY_MANAGED:
+                # 提取 LLM 输出中的 depot，用 Supply Planner 算法重新插入
+                non_supply = [a for a in ordered if a != SUPPLY_DEPOT_ACTION]
+                ordered_with_supply, supply_trace = plan_supply_with_trace(
+                    non_supply, self, threshold=self.SUPPLY_THRESHOLD
+                )
+                algo_depot_count = ordered_with_supply.count(SUPPLY_DEPOT_ACTION)
+                record["algo_depot_count"] = algo_depot_count
+                self._llm_infer_emit(
+                    f"    Stage5 SUPPLY_MANAGED=True: LLM placed {llm_depot_count} depot(s), "
+                    f"algo placed {algo_depot_count} depot(s)"
+                )
+            else:
+                # 直接使用 LLM 排好的序列（含 LLM 自行放置的 depot）
+                ordered_with_supply = ordered
+                supply_trace = [
+                    f"SUPPLY_MANAGED=False: using LLM supply placement directly "
+                    f"({llm_depot_count} depot(s) placed by LLM)"
+                ]
+                self._llm_infer_emit(
+                    f"    Stage5 SUPPLY_MANAGED=False: using LLM ordering as-is "
+                    f"({llm_depot_count} depot(s))"
+                )
+
             record["ordered_with_supply"] = ordered_with_supply
             record["supply_trace"] = supply_trace
             self._llm_infer_emit(f"    Stage5 with supply: {ordered_with_supply}")
@@ -834,21 +886,29 @@ class UniversalLLMBot(KnowledgeBot):
                 self._llm_infer_emit(f"      {_tl}")
 
             # ---------- 装入调度器 ----------
-            # 把扁平列表按「连续相同」折叠回 (name, count) 交给调度器：
-            # build/research 用绝对 to_count，需要单条带数量；train 折叠成连发也正确。
+            # 每个 action 保持 qty=1 的扁平列表，保留 LLM 排出的执行顺序。
             pairs: List[Tuple[str, int]] = self._collapse_runs(ordered_with_supply)
-            # prefetch ???append ??????????????????
-            # ? set_actions ? P1 ??????????3.3 / ?11.5??
-            if mode == "append" and self.scheduler is not None:
+            if self.scheduler is not None:
                 pairs = self._guard_prefetch_build_quantity(pairs)
             if self.scheduler is not None:
                 self.scheduler.set_actions(pairs, mode=mode)
+                scheduler_active = [
+                    a.short_label()
+                    for a in self.scheduler.all_planned_actions()
+                    if not a.is_terminal()
+                ]
+            else:
+                scheduler_active = []
             self._advance_strategy_step_after_install(current_step)
             record["next_strategy_step_index"] = self._next_strategy_step_index
             record["installed_pairs"] = pairs
+            record["scheduler_active_after_install"] = scheduler_active
             self._llm_infer_emit(
-                f"    Installed {len(pairs)} planned actions into scheduler (mode={mode}): "
+                f"    Requested {len(pairs)} planned action(s) for scheduler (mode={mode}): "
                 + str([f"{n} x{q}" for n, q in pairs])
+            )
+            self._llm_infer_emit(
+                f"    Scheduler active queue after install: {scheduler_active}"
             )
         except Exception as exc:
             record["error"] = repr(exc)
@@ -868,77 +928,130 @@ class UniversalLLMBot(KnowledgeBot):
     def _guard_prefetch_build_quantity(
         self, pairs: List[Tuple[str, int]]
     ) -> List[Tuple[str, int]]:
-        """When prefetch-append occurs while existing same-type builds are
-        not yet DONE, skip redundant new entries to avoid stacking independent
-        PlannedActions (sec 3.3 / 11.5). The P1 merge in set_actions handles
-        quantity boost at the queue level."""
-        from SC2_Agent.execution import mapping
-
-        active_build_types: set = set()
-        active_names: set = set()
-        for a in self.scheduler.actions:
-            if a.is_terminal():
-                continue
-            if a.category in (mapping.CAT_BUILD, mapping.CAT_ADDON):
-                active_names.add(a.action_name)
-                unit_type = mapping.unit_type_for(a.target_result or "")
-                if unit_type is not None:
-                    active_build_types.add(unit_type)
-
-        if not active_names:
-            return pairs
-
-        adjusted: List[Tuple[str, int]] = []
-        for name, qty in pairs:
-            unit_type = mapping.unit_type_for(name)
-            if unit_type is not None and unit_type in active_build_types:
-                continue
-            if name in active_names:
-                continue
-            adjusted.append((name, qty))
-        return adjusted
-
+        """Compatibility hook; scheduler now defers conflicting builds itself."""
+        return pairs
 
     @staticmethod
-    def _reconcile_multiset(
-        llm_ordered: List[str], expanded: List[str]
-    ) -> List[str]:
-        """以 ``expanded`` 为准的多重集，按 ``llm_ordered`` 的顺序输出。
+    def _addon_host_from_plan(plan_text: str, addon_kind: str = "") -> str:
+        text = (plan_text or "").lower()
+        host_patterns = (
+            ("Starport", r"\bstar\s*ports?\b|\bstarports?\b"),
+            ("Factory", r"\bfactor(?:y|ies)\b"),
+            ("Barracks", r"\bbarracks\b|\brax\b"),
+        )
+        addon_patterns = {
+            "TechLab": r"\btech\s*labs?\b|\btechlabs?\b",
+            "Reactor": r"\breactors?\b",
+        }
+        addon_pattern = addon_patterns.get(addon_kind)
+        if addon_pattern:
+            best: Optional[Tuple[int, str]] = None
+            for addon_match in re.finditer(addon_pattern, text):
+                start = max(0, addon_match.start() - 64)
+                end = min(len(text), addon_match.end() + 64)
+                window = text[start:end]
+                for host, pattern in host_patterns:
+                    for host_match in re.finditer(pattern, window):
+                        distance = abs((start + host_match.start()) - addon_match.start())
+                        if best is None or distance < best[0]:
+                            best = (distance, host)
+            if best is not None:
+                return best[1]
 
-        - LLM 给出的顺序逐个消费 ``expanded`` 的配额（出现次数）；
-        - 超过配额的重复项丢弃；非法/不在配额内的忽略；
-        - 最后把 LLM 漏掉的（配额未消费完的）按 ``expanded`` 原顺序补在末尾。
-        这样保证每个 action 的出现次数严格等于 Stage3 展开的数量。
-        """
+        hosts = [host for host, pattern in host_patterns if re.search(pattern, text)]
+        if len(hosts) == 1:
+            return hosts[0]
+        return "Barracks"
+
+    @staticmethod
+    def _generic_addon_from_raw(name: str) -> Optional[str]:
+        normalized = re.sub(r"[\s_-]+", "", (name or "").lower())
+        if normalized == "techlab":
+            return "TechLab"
+        if normalized == "reactor":
+            return "Reactor"
+        return None
+
+    @classmethod
+    def _normalize_macro_entity_name(cls, canonical: str, plan_text: str) -> str:
+        """Convert alternate unit states into producible macro targets."""
+        alternate_forms = {
+            "SupplyDepotLowered": "SupplyDepot",
+            "BarracksFlying": "Barracks",
+            "FactoryFlying": "Factory",
+            "StarportFlying": "Starport",
+            "CommandCenterFlying": "CommandCenter",
+            "OrbitalCommandFlying": "OrbitalCommand",
+            "SiegeTankSieged": "SiegeTank",
+        }
+        if canonical in alternate_forms:
+            return alternate_forms[canonical]
+
+        host = cls._addon_host_from_plan(plan_text, canonical)
+        generic_addons = {
+            "TechLab": f"{host}TechLab",
+            "Reactor": f"{host}Reactor",
+        }
+        return generic_addons.get(canonical, canonical)
+
+    @staticmethod
+    def _is_supply_depot_step(plan_text: str) -> bool:
+        """True for strategy steps that only ask for supply-depot headroom."""
+        text = (plan_text or "").lower()
+        if not re.search(r"\bsupply\s*depots?(?:lowered)?\b|\bdepots?\b", text):
+            return False
+        non_supply_terms = (
+            "scv",
+            "worker",
+            "marine",
+            "marauder",
+            "siege tank",
+            "tank",
+            "barracks",
+            "factory",
+            "refinery",
+            "command center",
+            "orbital",
+            "starport",
+            "tech lab",
+            "reactor",
+            "research",
+            "train",
+            "expand",
+            "expansion",
+        )
+        return not any(term in text for term in non_supply_terms)
+
+    @staticmethod
+    def _filter_llm_ordered_actions(
+        llm_ordered: List[str], expanded: List[str]
+    ) -> Tuple[List[str], Dict[str, Any]]:
+        """Keep only the legal actions the ordering LLM actually returned."""
         from collections import Counter
 
         remaining = Counter(expanded)
         out: List[str] = []
+        dropped: List[str] = []
         for name in llm_ordered:
             if remaining.get(name, 0) > 0:
                 out.append(name)
                 remaining[name] -= 1
-        # 补齐被漏掉的（保持原始展开顺序）
-        for name in expanded:
-            if remaining.get(name, 0) > 0:
-                out.append(name)
-                remaining[name] -= 1
-        return out
+            else:
+                dropped.append(name)
+        missing = []
+        for name, count in remaining.items():
+            if count > 0:
+                missing.append({"action": name, "count": count})
+        gaps = {
+            "missing": missing,
+            "dropped": dropped,
+        }
+        return out, gaps
 
     @staticmethod
     def _collapse_runs(flat: List[str]) -> List[Tuple[str, int]]:
-        """????????????????????????????????"""
-        from collections import Counter
-
-        merged = Counter(flat)
-        # ?? flat ???????
-        pairs: List[Tuple[str, int]] = []
-        seen: set = set()
-        for name in flat:
-            if name not in seen:
-                seen.add(name)
-                pairs.append((name, merged[name]))
-        return pairs
+        """Keep every action as an individual (name, 1) entry preserving LLM order."""
+        return [(name, 1) for name in flat]
     def _primary_action_for_entity(self, entity_name: str) -> Optional[str]:
         """把一个标准实体名映射到「主」Action 标准名（优先 Build/Train/Research/Morph）。"""
         try:
@@ -1260,61 +1373,39 @@ class UniversalLLMBot(KnowledgeBot):
     # ------------------------------------------------------------------
 
     async def create_plan(self) -> BuildOrder:
-        """组装 BuildOrder：命令式执行调度器 + 通用后台战术 + 按 skill 注入的侦察/攻击。
+        """组装 BuildOrder：命令式执行调度器 + 当前策略自己的免费工具包。
 
-        三条并行轨：
+        两条并行轨：
         * ``ExecutionScheduler``：增量流水线产出的命令式 Action 序列的执行器。
-        * ``BackgroundTactics``：策略无关、只含不耗矿/气/supply 的运营 + 防守工具。
-        * scout/attack 战术：**按所选 skill 注入**——优先用
-          ``SKILL/{race}/{strategy}/scout_attack.py``，缺省回退
-          ``SKILL/{race}/scout_attack_default.py``。这样不同策略可定义各自的
-          侦察与进攻触发逻辑。
+        * strategy tools：按所选策略只加载
+          ``SKILL/{race}/{strategy}/strategy_tools.py``。该文件必须只包含不耗
+          minerals / gas / supply 的工具，避免和 ``ExecutionScheduler`` 抢资源。
         """
         self.scheduler = ExecutionScheduler(wait_abandon_sec=self.WAIT_ABANDON_SEC)
         # 注入执行者 Agent 回调（train/addon/morph 多候选时由 LLM 选执行单位）。
         self.scheduler.executor_llm = self._executor_llm_select
 
-        background = self._load_background_tactics()
-        scout_attack = self._load_scout_attack_tactics()
+        strategy_tools = self._load_strategy_tools()
 
         return BuildOrder([
             self.scheduler,
-            background,
-            scout_attack,
+            strategy_tools,
         ])
 
-    def _load_background_tactics(self) -> BuildOrder:
-        """加载策略无关的后台战术（运营 + 防守，无资源消耗）。失败回退 EmptyTactics。"""
-        try:
-            from SKILL.terran.background_tactics import BackgroundTactics
+    def _load_strategy_tools(self) -> BuildOrder:
+        """Load the selected strategy's resource-free tool package.
 
-            return BackgroundTactics()
-        except Exception as exc:
-            logger.warning("Failed to load BackgroundTactics; using EmptyTactics: %s", exc)
-            return EmptyTactics()
-
-    def _load_scout_attack_tactics(self) -> BuildOrder:
-        """按所选 skill 注入侦察/攻击战术。
-
-        查找顺序：
-        1. ``SKILL.{race}.{selected_strategy}.scout_attack`` —— skill 自定义；
-        2. ``SKILL.{race}.scout_attack_default`` —— 通用兜底；
-        3. ``EmptyTactics`` —— 兜底失败。
-
-        模块中第一个 ``BuildOrder`` / ``SequentialList`` 子类（非基类本身）即视为
-        侦察/攻击战术执行器。
+        Only ``SKILL.{race}.{selected_strategy}.strategy_tools`` is loaded. There is
+        no global tactic fallback here: if a strategy is selected, its own Python
+        file is the sole source of non-resource tools for that match.
         """
-        candidates: List[str] = []
         if self.selected_strategy:
-            candidates.append(f"SKILL.{self.race_name}.{self.selected_strategy}.scout_attack")
-        candidates.append(f"SKILL.{self.race_name}.scout_attack_default")
-
-        for module_path in candidates:
+            module_path = f"SKILL.{self.race_name}.{self.selected_strategy}.strategy_tools"
             tactics = self._instantiate_tactics_from_module(module_path)
             if tactics is not None:
-                self._llm_infer_emit(f"    [ScoutAttack] loaded from {module_path}")
+                self._llm_infer_emit(f"    [StrategyTools] loaded from {module_path}")
                 return tactics
-        logger.warning("No scout/attack tactics found; using EmptyTactics.")
+        logger.warning("No strategy tool package found; using EmptyTactics.")
         return EmptyTactics()
 
     def _instantiate_tactics_from_module(self, module_path: str) -> Optional[BuildOrder]:

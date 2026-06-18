@@ -29,6 +29,25 @@ except ImportError:  # pragma: no cover - allow running as a loose script
     )
 
 
+ACTION_COST_OVERRIDES = {
+    # The database stores the resulting townhall's full unit cost.  For morphs
+    # the scheduler needs the command cost, otherwise Orbital morphs look like
+    # 550-mineral supply providers and can block the whole queue.
+    "UPGRADETOORBITAL_ORBITALCOMMAND": {
+        "minerals": 150,
+        "gas": 0,
+        "supply": 0,
+        "time": 560.0,
+    },
+    "UPGRADETOPLANETARYFORTRESS_PLANETARYFORTRESS": {
+        "minerals": 150,
+        "gas": 150,
+        "supply": 0,
+        "time": 800.0,
+    },
+}
+
+
 def _unit_cost(unit: dict[str, Any]) -> dict[str, Any]:
     return {
         "minerals": unit.get("minerals", 0),
@@ -68,6 +87,7 @@ def cost_for_action(action_name: str, *, data_path: str | Path | None = None) ->
     if target_result and target_result not in result_names:
         result_names.append(target_result)
 
+    cost_override = ACTION_COST_OVERRIDES.get(canonical_action)
     results = []
     for result_name in result_names:
         if result_name in units:
@@ -89,6 +109,15 @@ def cost_for_action(action_name: str, *, data_path: str | Path | None = None) ->
         )
 
     primary_cost = results[0]["cost"] if results else None
+    if cost_override is not None:
+        primary_cost = dict(cost_override)
+        if results:
+            results[0]["cost"] = dict(cost_override)
+    elif target_kind in {"Morph", "MorphPlace"} and primary_cost is not None:
+        primary_cost = dict(primary_cost)
+        primary_cost["supply"] = 0
+        if results:
+            results[0]["cost"] = primary_cost
     return {
         "action_name": action_name,
         "ability_name": canonical_action,

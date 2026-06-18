@@ -104,7 +104,7 @@ def make_build_act(action_name: str, target_result: Optional[str], to_count: int
     if "REFINERY" in upper or "REFINERY" in (target_result or "").upper():
         return BuildGas(to_count)
     if upper == "TERRANBUILD_COMMANDCENTER" or (target_result or "") == "CommandCenter":
-        return Expand(to_count)
+        return Expand(to_count, priority=True, consider_worker_production=False)
 
     unit_type = unit_type_for(target_result or "")
     if unit_type is None:

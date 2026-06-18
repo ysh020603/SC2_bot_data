@@ -55,6 +55,13 @@ Rules:
 * Upgrades / researches ALWAYS have count 1.
 * Structures, add-ons and units: count = how many to ADD now (sum up if the step
   mentions the same entity more than once).
+* For production/build goals, do NOT output alternate state names. Use
+  SupplyDepot instead of SupplyDepotLowered, Barracks/Factory/Starport instead
+  of their Flying forms, CommandCenter/OrbitalCommand instead of Flying forms,
+  and SiegeTank instead of SiegeTankSieged.
+* For add-ons, output the host-specific canonical add-on name:
+  BarracksTechLab, FactoryTechLab, StarportTechLab, BarracksReactor,
+  FactoryReactor, or StarportReactor. Do not output generic TechLab/Reactor.
 * If the step states a transition like "increase Marines from 6 to 12", output
   the increment count (6 Marines), unless the observation shows some of those
   Marines are already completed or in active queues.
@@ -69,7 +76,6 @@ Rules:
   observation shows it is below a required positive count and the step explicitly
   requires adding it.
 * Drop anything you cannot confidently map to a canonical name.
-* Do NOT include Supply Depots (handled automatically by the system).
 
 [Canonical {race_cap} Units]
 {units_text}
