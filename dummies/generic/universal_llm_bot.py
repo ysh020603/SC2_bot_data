@@ -1,4 +1,4 @@
-﻿"""Universal LLM Bot with a forced-strategy macro pipeline.
+"""Universal LLM Bot with a forced-strategy macro pipeline.
 
 A match must specify a strategy folder name via ``force_strategy`` /
 ``--force-strategy``. Runtime reads that folder's ``Top_agent_0.md`` steps and
@@ -45,7 +45,6 @@ from SC2_Agent.executor_agent import (
     parse_executor_response,
 )
 from SC2_Agent.data_tools import (
-    ALIAS_MAP,
     SUPPLY_DEPOT_ACTION,
     actions_for_entities,
     check_action_prerequisites,
@@ -138,6 +137,7 @@ class UniversalLLMBot(KnowledgeBot):
         # --- Forced strategy state ---
         self.selected_strategy: Optional[str] = None
         self.strategy_description: str = ""
+        self.strategy_summary: str = ""
         self.strategy_steps: List[Dict[str, Any]] = []
         self._next_strategy_step_index: int = 0
 
@@ -259,14 +259,16 @@ class UniversalLLMBot(KnowledgeBot):
                 raw = f.read()
             parsed = parse_top_agent_0_md(raw)
             detail = parsed.get("detail") or raw.strip()
+            summary = (parsed.get("summary") or "").strip()
         except Exception as exc:
             raise RuntimeError(f"Failed to read strategy file {md_path}: {exc}") from exc
 
         self.selected_strategy = name
         self.strategy_description = detail
+        self.strategy_summary = summary
         self._llm_infer_emit(
             f">>> STRATEGY: forced '{name}' "
-            f"(description={len(detail)} chars)"
+            f"(description={len(detail)} chars, summary={len(summary)} chars)"
         )
 
         self._record_llm_interaction({
@@ -277,6 +279,7 @@ class UniversalLLMBot(KnowledgeBot):
                 "race": self.race_name,
                 "selected_strategy": name,
                 "strategy_description": detail,
+                "strategy_summary": summary,
             },
         })
 
@@ -314,18 +317,24 @@ class UniversalLLMBot(KnowledgeBot):
             self._refresh_strategy_steps()
         if not self.strategy_steps:
             return None
-        idx = min(self._next_strategy_step_index, len(self.strategy_steps) - 1)
+        total = len(self.strategy_steps)
+        idx = min(self._next_strategy_step_index, total - 1)
         step = dict(self.strategy_steps[idx])
         step["index"] = idx
-        step["is_last"] = idx >= len(self.strategy_steps) - 1
+        step["is_last"] = idx >= total - 1
+        step["phase"] = "step"
         return step
 
     def _advance_strategy_step_after_install(self, step: Dict[str, Any]) -> None:
         idx = int(step.get("index", self._next_strategy_step_index))
-        if idx < len(self.strategy_steps) - 1:
-            self._next_strategy_step_index = idx + 1
+        total = len(self.strategy_steps)
+        if total <= 0:
+            return
+        if idx >= total - 1:
+            # 到达最后一个 step 后不再推进，后续 cycle 复用同一份 step 文本。
+            self._next_strategy_step_index = total - 1
         else:
-            self._next_strategy_step_index = len(self.strategy_steps) - 1
+            self._next_strategy_step_index = idx + 1
 
     # ------------------------------------------------------------------
     # 五阶段增量驱动流水线
@@ -385,16 +394,18 @@ class UniversalLLMBot(KnowledgeBot):
             mode = install_mode
             plan_text = str(current_step["text"])
             record["mode"] = mode
+            phase = current_step.get("phase", "step")
             record["strategy_step"] = {
                 "number": current_step.get("number"),
                 "index": current_step.get("index"),
                 "is_last": current_step.get("is_last"),
+                "phase": phase,
                 "text": plan_text,
             }
             record["strategy_step_text"] = plan_text
             self._llm_infer_emit(
                 f"    Strategy step {current_step.get('number')} "
-                f"(index={current_step.get('index')}, repeat_last={current_step.get('is_last')}): "
+                f"(index={current_step.get('index')}, is_last={current_step.get('is_last')}): "
                 f"{plan_text}"
             )
 
@@ -404,8 +415,8 @@ class UniversalLLMBot(KnowledgeBot):
                 plan_text=plan_text,
                 terran_unit_names=terran_unit_names(),
                 terran_upgrade_names=terran_upgrade_names(),
-                alias_pairs=ALIAS_MAP,
                 obs_text=obs_text,
+                strategy_summary=self.strategy_summary,
             )
             name_raw = self._call_llm(name_msgs, agent="naming")
             record["naming_raw"] = name_raw
@@ -489,6 +500,7 @@ class UniversalLLMBot(KnowledgeBot):
                 conflict_hints=conflict_hints,
                 cost_hints=cost_hints,
                 strategy_step_text=plan_text,
+                strategy_summary=self.strategy_summary,
             )
             order_raw = self._call_llm(order_msgs, agent="ordering")
             record["ordering_raw"] = order_raw

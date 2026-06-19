@@ -1,38 +1,38 @@
 # Summary
 
-This Terran build order is a macro-oriented fast expand with early gas, opening with a standard Barracks and Refinery before dropping a quick expansion at 18 supply, then transitioning through Factory and Starport to unlock a combined arms composition of Marines, Siege Tanks, and Banshees. Early defense is secured with a Bunker and a handful of Marines, while the economy is supported by steady SCV production and Orbital Command upgrades. The tech path prioritizes a Factory Tech Lab for Siege Tanks and a Starport Tech Lab for Banshees, producing these units in small waves for harassment and map control. Production scales up with additional Barracks, Reactors, and Tech Labs, leading to a balanced mid-game timing attack backed by a growing army of Marines, Tanks, and Banshees, and capped by a fresh expansion to sustain further pressure.
+Open with a standard 1-1-1 into an early natural, grabbing a bunker for safety while teching straight to a Starport with a Tech Lab for a fast Banshee. Mid-game you mass marine-tank-banshee with combat shield, dropping a third base while pumping out additional Barracks to keep up the harass and map control. Late-game you deathball into a maxed-out marine-tank-banshee composition on three or four bases, relying on constant banshee pokes and tank sieges to force a decisive engagement.
 
 # Details
 
-[Step 1] Produce 6 SCVs while constructing the first and second Supply Depots, a Barracks, and a Refinery.
+[Step 1] Start by keeping constant worker production from the Command Center while you throw down the first depot, followed by the first Barracks and a Refinery to secure early gas income. After rallying several SCVs to minerals, add a second Supply Depot to avoid supply blocks.
 
-[Step 2] Produce 6 SCVs and 4 Marines while building a Supply Depot, a Refinery, and a Factory. Simultaneously, take an expansion by constructing a Command Center and immediately morph it into an Orbital Command.
+[Step 2] Morph the first Command Center into an Orbital Command while dropping a second CC to take the natural. Keep pumping SCVs and Marines from the main rax, add a Refinery for gas, and start a Factory to begin the tech transition. Throw down a depot to avoid supply blocks as you reinforce.
 
-[Step 3] Produce 3 SCVs and morph the Command Center into an Orbital Command, train 2 Marines, and build a Bunker for defense; add a Barracks and attach a Factory Tech Lab, then construct a Starport to begin air or drop play.
+[Step 3] Now it's time to drop a Starport with its own Tech Lab for air tech, while throwing down a Bunker for defense at the natural and morphing the Command Center into an Orbital Command. Keep SCV and Marine production steady, and add a second Barracks to ramp up bio output, all while attaching the Tech Lab to the Factory for heavy mech upgrades.
 
-[Step 4] Build a Tech Lab on the Starport to unlock both Siege Tanks and Banshees, produce 5 SCVs to maintain economy, train 2 Marines for light defense, and round out the composition with 1 Siege Tank and 1 Banshee for early pressure or map control.
+[Step 4] Continue worker production while reinforcing with a few Marines from the rax and a Siege Tank from the factory. Start a Banshee out of the starport to harass the opponent, and add a Supply Depot to prevent any supply blocks.
 
-[Step 5] Produce 4 SCVs while building 3 Supply Depots to keep your headroom up, then train 2 Marines and 1 Siege Tank to reinforce your defensive position.
+[Step 5] Keep SCV production flowing from the Command Center while reinforcing with a few Marines from the Barracks. Add a pair of Supply Depots to avoid being supply blocked, and produce a Siege Tank from the Factory to bolster your army for map control or defense.
 
-[Step 6] Produce 4 SCVs and 2 Marines for basic defense, construct 1 Barracks and 2 Supply Depots, set up both a TechLab and a Reactor for your Barracks, and begin Banshee production.
+[Step 6] Start the first Barracks and begin producing a Banshee from the Starport, keeping SCV production constant. Add a Tech Lab and Reactor to the Barracks for versatility, then build another Starport and a Refinery to secure gas income and sustain worker production.
 
-[Step 7] Produce 5 SCVs and 1 Marine while constructing a Starport, a Refinery, and a Supply Depot, and train 1 Siege Tank for defensive positioning.
+[Step 7] Continue pumping SCVs and throw down depots to keep supply safe while producing a Siege Tank from the Factory and starting a Banshee from the Starport. Train a couple Marines for additional defense, grab a fourth Refinery for more gas, and add a Tech Lab to the Starport to enable Banshee cloak later.
 
-[Step 8] Build 3 Supply Depots to keep supply available, construct a Refinery and a Tech Lab on the Starport, train 1 Banshee for harassment, produce 2 Marines for defense, 1 SCV for economy, and research ShieldWall to improve unit survivability.
+[Step 8] Start researching combat shield while pumping out a wave of Marines from the rax. Also throw down a couple of depots to free up supply and begin producing a Banshee from the Starport for early harass.
 
-[Step 9] Build 2 Supply Depots to support your growing army, train 7 Marines for a solid defensive presence, and produce a single Banshee for early harassment or map control.
+[Step 9] Continue marine production from the rax while the factory pushes out a Siege Tank and the starport builds a Banshee for harassment; drop two depots to keep supply flowing and reinforce with a few more Marines before moving out.
 
-[Step 10] Build 4 Supply Depots to support the growing army, while producing 4 Marines, 1 Siege Tank, and 1 Banshee for a diversified push.
+[Step 10] Produce several Marines from the rax while adding a few supply depots to keep from getting blocked. Train a Banshee from the starport and a Siege Tank from the factory to build a strong mid-game army.
 
-[Step 11] Build two Supply Depots, then train 6 Marines followed by a Banshee and a Siege Tank to form a balanced early army with air and siege support.
+[Step 11] Crank out a steady stream of Marines from the Barracks while starting your first Banshee at the Starport, and throw down a couple of depots to keep supply in check.
 
-[Step 12] Build the first and second Supply Depots, then produce 5 Marines, 2 Banshees, and 1 Siege Tank to form a combined arms harassment force.
+[Step 12] Produce a Siege Tank from the Factory and begin the first Banshee from the Starport. Add two depots, then train four Marines from the Barracks. Start a second Banshee and throw down another depot.
 
-[Step 13] Build 3 Supply Depots to maintain your production capacity, train 6 Marines for a solid ground core, and produce 1 Banshee for early harassment or scouting.
+[Step 13] Continue churning out marines from the rax while adding a Siege Tank from the fact and a Banshee from the starport for pressure. Keep up with supply by dropping a couple of extra depots as you build toward your mid-game force.
 
-[Step 14] Build 2 Supply Depots to support production, then train 6 Marines alongside a Siege Tank and a Banshee to establish a powerful mid-game army composition with both ground firepower and air harassment capability.
+[Step 14] Add a second Barracks, then build a few depots to keep supply ahead, and start producing a Banshee from the Starport. Reinforce with several Marines, roll out a Siege Tank for defensive support, then add more depots, pump out additional Marines, and follow up with a second Banshee to maintain pressure in the mid-game.
 
-[Step 15] Build a Barracks and 3 Supply Depots to expand production capacity, then train 4 Marines, 1 Siege Tank, and 1 Banshee for a timing attack.
+[Step 15] Add the second and third Barracks while taking a new expansion, then reinforce with a handful of Marines, a couple of Siege Tanks, and three Banshees for harass. Keep up with supply depots to support the growing army.
 
-[Step 16] Drop an additional Barracks and a Supply Depot, then take a fresh expansion with a Command Center, while producing 4 Marines for early defense and tech transitioning into a powerful mid-game army of 3 Banshees and 2 Siege Tanks to seize map control.
+[Step 16] This is a bio-mech harassment build that leverages early Banshee poke to force reactions while building into a marine-tank-banshee deathball that crushes through sustained pressure and map control. Use this gameplan as your strategic baseline -- adapt your decisions based on what you scout and how the game unfolds.
 

@@ -90,7 +90,7 @@ SKILL/terran/marine_rush/
   strategy_tools.py
 ```
 
-`Top_agent_0.md` 中的 `# Details` 会被解析为若干 `[Step N]`。每次宏观流水线触发时，Bot 取当前 step 原文作为本轮宏观目标。
+`Top_agent_0.md` 中的 `# Details` 会被解析为若干 `[Step N]`，`# Summary` 同时被保留。每次宏观流水线触发时，Bot 取当前 step 原文作为本轮宏观目标；当所有 `[Step N]` 都装入调度器之后，自动切换到 **Summary 模式**，后续每次决策都改用 `# Summary` 全文作为 plan_text，而不再重复最后一个 step。
 
 ### 2. 五阶段宏观流水线
 
@@ -100,7 +100,7 @@ SKILL/terran/marine_rush/
 
 | 阶段 | 作用 |
 |---|---|
-| Strategy Step Source | 读取当前策略 step 文本 |
+| Strategy Step Source | 读取当前策略 step 文本；所有 step 走完后切换为 `# Summary` |
 | Naming Agent | 将自然语言目标转成 Terran 标准实体名和数量 |
 | DATA_TOOLS | 将实体名映射成标准 action key，并提供成本、前置、冲突信息 |
 | Ordering Agent | 在前置、冲突、成本提示下对 action 排序 |

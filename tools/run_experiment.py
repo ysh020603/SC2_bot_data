@@ -2,7 +2,7 @@
 
 Examples:
     python tools/run_experiment.py --strategy marine_rush --batch-name smoke
-    python tools/run_experiment.py --strategy battle_cruisers --game-time-limit 600
+    python tools/run_experiment.py --strategy battle_cruisers --game-time-limit 1200
 """
 
 from __future__ import annotations
@@ -12,6 +12,8 @@ import os
 import sys
 from pathlib import Path
 from typing import Optional, Sequence
+
+DEFAULT_GAME_TIME_LIMIT = 20 * 60  # seconds; default test match length
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -38,7 +40,12 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser.add_argument("--executor-model", default=run_vs_ai.DEFAULT_EXECUTOR_MODEL)
     parser.add_argument("--supply-managed", action=argparse.BooleanOptionalAction, default=False)
     parser.add_argument("--real-time", action=argparse.BooleanOptionalAction, default=False)
-    parser.add_argument("--game-time-limit", type=int, default=None, help="SC2_GAME_TIME_LIMIT in seconds")
+    parser.add_argument(
+        "--game-time-limit",
+        type=int,
+        default=DEFAULT_GAME_TIME_LIMIT,
+        help="SC2_GAME_TIME_LIMIT in seconds",
+    )
     parser.add_argument("--run-index", type=int, default=None)
     parser.add_argument("--skip-version-update", action=argparse.BooleanOptionalAction, default=True)
     return parser.parse_args(argv)
@@ -59,8 +66,7 @@ def _install_short_match_id(prefix: str) -> None:
 def main(argv: Optional[Sequence[str]] = None) -> None:
     args = _parse_args(argv)
 
-    if args.game_time_limit is not None:
-        os.environ["SC2_GAME_TIME_LIMIT"] = str(args.game_time_limit)
+    os.environ["SC2_GAME_TIME_LIMIT"] = str(args.game_time_limit)
 
     UniversalLLMBot.SUPPLY_MANAGED = bool(args.supply_managed)
     _install_short_match_id(args.match_prefix)

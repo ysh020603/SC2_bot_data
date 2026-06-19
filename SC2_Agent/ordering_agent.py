@@ -41,24 +41,36 @@ def build_ordering_messages(
     conflict_hints: str,
     cost_hints: str,
     strategy_step_text: str = "",
+    strategy_summary: str = "",
 ) -> List[Dict[str, str]]:
     """构建阶段4 排序 Agent Prompt。
 
-    :param race:           当前种族名（固定 terran）。
-    :param actions:        待排序的 Action 标准名列表（**已按数量展开的扁平列表**）。
-                           同一个 action 可能出现多次，表示要生产/建造多个；
-                           排序只决定先后，不增删、不改变出现次数。
-                           可能包含 ``TERRANBUILD_SUPPLYDEPOT``。
-    :param obs_text:       当前观测文本。
-    :param prereq_hints:   前置缺失 + 科技链路关系提示文本。
-    :param conflict_hints: 执行者冲突提示文本。
-    :param cost_hints:     每个 action 的资源/时间成本提示文本。
+    :param race:             当前种族名（固定 terran）。
+    :param actions:          待排序的 Action 标准名列表（**已按数量展开的扁平列表**）。
+                             同一个 action 可能出现多次，表示要生产/建造多个；
+                             排序只决定先后，不增删、不改变出现次数。
+                             可能包含 ``TERRANBUILD_SUPPLYDEPOT``。
+    :param obs_text:         当前观测文本。
+    :param prereq_hints:     前置缺失 + 科技链路关系提示文本。
+    :param conflict_hints:   执行者冲突提示文本。
+    :param cost_hints:       每个 action 的资源/时间成本提示文本。
+    :param strategy_step_text: 当前 ``[Step N]`` 原文，作为战略优先级提示。
+    :param strategy_summary: 策略 ``# Summary`` 全文，作为宏观指导注入 system prompt。
     """
     race_cap = race.capitalize()
+    summary_text = strategy_summary.strip() or "(none)"
 
     system_msg = f"""You order a list of {race_cap} ACTIONS for the most efficient
 execution this cycle. You are given prerequisite, tech-chain, producer-conflict
 and cost hints.
+
+[Strategy Summary]
+{summary_text}
+
+The Strategy Summary is the overall game plan and provides macro context for
+sequencing. The action list, prerequisite / conflict / cost hints and
+[Strategy Step] still govern actual ordering; do not add or remove actions
+because of the summary.
 
 Rules:
 * Put tech-bottleneck / prerequisite actions BEFORE the actions that depend on
