@@ -708,6 +708,8 @@ class GridBuilding(ActBuilding):
             for order in worker.orders:
                 if order.ability.id not in production_abilities:
                     continue
+                if isinstance(order.target, int):
+                    continue
                 build_position = Point2.from_proto(order.target)
                 positions.add(build_position.offset(Point2((2.5, -0.5))))
         return positions
@@ -721,6 +723,8 @@ class GridBuilding(ActBuilding):
         for worker in self.ai.workers:
             for order in worker.orders:
                 if order.ability.id not in production_abilities:
+                    continue
+                if isinstance(order.target, int):
                     continue
                 positions.add(Point2.from_proto(order.target))
         return positions
