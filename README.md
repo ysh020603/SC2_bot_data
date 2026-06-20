@@ -1,156 +1,94 @@
-# sharpy-sc2
+# SC2 Bot Action 采集
 
-Sharpy is a Python framework for rapid development of Starcraft 2 AI bots.
+基于 [sharpy-sc2](https://github.com/DrInfy/sharpy-sc2) 框架，在本仓库中实现了 **Bot 宏操作（macro ability）序列的自动采集** 能力。对局过程中记录 bot 实际落地的建造、训练、研究、变形等动作，并配对全局/局部观测，输出结构化 JSON，供后续策略学习、知识图谱对齐或 LLM Agent 训练使用。
 
-Sharpy is built on top of [python-sc2](https://github.com/BurnySc2/python-sc2) and it is the framework used by [Sharpened Edge](https://ai-arena.net/bots/40/) bot.
+原 sharpy-sc2 项目说明见 [`docs/sharpy_original_readme.md`](docs/sharpy_original_readme.md)。
 
-Sharpy was created to make it as easy as possible to create practice dummies for testing against Sharpened Edge. Sharpy contains everything needed to run all the practise dummies, as well as means to create more.
+## 核心能力
 
-Sharpy is a work in progress. The folder structure and classes are subject to change.
+| 模块 | 路径 | 说明 |
+|------|------|------|
+| **Ability 记录器** | `sharpy/managers/extensions/ability_recorder.py` | 在 bot 下发命令后，等待动作被 SC2 接受再写入序列；支持 TechLab/Reactor 按宿主建筑命名 |
+| **批量采集脚本** | `tools/collect_terran_bo.py` | 批量运行 Terran dummy bot，对战内置 AI，采集 BO 轨迹并汇总胜负 |
+| **一键启动** | `tools/run_terran_bo_collect.sh` | tmux 后台启动批量采集 |
+| **数据参考库** | `data_ref/data_base_add_graph.json` | 能力/实体标准命名与技术图，用于解析与对齐 action |
+| **观测系统摘录** | `obs_system/` | LLM 观测生成与 Executor 执行相关代码（独立阅读/移植用） |
 
-### Build statuses
-
-Master branch ![](https://github.com/DrInfy/sharpy-sc2/workflows/Python%20actions/badge.svg?branch=master)
-
-Develop branch ![](https://github.com/DrInfy/sharpy-sc2/workflows/Python%20actions/badge.svg?branch=develop)
-
-### Requirements
-
-1. Python 3.8/3.9/3.11 64-bit
-   * Python-sc2 requires python 3.8
-   * 64-bit requirement comes from [sc2-pathlib](https://github.com/DrInfy/sc2-pathlib) as the pathlib is built for 64-bit python 3.8/3.9/3.11
-1. Windows, Linux or MacOS
-   * This requirement comes from [sc2-pathlib](https://github.com/DrInfy/sc2-pathlib)
-   * macOS should be supported, but I have no way to test it [sc2-pathlib](https://github.com/DrInfy/sc2-pathlib) is built for it.
-
-### Ladder Dummy Bots
-
-To build dummy bots for ladder, run ladder_zip.py. Bots will appear as individual zip files in publish folder.
-
-### Getting started
-
-Read the [getting started](https://github.com/DrInfy/sharpy-sc2/wiki/Getting-Started) guide in wiki.
-
-## Contributing
-
-To contribute to sharpy-sc2 source code, please create a pull request.
-
-We also appreciate well written issues, comments and improvements to project wiki.
-
-### Pull Request Process
-
-* Keep pull requests small and atomic. Change only one logical thing at a time.
-* If you do a pull request for unit micro, showcase it with a dummy bot and explain how it improves the previous implementation
-* All Github actions checks for the PR must pass before it will be reviewed.
-    * Make sure that the source code is formatted according to rules (see below)
-    * Make sure that the source code passes linting
-    * Make sure that all tests pass
-
-## Developing sharpy-sc2
-
-### Using Virtual Environment
-
-#### Windows
-
-Virtual Environments (venv) can be used to isolate this project's Python dependencies from other projects.
-
-You can create a virtual environment for this project with
+记录器通过 `KnowledgeBot` 挂载，在 `SkeletonBot.do()` 中拦截每次宏操作：
 
 ```
-venv-create.bat
+bot.do(action) → AbilityRecorderManager.record() → pending → 落地 commit → sequence JSON
 ```
 
-And activate it with
+## 采集数据格式
 
-```
-venv-activate.bat
-```
+每局对局结束写入一个 JSON 文件，主要字段：
 
-Venv needs to be activated for every new console window, so it may be helpful to create an alias such as
-```
-doskey sharpy=cd C:\Dev\sharpy-sc2 $T venv-activate.bat
-```
+- **`meta`**：bot 名称、对手、地图、种族、胜负、时长、序列步数等
+- **`sequence`**：逐步 ability 名称 + 全局/局部观测快照
+- **`other_abilities`**：未纳入宏序列的操作（如 ATTACK、MOVE 等）集合
 
-More information about virtual environments can be found from the [documentation.](https://docs.python.org/3.6/tutorial/venv.html)
+详细字段说明与落地检测机制见 [`docs/ability_recorder_commit_and_addon.md`](docs/ability_recorder_commit_and_addon.md)。
 
-#### Other operating systems
+## 快速开始
 
-You may replicate the commands used by the above bat scripts to work on your own operating system. 
+### 环境
 
-### Installing Depedencies
+- Python 3.8+（64-bit）
+- 已安装 StarCraft II 及 ladder 地图（如 `KairosJunctionLE`）
+- 依赖：`pip install -r requirements.txt`
 
-To install all dependencies required to run the bots, use
+### 配置
 
-```
-pip install -r requirements.txt
-```
+在 `config.ini` 的 `[general]` 段中：
 
-To install all development dependencies, use
-
-```
-pip install -r requirements.dev.txt
+```ini
+write_ability_sequence = yes
+ability_sequence_dir = ability_sequences
+data_ref_path = data_ref/data_base_add_graph.json
 ```
 
-#### Pre-commit hooks
+### 运行批量采集（Terran BO）
 
-To install git pre-commit hooks that will run black and flake8 (see below), use
+```bash
+cd /data2/SC2_2606/sharpy-sc2
 
-```
-pre-commit install
-```
-
-If you ever want to uninstall the hooks, use
-
-```
-pre-commit uninstall
+python tools/collect_terran_bo.py \
+  --output bo_collection_runs/my_run \
+  --map KairosJunctionLE
 ```
 
-or simply uninstall the `.git\hooks\pre-commit` file.
+或使用 tmux 后台运行：
 
-### Code Formatting
-
-sharpy-sc2 uses [Black](https://pypi.org/project/black/) for automatic Python source code formatting.
-
-to format code automatically, run 
-
-```
-> py -m black .
-All done! ✨ � ✨
-272 files left unchanged.
+```bash
+chmod +x tools/run_terran_bo_collect.sh
+./tools/run_terran_bo_collect.sh
 ```
 
-Black can also be integrated to your favorite editor. See Editor Integration section in [Black](https://pypi.org/project/black/#editor-integration) readme.
+完整参数、对战矩阵与输出目录结构见 [`docs/collect_terran_bo.md`](docs/collect_terran_bo.md)。
 
-### Linting
-
-sharpy-sc2 uses [flake8](https://pypi.org/project/flake8/) for source code linting.
-
-To run flake8 linting, use
+## 目录概览
 
 ```
-> py -m flake8
-0
+.
+├── sharpy/                    # Sharpy 框架（含 ability_recorder 扩展）
+├── dummies/                   # 练习用 dummy bot（采集对象）
+├── tools/                     # 采集脚本与启动脚本
+├── data_ref/                  # 能力/实体知识图谱数据
+├── bo_collection_runs/        # 批量采集输出（轨迹、日志、录像）
+├── obs_system/                # 观测与执行子系统摘录
+└── docs/                      # 详细文档
+    ├── collect_terran_bo.md
+    ├── ability_recorder_commit_and_addon.md
+    └── sharpy_original_readme.md
 ```
 
-### Running Tests
+## 文档
 
-Tests are written using [pytest framework](https://docs.pytest.org/en/latest/getting-started.html).
+- [Terran BO 轨迹批量采集](docs/collect_terran_bo.md) — 采集流程、参数、输出结构
+- [Ability 落地记录与附属建筑命名](docs/ability_recorder_commit_and_addon.md) — 记录器设计与调试要点
+- [OBS 系统说明](obs_system/README.md) — 观测生成与 Executor 执行摘录
 
-To run all tests, use
+## 致谢
 
-```
-pytest
-```
-
-To run tests from a single test file, use `pytest path-to-file` eg.
-
-```
-pytest sharpy\knowledges\knowledge_test.py
-```
-
-pytest follows standard test discovery rules and will run all tests in the current directory and its subdirectories.
-
-For new tests, make sure that...
-1. file name follows the naming pattern of `*_test.py`
-1. the test class name starts with `Test*`
-1. all test methods start with `test_*`.
+本项目基于 [sharpy-sc2](https://github.com/DrInfy/sharpy-sc2)（[python-sc2](https://github.com/BurnySc2/python-sc2) 之上的 SC2 AI 开发框架）扩展开发。
