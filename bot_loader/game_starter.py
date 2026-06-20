@@ -155,7 +155,12 @@ Builds:
         )
         parser.add_argument(
             "--force-strategy",
-            help="Required strategy folder name for UniversalLLMBot (e.g. 'marine_rush').",
+            help="Strategy folder name under SKILL/<race>/ for UniversalLLMBot (e.g. 'marine_rush'). Mutually exclusive with --bo-list.",
+            default="",
+        )
+        parser.add_argument(
+            "--bo-list",
+            help="BO list strategy name under BO_list/<race>/ for direct-execute mode. Mutually exclusive with --force-strategy.",
             default="",
         )
 
@@ -283,7 +288,10 @@ Builds:
                 my_bot.executor_model_key = args.executor_model
             if hasattr(my_bot, "force_strategy"):
                 fs = (getattr(args, "force_strategy", "") or "").strip()
-                my_bot.force_strategy = fs
+                my_bot.force_strategy = fs if fs and fs.lower() != "none" else None
+            if hasattr(my_bot, "bo_list"):
+                bo = (getattr(args, "bo_list", "") or "").strip()
+                my_bot.bo_list = bo if bo and bo.lower() != "none" else None
             if args.release:
                 my_bot.config = get_config(False)
 

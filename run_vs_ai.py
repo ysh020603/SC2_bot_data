@@ -35,7 +35,7 @@ import argparse
 import os
 import sys
 from datetime import datetime
-from typing import List, Optional, Sequence
+from typing import List, Optional, Sequence, Tuple
 
 sys.path.insert(1, "python-sc2")
 
@@ -67,26 +67,60 @@ DEFAULT_EXECUTOR_MODEL = "DeepSeek-V4-flash"
 
 # --- 固定策略 ---
 # 填 SKILL/<种族>/ 下的文件夹名，如 safe_tvt_raven → SKILL/terran/safe_tvt_raven/
-# 须与 DEFAULT_BOT_RACE 一致。运行时必须指定一个策略文件夹名。
+# 须与 DEFAULT_BOT_RACE 一致。运行时必须指定一个策略文件夹名 *或* 一个 BO list。
 DEFAULT_FORCE_STRATEGY = "marine_rush"
+
+# --- BO list 直接执行模式 ---
+# 填 BO_list/<种族>/ 下的文件夹名（如 marine_rush → BO_list/terran/marine_rush/）。
+# 非空时启用 BO 直接执行模式，跳过 Naming/Ordering 流水线（Executor LLM 仍生效），
+# 与 DEFAULT_FORCE_STRATEGY 互斥。``None``/`""` 表示不启用。
+DEFAULT_BO_LIST: Optional[str] = None
 
 # --- 其它 ---
 DEFAULT_SKIP_VERSION_UPDATE = False  # True：跳过 version.txt 更新（批量并发时防 IO 锁）
 
 
-def _resolve_force_strategy(explicit: Optional[str]) -> Optional[str]:
-    """解析 force_strategy。
+def _resolve_strategy_modes(
+    force_strategy: Optional[str],
+    bo_list: Optional[str],
+) -> Tuple[Optional[str], Optional[str]]:
+    """解析 force_strategy / bo_list 两种互斥模式。
 
-    * ``explicit is None`` — 未在 CLI/调用方指定，使用 ``DEFAULT_FORCE_STRATEGY``
-    * ``''`` / ``'none'`` — 非法；UniversalLLMBot 必须有固定策略
-    * 其它非空字符串 — 策略文件夹名
+    规则：
+    * 任一为 ``None`` 表示"调用方未显式指定"；按 ``DEFAULT_*`` 兜底。
+    * 任一为 ``""`` / ``"none"`` 表示"显式关闭该模式"。
+    * 解析后两者必须恰好一个非空。
     """
-    if explicit is None:
-        explicit = DEFAULT_FORCE_STRATEGY
-    s = str(explicit or "").strip()
-    if not s or s.lower() == "none":
-        raise ValueError("force_strategy is required; pass a strategy folder name.")
-    return s
+    fs_explicit = force_strategy is not None
+    bo_explicit = bo_list is not None
+
+    fs = (force_strategy if fs_explicit else DEFAULT_FORCE_STRATEGY) or ""
+    bo = (bo_list if bo_explicit else DEFAULT_BO_LIST) or ""
+    fs = fs.strip()
+    bo = bo.strip()
+    if fs.lower() == "none":
+        fs = ""
+    if bo.lower() == "none":
+        bo = ""
+
+    # 当用户在 CLI 显式给了 --bo-list 而未给 --force-strategy 时，
+    # 自动屏蔽 DEFAULT_FORCE_STRATEGY，避免两个模式同时生效。
+    if bo_explicit and not fs_explicit and bo:
+        fs = ""
+    if fs_explicit and not bo_explicit and fs:
+        bo = ""
+
+    if fs and bo:
+        raise ValueError(
+            "force_strategy and bo_list are mutually exclusive; "
+            "specify exactly one."
+        )
+    if not fs and not bo:
+        raise ValueError(
+            "Either force_strategy or bo_list is required; "
+            "pass a folder name under SKILL/<race>/ or BO_list/<race>/."
+        )
+    return (fs or None), (bo or None)
 
 
 def _safe_match_part(value: str) -> str:
@@ -141,8 +175,9 @@ def play_vs_ai(
     output_base_dir: str = OUTPUT_BASE_DIR,
     skip_version_update: bool = DEFAULT_SKIP_VERSION_UPDATE,
     force_strategy: Optional[str] = None,
+    bo_list: Optional[str] = None,
 ) -> None:
-    force_strategy = _resolve_force_strategy(force_strategy)
+    force_strategy, bo_list = _resolve_strategy_modes(force_strategy, bo_list)
 
     root_dir = os.path.dirname(os.path.abspath(__file__))
     os.chdir(root_dir)
@@ -197,6 +232,8 @@ def play_vs_ai(
         args.extend(["--executor-model", executor_model])
     if force_strategy:
         args.extend(["--force-strategy", force_strategy])
+    if bo_list:
+        args.extend(["--bo-list", bo_list])
 
     sys.argv = args
 
@@ -209,7 +246,10 @@ def play_vs_ai(
         f" ▷ 流水线簇 : Naming=[{naming_model}], "
         f"Ordering=[{ordering_model}], Executor=[{executor_model}]"
     )
-    print(f" ▷ 强制策略 : {force_strategy or 'None'}")
+    if bo_list:
+        print(f" ▷ 运行模式 : BO list 直接执行 ({bo_list})")
+    else:
+        print(f" ▷ 强制策略 : {force_strategy or 'None'}")
     if batch_name:
         print(f" ▷ 批次名称 : {batch_name} (任务序号: {run_index})")
     print(f" ▷ 记录目录 : {record_dir}")
@@ -257,7 +297,17 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
         help=(
             "Strategy folder name under SKILL/<race>/; "
             f"default is {DEFAULT_FORCE_STRATEGY!r}. "
-            "UniversalLLMBot requires a strategy."
+            "Mutually exclusive with --bo-list."
+        ),
+    )
+    p.add_argument(
+        "--bo-list",
+        default=None,
+        metavar="NAME",
+        help=(
+            "BO list folder name under BO_list/<race>/. When set, the bot "
+            "skips Naming/Ordering LLM stages and feeds BO.json directly "
+            "into the execution scheduler. Mutually exclusive with --force-strategy."
         ),
     )
 
@@ -281,6 +331,7 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         output_base_dir=ns.output_base_dir,
         skip_version_update=ns.skip_version_update,
         force_strategy=ns.force_strategy,
+        bo_list=ns.bo_list,
     )
 
 if __name__ == "__main__":

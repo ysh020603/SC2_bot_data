@@ -51,7 +51,7 @@ dummies/generic/
   universal_llm_bot.py         # 编排策略读取、五阶段流水线、调度器和记录落盘
 
 SKILL/terran/
-  registry.json                # 人族策略白名单/索引
+  registry.json                # 人族策略白名单/索引（force-strategy 模式）
   marine_rush/
   battle_cruisers/
   banshees/
@@ -62,6 +62,12 @@ SKILL/terran/
   safe_tvt_raven/
   terran_silver_bio/
   two_base_tanks/
+
+BO_list/terran/                # BO list 直接执行模式（bo-list 模式）
+  registry.json                # 已注册 BO list 策略名单
+  marine_rush/
+    BO.json                    # 标准 action 名顺序列表（直接喂入 ExecutionScheduler）
+    strategy_tools.py          # 不耗资源的后台战术（与 SKILL 同名文件等价）
 
 API_config/
   config.example.json          # OpenAI 兼容模型配置模板
@@ -129,6 +135,36 @@ Ordering 阶段不会用代码补齐 LLM 漏掉的动作。漏项和非法项会
 - 当前策略自己的 `strategy_tools.py`：只放不消耗 minerals / gas / supply 的辅助战术工具。
 
 没有全局后台战术 fallback。某个策略缺少侦察、攻击或防守工具时，需要在该策略自己的 `strategy_tools.py` 中补。
+
+### 5. BO list 直接执行模式（旁路 LLM 流水线）
+
+除上面的「固定策略 + 五阶段流水线」之外，`UniversalLLMBot` 还支持一种 **BO 直接执行模式**：完全跳过 Naming / Ordering / Supply Planner，把一份事先排好的标准 action 序列一次性灌进 `ExecutionScheduler`。
+
+启用方式（与 `--force-strategy` 互斥）：
+
+```bash
+python run_vs_ai.py --bo-list marine_rush
+```
+
+策略目录结构（注册才能用，与 SKILL 同模式）：
+
+```text
+BO_list/terran/registry.json          # "registered_strategies": ["marine_rush", ...]
+BO_list/terran/<name>/
+  BO.json                             # JSON 数组，元素是标准 action 名（如 TERRANBUILD_SUPPLYDEPOT、BARRACKSTRAIN_MARINE）
+  strategy_tools.py                   # 不耗资源的后台战术，与 SKILL 同名文件等价
+```
+
+行为约定：
+
+- **跳过 LLM**：Stage 2/4 的 Naming / Ordering Agent 不再被调用；`--naming-model` / `--ordering-model` 在该模式下变为可选（不报错、不调用）。
+- **保留 Executor LLM**：`--executor-model` 仍然生效。`ExecutionScheduler` 在 train / addon / morph 这种存在多个候选生产单位时，依然会通过 `executor_agent` 让 LLM 选择具体执行单位。
+- **保留 Scheduler 全部能力**：独立 waiter 槽、矿/气/人口预留、同档超车、跨档隔离、deferred 同名 build、`wait_abandon` / `running_abandon` 超时这些机制全部继续生效。BO 模式只是把"action 列表的来源"从 LLM 改成了 BO.json，下游执行机制一字不改。
+- **不做循环 / 不回退**：BO 全部执行完之后，scheduler 队列保持空闲；后台 `strategy_tools.py` 继续运行；不会回退到 LLM 流水线，也不会循环重放 BO。
+- **注册校验**：未在 `BO_list/<race>/registry.json` 的 `registered_strategies` 中列出的名字会直接报错。
+- **互斥**：`--force-strategy` 与 `--bo-list` 两选一，同时显式指定会报错。
+
+详细的资源预留 / 超车语义参见 [docs/系统文档.md](docs/系统文档.md) §4.2 / §4.3。
 
 ## 环境配置
 

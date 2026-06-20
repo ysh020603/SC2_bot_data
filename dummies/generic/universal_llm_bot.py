@@ -124,6 +124,7 @@ class UniversalLLMBot(KnowledgeBot):
         ordering_model_key: str = "",
         executor_model_key: str = "",
         force_strategy: Optional[str] = None,
+        bo_list: Optional[str] = None,
     ):
         super().__init__("Universal LLM Bot")
         self.race_name = race_name.strip().lower()
@@ -133,6 +134,8 @@ class UniversalLLMBot(KnowledgeBot):
         self.record_dir = record_dir.strip()
         force = (force_strategy or "").strip()
         self.force_strategy: Optional[str] = force if force and force.lower() != "none" else None
+        bo = (bo_list or "").strip()
+        self.bo_list: Optional[str] = bo if bo and bo.lower() != "none" else None
 
         # --- Forced strategy state ---
         self.selected_strategy: Optional[str] = None
@@ -140,6 +143,11 @@ class UniversalLLMBot(KnowledgeBot):
         self.strategy_summary: str = ""
         self.strategy_steps: List[Dict[str, Any]] = []
         self._next_strategy_step_index: int = 0
+
+        # --- BO list direct-execute mode state ---
+        # Populated by ``_apply_bo_list`` when ``self.bo_list`` is set.
+        self._bo_actions: List[str] = []
+        self._bo_loaded_into_scheduler: bool = False
 
         # --- 命令式执行调度器 ---
         self.scheduler: Optional[ExecutionScheduler] = None
@@ -172,6 +180,22 @@ class UniversalLLMBot(KnowledgeBot):
         """``SKILL/{race}/`` 绝对路径。"""
         return os.path.normpath(os.path.join(self._skill_root, self.race_name))
 
+    @property
+    def _bo_list_root(self) -> str:
+        """``BO_list/`` 根目录绝对路径。"""
+        return os.path.normpath(
+            os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                os.pardir, os.pardir,
+                "BO_list",
+            )
+        )
+
+    @property
+    def _bo_list_race_dir(self) -> str:
+        """``BO_list/{race}/`` 绝对路径。"""
+        return os.path.normpath(os.path.join(self._bo_list_root, self.race_name))
+
     # ------------------------------------------------------------------
     # 生命周期
     # ------------------------------------------------------------------
@@ -183,14 +207,20 @@ class UniversalLLMBot(KnowledgeBot):
     async def on_start(self):
         # The strategy must be fixed before super().on_start(), because
         # knowledge.start() -> ActManager.post_start() -> create_plan().
-        if not self.force_strategy:
+        if self.bo_list and self.force_strategy:
             raise ValueError(
-                "UniversalLLMBot requires force_strategy. "
-                "Pass --force-strategy <strategy_folder>."
+                "UniversalLLMBot: --bo-list and --force-strategy are mutually "
+                "exclusive; pass exactly one."
             )
-        self._apply_forced_strategy(self.force_strategy)
-
-        self._refresh_strategy_steps()
+        if self.bo_list:
+            self._apply_bo_list(self.bo_list)
+        else:
+            if not self.force_strategy:
+                raise ValueError(
+                    "UniversalLLMBot requires either --force-strategy or --bo-list."
+                )
+            self._apply_forced_strategy(self.force_strategy)
+            self._refresh_strategy_steps()
         await super().on_start()
 
         self.zone_manager = self.knowledge.get_required_manager(IZoneManager)
@@ -215,7 +245,17 @@ class UniversalLLMBot(KnowledgeBot):
         1. 首次且 ``actions`` 列表为空 → ``initial_step``。
         2. ``actions`` 列表全部 terminal → ``sequence_drained`` 装下一步。
         3. ``actions`` 中无可执行动作（只剩 deferred）→ ``executable_drained``。
+
+        BO list 直接执行模式：跳过 LLM 流水线。仅在首次（scheduler 已构造、
+        但尚未装载）时一次性把 BO.json 整条 action 列表注入 scheduler；之后
+        无论 scheduler drained 与否都不再补料，让 ``strategy_tools`` 后台战
+        术继续运行。
         """
+        if self.bo_list:
+            if self.scheduler is not None and not self._bo_loaded_into_scheduler:
+                self._install_bo_list_actions()
+            return
+
         since = self.time - self._last_macro_time
         trigger_reason: Optional[str] = None
 
@@ -282,6 +322,116 @@ class UniversalLLMBot(KnowledgeBot):
                 "strategy_summary": summary,
             },
         })
+
+    # ------------------------------------------------------------------
+    # BO list direct-execute mode
+    # ------------------------------------------------------------------
+
+    def _load_bo_list_registry(self) -> List[str]:
+        """读取 ``BO_list/<race>/registry.json`` 并返回已注册策略名列表。"""
+        registry_path = os.path.join(self._bo_list_race_dir, "registry.json")
+        if not os.path.isfile(registry_path):
+            raise FileNotFoundError(
+                f"BO list registry not found: {registry_path}. "
+                f"Create it with a 'registered_strategies' list."
+            )
+        try:
+            with open(registry_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception as exc:
+            raise RuntimeError(
+                f"Failed to parse BO list registry {registry_path}: {exc}"
+            ) from exc
+        names = data.get("registered_strategies") or []
+        if not isinstance(names, list):
+            raise RuntimeError(
+                f"BO list registry {registry_path}: 'registered_strategies' must be a list."
+            )
+        return [str(n) for n in names]
+
+    def _apply_bo_list(self, name: str) -> None:
+        """加载 BO list 策略：校验注册表 + 读取 BO.json action 列表。"""
+        registered = self._load_bo_list_registry()
+        if name not in registered:
+            raise ValueError(
+                f"BO list strategy '{name}' is not registered for race "
+                f"'{self.race_name}'. Add it to BO_list/{self.race_name}/registry.json. "
+                f"Currently registered: {registered}"
+            )
+
+        target_dir = os.path.join(self._bo_list_race_dir, name)
+        bo_path = os.path.join(target_dir, "BO.json")
+        tools_path = os.path.join(target_dir, "strategy_tools.py")
+
+        if not os.path.isdir(target_dir):
+            raise FileNotFoundError(f"BO list strategy folder not found: {target_dir}")
+        if not os.path.isfile(bo_path):
+            raise FileNotFoundError(f"BO.json not found: {bo_path}")
+        if not os.path.isfile(tools_path):
+            raise FileNotFoundError(
+                f"strategy_tools.py not found for BO list strategy: {tools_path}"
+            )
+
+        try:
+            with open(bo_path, "r", encoding="utf-8") as f:
+                actions = json.load(f)
+        except Exception as exc:
+            raise RuntimeError(f"Failed to read {bo_path}: {exc}") from exc
+
+        if not isinstance(actions, list) or not all(isinstance(a, str) for a in actions):
+            raise RuntimeError(
+                f"{bo_path} must be a JSON array of action-name strings."
+            )
+
+        self._bo_actions = list(actions)
+        # Reuse selected_strategy so create_plan()/_load_strategy_tools 可以走
+        # BO_list.{race}.{name}.strategy_tools 这条路径。
+        self.selected_strategy = name
+        # BO 模式无 strategy detail / summary；保留空串避免下游 None 检查。
+        self.strategy_description = ""
+        self.strategy_summary = ""
+        self.strategy_steps = []
+
+        self._llm_infer_emit(
+            f">>> BO LIST: '{name}' loaded ({len(self._bo_actions)} actions). "
+            f"LLM macro pipeline disabled; executor LLM still active."
+        )
+        self._record_llm_interaction({
+            "game_time": 0.0,
+            "trigger_reason": "bo_list_loaded",
+            "wall_elapsed_seconds": 0.0,
+            "bo_list": {
+                "race": self.race_name,
+                "selected_strategy": name,
+                "action_count": len(self._bo_actions),
+                "actions": list(self._bo_actions),
+            },
+        })
+
+    def _install_bo_list_actions(self) -> None:
+        """把整条 BO.json 一次性注入 scheduler（mode='replace'，单次）。"""
+        if self.scheduler is None or self._bo_loaded_into_scheduler:
+            return
+        pairs: List[Tuple[str, int]] = [(name, 1) for name in self._bo_actions]
+        self.scheduler.set_actions(pairs, mode="replace")
+        self._bo_loaded_into_scheduler = True
+        active = [
+            a.short_label()
+            for a in self.scheduler.all_planned_actions()
+            if not a.is_terminal()
+        ]
+        self._llm_infer_emit(
+            f"    [BO list] installed {len(pairs)} actions into scheduler."
+        )
+        self._record_llm_interaction({
+            "game_time": round(float(getattr(self, "time", 0.0)), 2),
+            "trigger_reason": "bo_list_installed",
+            "wall_elapsed_seconds": 0.0,
+            "installed_pairs": pairs,
+            "scheduler_active_after_install": active,
+        })
+
+    # ------------------------------------------------------------------
 
     def _refresh_strategy_steps(self) -> None:
         self.strategy_steps = self._parse_strategy_steps(self.strategy_description)
@@ -979,12 +1129,16 @@ class UniversalLLMBot(KnowledgeBot):
     def _load_strategy_tools(self) -> BuildOrder:
         """Load the selected strategy's resource-free tool package.
 
-        Only ``SKILL.{race}.{selected_strategy}.strategy_tools`` is loaded. There is
-        no global tactic fallback here: if a strategy is selected, its own Python
-        file is the sole source of non-resource tools for that match.
+        Source package depends on the active mode:
+        * ``--force-strategy`` → ``SKILL.{race}.{selected_strategy}.strategy_tools``
+        * ``--bo-list``        → ``BO_list.{race}.{selected_strategy}.strategy_tools``
+
+        There is no global tactic fallback: if a strategy is selected, its own
+        Python file is the sole source of non-resource tools for that match.
         """
         if self.selected_strategy:
-            module_path = f"SKILL.{self.race_name}.{self.selected_strategy}.strategy_tools"
+            root_pkg = "BO_list" if self.bo_list else "SKILL"
+            module_path = f"{root_pkg}.{self.race_name}.{self.selected_strategy}.strategy_tools"
             tactics = self._instantiate_tactics_from_module(module_path)
             if tactics is not None:
                 self._llm_infer_emit(f"    [StrategyTools] loaded from {module_path}")
