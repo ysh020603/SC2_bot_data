@@ -1,10 +1,9 @@
-"""Rule layer for train/addon/morph executor selection.
+"""Rule layer for train executor selection (addon/morph use rule directly).
 
 The rule layer filters the units/structures that CAN execute an ability right now
 (via ``get_available_abilities`` with resource requirements ignored), describes
 their status, and pre-computes which candidates are also needed by other pending
-actions (conflict hints). The final pick is made by the executor LLM, except when
-there is a single candidate (then the rule pick is used directly).
+actions (conflict hints). For addon/morph, the final pick is always rule-based (prefer idle, then first). For train, the final pick is made by the executor LLM, except when there is a single candidate (then the rule pick is used directly).
 """
 
 from __future__ import annotations

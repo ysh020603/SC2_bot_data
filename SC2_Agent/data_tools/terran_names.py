@@ -1,13 +1,13 @@
-"""Canonical Terran Unit/Upgrade name lists + alias map.
+"""Canonical Terran Unit/Upgrade name lists.
 
 The naming LLM (stage 2) maps free-form natural-language increments onto the
-canonical entity names used by ``data_base_add_graph.json``. This module exports:
+canonical entity names used by ``data_base_add_graph.json``. This module
+exports:
 
-* ``terran_unit_names()``    – macro-selectable Terran Unit names (race == "Terran").
-* ``terran_upgrade_names()`` – canonical Terran Upgrade names (filtered by the
-  Terran action prefixes appearing in their ``tech_chain``).
-* ``ALIAS_MAP``              – common UI/alias spellings -> canonical DB name.
-* ``resolve_alias()``        – normalise one name through the alias map + DB.
+* ``terran_unit_names()``: macro-selectable Terran Unit names.
+* ``terran_upgrade_names()``: canonical Terran Upgrade names filtered by
+  Terran action prefixes in their ``tech_chain``.
+* ``is_known_terran_entity()``: exact canonical-name validation.
 """
 
 from __future__ import annotations
@@ -22,7 +22,6 @@ try:  # package import (normal runtime)
         build_ability_index,
         build_entity_indexes,
         build_executor_index,
-        canonical_entity_name,
         load_database,
         target_kind_and_result,
     )
@@ -32,13 +31,12 @@ except ImportError:  # pragma: no cover
         build_ability_index,
         build_entity_indexes,
         build_executor_index,
-        canonical_entity_name,
         load_database,
         target_kind_and_result,
     )
 
 
-#: Action-name fragments that mark an Upgrade as Terran-researchable.
+# Action-name fragments that mark an Upgrade as Terran-researchable.
 _TERRAN_ACTION_PREFIXES = (
     "TERRANBUILD_",
     "COMMANDCENTER",
@@ -49,15 +47,12 @@ _TERRAN_ACTION_PREFIXES = (
     "ARMORY",
     "FUSIONCORE",
     "GHOSTACADEMY",
-    "RESEARCH_",
     "BUILD_TECHLAB",
     "BUILD_REACTOR",
-    "UPGRADETO",
     "LIFT_",
     "LAND_",
     "MORPH_",
     "HISECAUTOTRACKING",
-    "TERRAN",
 )
 
 _MACRO_UNIT_TARGET_KINDS = {
@@ -73,54 +68,6 @@ _MACRO_UNIT_TARGET_KINDS = {
 _MACRO_MORPH_UNIT_NAMES = {
     "OrbitalCommand",
     "PlanetaryFortress",
-}
-
-#: UI / common spelling -> canonical database name. Lower-cased keys.
-ALIAS_MAP: dict[str, str] = {
-    "combat shield": "ShieldWall",
-    "combatshield": "ShieldWall",
-    "shield wall": "ShieldWall",
-    "stim": "Stimpack",
-    "stim pack": "Stimpack",
-    "stimpack": "Stimpack",
-    "concussive shells": "PunisherGrenades",
-    "concussiveshells": "PunisherGrenades",
-    "punisher grenades": "PunisherGrenades",
-    "infernal pre-igniter": "HighCapacityBarrels",
-    "infernal preigniter": "HighCapacityBarrels",
-    "drilling claws": "DrillClaws",
-    "mag-field accelerator": "MagFieldLaunchers",
-    "magfield accelerator": "MagFieldLaunchers",
-    "smart servos": "SmartServos",
-    "cloaking field": "BansheeCloak",
-    "banshee cloak": "BansheeCloak",
-    "hyperflight rotors": "BansheeSpeed",
-    "corvid reactor": "RavenCorvidReactor",
-    "advanced ballistics": "LiberatorAGRangeUpgrade",
-    "yamato cannon": "BattlecruiserEnableSpecializations",
-    "hi-sec auto tracking": "HiSecAutoTracking",
-    "neosteel armor": "TerranBuildingArmor",
-    "neosteel frame": "TerranBuildingArmor",
-    "personal cloaking": "PersonalCloaking",
-    "barracks tech lab": "BarracksTechLab",
-    "factory tech lab": "FactoryTechLab",
-    "starport tech lab": "StarportTechLab",
-    "barracks reactor": "BarracksReactor",
-    "factory reactor": "FactoryReactor",
-    "starport reactor": "StarportReactor",
-    "orbital": "OrbitalCommand",
-    "orbital command": "OrbitalCommand",
-    "planetary": "PlanetaryFortress",
-    "planetary fortress": "PlanetaryFortress",
-    "cc": "CommandCenter",
-    "command center": "CommandCenter",
-    "rax": "Barracks",
-    "depot": "SupplyDepot",
-    "supply depot": "SupplyDepot",
-    "refinery": "Refinery",
-    "ebay": "EngineeringBay",
-    "engineering bay": "EngineeringBay",
-    "scv": "SCV",
 }
 
 
@@ -155,7 +102,7 @@ def _is_macro_selectable_unit(
 
 
 @lru_cache(maxsize=1)
-def _names(data_path: str | None = None) -> tuple[tuple[str, ...], tuple[str, ...]]:
+def _names(data_path: str | Path | None = None) -> tuple[tuple[str, ...], tuple[str, ...]]:
     data = load_database(data_path)
     units, upgrades = build_entity_indexes(data)
     ability_index = build_ability_index(data)
@@ -177,25 +124,14 @@ def _names(data_path: str | None = None) -> tuple[tuple[str, ...], tuple[str, ..
     return unit_names, upgrade_names
 
 
-def terran_unit_names(data_path: str | None = None) -> list[str]:
+def terran_unit_names(data_path: str | Path | None = None) -> list[str]:
     return list(_names(data_path)[0])
 
 
-def terran_upgrade_names(data_path: str | None = None) -> list[str]:
+def terran_upgrade_names(data_path: str | Path | None = None) -> list[str]:
     return list(_names(data_path)[1])
 
 
-def resolve_alias(name: str, data_path: str | None = None) -> str:
-    """Normalise ``name`` through the alias map, then the database canonicaliser."""
-    if not name:
-        return name
-    alias = ALIAS_MAP.get(name.strip().lower())
-    if alias:
-        return alias
-    data = load_database(data_path)
-    return canonical_entity_name(data, name.strip())
-
-
-def is_known_terran_entity(name: str, data_path: str | None = None) -> bool:
+def is_known_terran_entity(name: str, data_path: str | Path | None = None) -> bool:
     units, upgrades = _names(data_path)
     return name in units or name in upgrades

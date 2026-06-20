@@ -16,6 +16,7 @@ def test_ordering_prompt_includes_strategy_step_without_changing_multiset_rule()
     user_msg = messages[1]["content"]
 
     assert "Use the Strategy Step to understand strategic priority" in system_msg
+    assert "negative supply" in system_msg
     assert "Do not add or remove actions" in system_msg
     assert "[Strategy Step]" in user_msg
     assert "Build one Barracks first, then start Marine production." in user_msg

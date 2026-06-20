@@ -79,6 +79,8 @@ Rules:
   parallel; sequence them sensibly so neither starves.
 * Cheaper / unlocking / short actions generally go earlier; expensive long-term
   goals later.
+* In [Per-action cost/time], positive supply consumes supply; negative supply
+  provides supply headroom.
 * Use the Strategy Step to understand strategic priority and intended timing,
   but the action list remains authoritative. Do not add or remove actions
   because of the Strategy Step.
@@ -89,9 +91,8 @@ Rules:
   and only reorder them.
 * The JSON output must be an expanded ordered list with repeated action strings;
   do not use "x N" counts in the JSON.
-* Supply depots (TERRANBUILD_SUPPLYDEPOT) are ordinary actions; order them just
-  like any other build action, placing them before the training actions that need
-  the supply headroom.
+* Place TERRANBUILD_SUPPLYDEPOT before training actions that need additional
+  supply headroom.
 * Do not invent new actions and do not add or remove occurrences.
 
 [Prerequisite & tech-chain hints]

@@ -1,17 +1,17 @@
-"""Self-contained SC2 tech-graph data layer (vendored from DATA_TOOLS + extensions).
+"""Self-contained SC2 tech-graph data layer.
 
-This package bundles ``data_base_add_graph.json`` and the original DATA_TOOLS
-helpers, plus sharpy-specific extensions:
+This package bundles ``data_base_add_graph.json`` and DATA_TOOLS-derived
+helpers, plus Sharpy-specific extensions:
 
-* :mod:`sc2_data_common`     – database loader/index helpers (cached).
-* :mod:`entity_to_actions`   – Unit/Upgrade name -> producing Action(s).
-* :mod:`action_cost`         – Action -> minerals/gas/supply/time.
-* :mod:`detect_action_conflicts` – producer/queue conflicts between actions.
-* :mod:`check_action_prereqs`    – ordered prereq check + ``tech_chain_relations``.
-* :mod:`terran_names`        – canonical Terran name lists + alias map.
-* :mod:`obs_entities`        – live bot state -> DB entity names (3 states).
-* :mod:`prereq_runtime`      – runtime prereq / tech-chain reasoning.
-* :mod:`supply_planner`      – insert supply depots into an ordered action list.
+* :mod:`sc2_data_common`: database loader/index helpers.
+* :mod:`entity_to_actions`: Unit/Upgrade name -> producing Action(s).
+* :mod:`action_cost`: Action -> minerals/gas/supply/time.
+* :mod:`detect_action_conflicts`: producer/queue conflicts between actions.
+* :mod:`check_action_prereqs`: ordered prereq check and tech-chain relations.
+* :mod:`terran_names`: canonical Terran name lists.
+* :mod:`obs_entities`: live bot state -> DB entity names.
+* :mod:`prereq_runtime`: runtime prereq / tech-chain reasoning.
+* :mod:`supply_planner`: insert supply depots into an ordered action list.
 """
 
 from __future__ import annotations
@@ -36,9 +36,7 @@ from .supply_planner import SUPPLY_DEPOT_ACTION
 from .supply_planner import plan as plan_supply
 from .supply_planner import plan_with_trace as plan_supply_with_trace
 from .terran_names import (
-    ALIAS_MAP,
     is_known_terran_entity,
-    resolve_alias,
     terran_unit_names,
     terran_upgrade_names,
 )
@@ -62,9 +60,7 @@ __all__ = [
     "SUPPLY_DEPOT_ACTION",
     "plan_supply",
     "plan_supply_with_trace",
-    "ALIAS_MAP",
     "is_known_terran_entity",
-    "resolve_alias",
     "terran_unit_names",
     "terran_upgrade_names",
 ]

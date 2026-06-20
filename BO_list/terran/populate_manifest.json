@@ -1,0 +1,94 @@
+{
+  "selections": [
+    {
+      "strategy": "marine_rush",
+      "bot_key": "marine",
+      "opponent": "ai.terran.veryhard",
+      "difficulty": "veryhard",
+      "sequence_file": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-16_terran_bo_commitfix_v5\\marine_rush\\sequences\\marine-ai.terran.veryhard_KairosJunctionLE_2026-06-16 21_26_32_357909.json",
+      "order_list_len": 116,
+      "meta_result": "Victory"
+    },
+    {
+      "strategy": "battle_cruisers",
+      "bot_key": "bc",
+      "opponent": "ai.zerg.veryhard",
+      "difficulty": "veryhard",
+      "sequence_file": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-16_terran_bo_commitfix_v5\\battle_cruisers\\sequences\\bc-ai.zerg.veryhard_KairosJunctionLE_2026-06-16 21_12_56_143001.json",
+      "order_list_len": 246,
+      "meta_result": "Victory"
+    },
+    {
+      "strategy": "banshees",
+      "bot_key": "banshee",
+      "opponent": "ai.zerg.veryhard",
+      "difficulty": "veryhard",
+      "sequence_file": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-16_terran_bo_commitfix_v5\\banshees\\sequences\\banshee-ai.zerg.veryhard_KairosJunctionLE_2026-06-16 21_05_43_798867.json",
+      "order_list_len": 209,
+      "meta_result": "Victory"
+    },
+    {
+      "strategy": "bio",
+      "bot_key": "bio",
+      "opponent": "ai.protoss.veryhard",
+      "difficulty": "veryhard",
+      "sequence_file": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-16_terran_bo_commitfix_v5\\bio\\sequences\\bio-ai.protoss.veryhard_KairosJunctionLE_2026-06-16 21_17_36_2888.json",
+      "order_list_len": 242,
+      "meta_result": "Victory"
+    },
+    {
+      "strategy": "cyclones",
+      "bot_key": "cyclone",
+      "opponent": "ai.protoss.veryhard",
+      "difficulty": "veryhard",
+      "sequence_file": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-16_terran_bo_commitfix_v5\\cyclones\\sequences\\cyclone-ai.protoss.veryhard_KairosJunctionLE_2026-06-16 21_22_42_511633.json",
+      "order_list_len": 283,
+      "meta_result": "Victory"
+    },
+    {
+      "strategy": "one_base_turtle",
+      "bot_key": "terranturtle",
+      "opponent": "ai.protoss.veryhard",
+      "difficulty": "veryhard",
+      "sequence_file": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-16_terran_bo_commitfix_v5\\one_base_turtle\\sequences\\terranturtle-ai.protoss.veryhard_KairosJunctionLE_2026-06-16 21_30_19_735482.json",
+      "order_list_len": 112,
+      "meta_result": "Victory"
+    },
+    {
+      "strategy": "rusty",
+      "bot_key": "oldrusty",
+      "opponent": "ai.protoss.veryhard",
+      "difficulty": "veryhard",
+      "sequence_file": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-16_terran_bo_commitfix_v5\\rusty\\sequences\\oldrusty-ai.protoss.veryhard_KairosJunctionLE_2026-06-16 21_34_40_971207.json",
+      "order_list_len": 293,
+      "meta_result": "Victory"
+    },
+    {
+      "strategy": "safe_tvt_raven",
+      "bot_key": "saferaven",
+      "opponent": "ai.terran.veryhard",
+      "difficulty": "veryhard",
+      "sequence_file": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-16_terran_bo_commitfix_v5\\safe_tvt_raven\\sequences\\saferaven-ai.terran.veryhard_KairosJunctionLE_2026-06-16 21_38_56_678608.json",
+      "order_list_len": 268,
+      "meta_result": "Victory"
+    },
+    {
+      "strategy": "terran_silver_bio",
+      "bot_key": "silverbio",
+      "opponent": "ai.protoss.veryhard",
+      "difficulty": "veryhard",
+      "sequence_file": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-16_terran_bo_commitfix_v5\\terran_silver_bio\\sequences\\silverbio-ai.protoss.veryhard_KairosJunctionLE_2026-06-16 21_42_08_661229.json",
+      "order_list_len": 309,
+      "meta_result": "Victory"
+    },
+    {
+      "strategy": "two_base_tanks",
+      "bot_key": "tank",
+      "opponent": "ai.protoss.veryhard",
+      "difficulty": "veryhard",
+      "sequence_file": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-16_terran_bo_commitfix_v5\\two_base_tanks\\sequences\\tank-ai.protoss.veryhard_KairosJunctionLE_2026-06-16 21_45_33_426539.json",
+      "order_list_len": 249,
+      "meta_result": "Victory"
+    }
+  ]
+}

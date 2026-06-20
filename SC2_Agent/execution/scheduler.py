@@ -26,9 +26,10 @@ ordered list of :class:`PlannedAction` plus a separate single waiter slot:
   three-state aware): blocked actions become the waiter (or remain
   ``PENDING`` when the slot is taken); missing prerequisites are not inserted
   automatically.
-* **execution split**: ``train/addon/morph`` pick an executor (rule candidates +
-  executor LLM), ``build/research`` delegate to a lazily-created sharpy Act
-  or to :class:`DirectBuildExecutor` for hand-managed Terran structures.
+* **execution split**: ``train`` may use the executor LLM after rule candidate
+  filtering; ``morph`` uses rule selection directly; ``build/research/addon``
+  delegate to a lazily-created sharpy Act or to :class:`DirectBuildExecutor` for
+  hand-managed Terran structures.
 """
 
 from __future__ import annotations
@@ -1231,7 +1232,7 @@ class ExecutionScheduler(ActBase):
             existing += self.cache.own(flying_type).amount
         return existing
 
-    # --- train / addon / morph via executor selection -----------------
+    # --- train / morph via executor selection -------------------------
     async def _issue_train_addon_morph(self, pa: PlannedAction, now: float) -> bool:
         if pa.ability is None:
             pa.state = ABANDONED
@@ -1328,6 +1329,11 @@ class ExecutionScheduler(ActBase):
         if len(candidates) == 1:
             return candidates[0][0]
 
+        # Only train actions may ask the Executor LLM. Morphs are deterministic:
+        # prefer an idle executor, then the first candidate returned by SC2.
+        if pa.category != mapping.CAT_TRAIN:
+            return self._rule_choose_executor(candidates)
+
         # short-term cache to avoid an LLM call every frame
         cached = self._executor_cache.get(pa.action_name)
         if cached and (now - cached[1]) < EXECUTOR_CACHE_SEC and cached[0] in units_by_tag:
@@ -1367,12 +1373,15 @@ class ExecutionScheduler(ActBase):
                 logger.debug("executor LLM failed for %s: %s", pa.action_name, exc)
 
         if chosen_unit is None:
-            # fallback: prefer idle, then first candidate
-            idle = [u for u, _ in candidates if getattr(u, "is_idle", False)]
-            chosen_unit = idle[0] if idle else candidates[0][0]
+            chosen_unit = self._rule_choose_executor(candidates)
 
         self._executor_cache[pa.action_name] = (chosen_unit.tag, now)
         return chosen_unit
+
+    @staticmethod
+    def _rule_choose_executor(candidates):
+        idle = [u for u, _ in candidates if getattr(u, "is_idle", False)]
+        return idle[0] if idle else candidates[0][0]
 
     def _live_cost(self, pa: PlannedAction) -> Tuple[float, float]:
         """Real minerals/gas cost of issuing ``pa`` right now (DB cost fallback)."""

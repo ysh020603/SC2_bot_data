@@ -20,6 +20,7 @@ try:  # package import (normal runtime)
         build_executor_index,
         canonical_ability_name,
         canonical_entity_name,
+        expand_entity_implications,
         load_database,
         target_kind_and_result,
     )
@@ -30,6 +31,7 @@ except ImportError:  # pragma: no cover - allow running as a loose script
         build_executor_index,
         canonical_ability_name,
         canonical_entity_name,
+        expand_entity_implications,
         load_database,
         target_kind_and_result,
     )
@@ -63,17 +65,12 @@ STEP_RE = re.compile(r"^\s*(?P<entity>.*?)(?:\s*\((?P<action>[^()]*)\))?\s*$")
 FINAL_ACTION_RE = re.compile(r"->\s*[^()[\]]+\((?P<action>[^()]*)\)\s*$")
 
 
-def _entity_closure(entities: set[str]) -> set[str]:
-    closed = set(entities)
-    changed = True
-    while changed:
-        changed = False
-        for entity in list(closed):
-            for implied in ENTITY_IMPLIES.get(entity, set()):
-                if implied not in closed:
-                    closed.add(implied)
-                    changed = True
-    return closed
+def _entity_closure(entities: set[str], data: dict[str, Any] | None = None) -> set[str]:
+    return expand_entity_implications(
+        set(entities),
+        data=data,
+        extra_implications=ENTITY_IMPLIES,
+    )
 
 
 def _parse_step(step_text: str) -> dict[str, str | None]:
@@ -212,7 +209,7 @@ def check_action_prerequisites(
             continue
 
         chain, requirements = first_tech_chain_requirements(action, ability)
-        tech_available = _entity_closure(current_entities)
+        tech_available = _entity_closure(current_entities, data)
         exact_available = set(current_entities)
         requirement_reports = []
         missing = []
@@ -320,7 +317,7 @@ def check_action_prerequisites(
         "entities": canonical_entities,
         "actions": canonical_actions,
         "final_available_entities": sorted(current_entities),
-        "final_inferred_available_entities": sorted(_entity_closure(current_entities)),
+        "final_inferred_available_entities": sorted(_entity_closure(current_entities, data)),
         "action_results": [
             {
                 "index": index,
@@ -343,6 +340,8 @@ def check_action_prerequisites(
 def tech_chain_relations(
     actions: list[str],
     *,
+    available_entities: list[str] | set[str] | None = None,
+    suppress_satisfied: bool = True,
     data_path: str | Path | None = None,
 ) -> list[dict[str, Any]]:
     """Report prerequisite relations *between actions in the same list*.
@@ -351,6 +350,8 @@ def tech_chain_relations(
     another action in the same list produces the required entity. Order in the
     input list is irrelevant here; the goal is purely to tell the ordering LLM
     "action A must come before action B because B needs what A produces".
+    When ``available_entities`` is provided, relations whose prerequisite is
+    already satisfied by the current observation are suppressed by default.
 
     :return: list of ``{"action": B, "depends_on": A, "via_entity": E}`` dicts.
     """
@@ -359,6 +360,13 @@ def tech_chain_relations(
     executor_index = build_executor_index(data, race=None)
 
     canonical_actions = [canonical_ability_name(data, a) for a in actions]
+    available_closure: set[str] = set()
+    if available_entities is not None:
+        canonical_entities = {
+            canonical_entity_name(data, entity)
+            for entity in available_entities
+        }
+        available_closure = _entity_closure(canonical_entities, data)
 
     # entity -> set of actions in the list that produce it
     producers: dict[str, set[str]] = {}
@@ -379,6 +387,8 @@ def tech_chain_relations(
                 data, ability_index, executor_index, action, requirement
             )
             for alt in alternatives:
+                if suppress_satisfied and alt in available_closure:
+                    continue
                 for producer_action in producers.get(alt, set()):
                     if producer_action == action:
                         continue

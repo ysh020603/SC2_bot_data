@@ -1,8 +1,9 @@
 """Executor Agent (执行期) Prompt 构建与解析。
 
-仅用于 train / addon / morph 类动作的「选执行单位」：规则层先用
+仅用于 train 类动作多候选时的「选执行单位」：规则层先用
 ``get_available_abilities`` 筛出能执行该 ability 的候选 + 状态，并预计算候选与
 未执行/等待 action 的冲突提示；本 Agent 让 LLM 从候选里挑一个 tag。
+addon/morph 不调用本 Agent，直接由规则选择执行单位。
 
 仿 SC2_scout_RL 的 ``MicroAgent.select_executor``，但加入了「不要一味追求短期效率
 而占掉后续冲突动作执行者」的约束（典型：没挂 add-on 的 Barracks 别拿去造兵，留给

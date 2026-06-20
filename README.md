@@ -38,8 +38,8 @@
 SC2_Agent/
   naming_agent.py              # Stage 2: 策略 step + obs -> 标准实体名和数量
   ordering_agent.py            # Stage 4: 对标准 action 排序
-  executor_agent.py            # 为 train/addon/morph 选择执行单位
-  data_tools/                  # 内置 SC2 数据库、别名、成本、前置、冲突、补给规划
+  executor_agent.py            # 为 train 选择执行单位（addon/morph 规则选）
+  data_tools/                  # 内置 SC2 数据库、标准名、成本、前置、冲突、补给规划
   execution/
     command.py                 # PlannedAction 状态对象
     direct_build.py            # Terran 普通建筑直接建造执行器
@@ -66,7 +66,7 @@ SKILL/terran/
 BO_list/terran/                # BO list 直接执行模式（bo-list 模式）
   registry.json                # 已注册 BO list 策略名单
   marine_rush/
-    BO.json                    # 标准 action 名顺序列表（直接喂入 ExecutionScheduler）
+    BO.json                    # 标准 action 名顺序列表（分段喂入 ExecutionScheduler）
     strategy_tools.py          # 不耗资源的后台战术（与 SKILL 同名文件等价）
 
 API_config/
@@ -124,7 +124,7 @@ Ordering 阶段不会用代码补齐 LLM 漏掉的动作。漏项和非法项会
 - waiter 资源预留和同档超车
 - 科技前置检测和缺失前置自动插入
 - Terran 普通建筑的 DirectBuild 独立 reservation / target
-- train / addon / morph 可调用 Executor Agent 选择执行单位
+- train 可调用 Executor Agent 选择执行单位（addon / morph 由规则直选）
 - waiting 超时和 running 卡死放弃，避免宏观队列永久堵塞
 
 ### 4. 策略工具轨
@@ -138,7 +138,7 @@ Ordering 阶段不会用代码补齐 LLM 漏掉的动作。漏项和非法项会
 
 ### 5. BO list 直接执行模式（旁路 LLM 流水线）
 
-除上面的「固定策略 + 五阶段流水线」之外，`UniversalLLMBot` 还支持一种 **BO 直接执行模式**：完全跳过 Naming / Ordering / Supply Planner，把一份事先排好的标准 action 序列一次性灌进 `ExecutionScheduler`。
+除上面的「固定策略 + 五阶段流水线」之外，`UniversalLLMBot` 还支持一种 **BO 直接执行模式**：完全跳过 Naming / Ordering / Supply Planner，把 `BO.json` 中的标准 action 序列按 `BO_CHUNK_SIZE`（默认 **15**）分段注入 `ExecutionScheduler`（首段 `replace`，当前段 drain 后 `append` 下一段）。
 
 启用方式（与 `--force-strategy` 互斥）：
 
@@ -157,10 +157,11 @@ BO_list/terran/<name>/
 
 行为约定：
 
-- **跳过 LLM**：Stage 2/4 的 Naming / Ordering Agent 不再被调用；`--naming-model` / `--ordering-model` 在该模式下变为可选（不报错、不调用）。
-- **保留 Executor LLM**：`--executor-model` 仍然生效。`ExecutionScheduler` 在 train / addon / morph 这种存在多个候选生产单位时，依然会通过 `executor_agent` 让 LLM 选择具体执行单位。
-- **保留 Scheduler 全部能力**：独立 waiter 槽、矿/气/人口预留、同档超车、跨档隔离、deferred 同名 build、`wait_abandon` / `running_abandon` 超时这些机制全部继续生效。BO 模式只是把"action 列表的来源"从 LLM 改成了 BO.json，下游执行机制一字不改。
-- **不做循环 / 不回退**：BO 全部执行完之后，scheduler 队列保持空闲；后台 `strategy_tools.py` 继续运行；不会回退到 LLM 流水线，也不会循环重放 BO。
+- **分段注入**：`on_start` 加载整条 `BO.json` 到内存；首帧取前 15 条 `replace` 进 scheduler；当前段 drain（`is_drained_for_macro()`）且距上次装段 ≥ `MACRO_MIN_RETRIGGER`（5s）时，取下一段 `append`。续作语义与 force-strategy 的 step append 一致。
+- **跳过 LLM**：Stage 2/4/5 的 Naming / Ordering / Supply Planner 不再被调用；`--naming-model` / `--ordering-model` 在该模式下变为可选（不报错、不调用）。
+- **保留 Executor LLM**：`--executor-model` 仍然生效。`ExecutionScheduler` 在 train 这类存在多个候选生产单位时，依然会通过 `executor_agent` 让 LLM 选择具体执行单位。
+- **保留 Scheduler 全部能力**：独立 waiter 槽（跨分段自然延续）、矿/气/人口预留、同档超车、跨档隔离、deferred 同名 build、`wait_abandon` / `running_abandon` 超时这些机制全部继续生效。BO 模式只是把 action 列表的来源从 LLM 改成了 BO.json，下游执行机制一字不改。
+- **不做循环 / 不回退**：BO 所有分段装完并执行完之后，scheduler 队列保持空闲；后台 `strategy_tools.py` 继续运行；不会回退到 LLM 流水线，也不会循环重放 BO。
 - **注册校验**：未在 `BO_list/<race>/registry.json` 的 `registered_strategies` 中列出的名字会直接报错。
 - **互斥**：`--force-strategy` 与 `--bo-list` 两选一，同时显式指定会报错。
 
@@ -228,6 +229,7 @@ export SC2PATH=/data2/SC2/StarCraftII/
       "top_p": null,
       "max_tokens": null,
       "is_reasoning": false,
+      "reasoning_extract_mode": "none",
       "enable_identity": false,
       "identity_prompt": ""
     }
@@ -250,6 +252,15 @@ python run_vs_ai.py \
 ```
 
 注意：`API_config/config.json` 可能包含真实 API key，请不要提交或公开。
+
+reasoning 模型可以用单独的 `*_think` model_key 标注，例如
+`DeepSeek-V4-flash_think`、`Kimi-k2.5_think`、`Qwen3-8b_think`。配置里的
+`reasoning_extract_mode` 描述响应拆分形态，不和具体模型耦合；可选值记录在
+`API_Tools/reasoning_extractors.md`。如需实测某个 API 的返回形态，可运行：
+
+```bash
+python API_Tools/probe_reasoning_extraction.py --model-key Qwen3-8b_think
+```
 
 ## 运行
 
@@ -346,7 +357,7 @@ game_records/<batch_name>/<match_id>/
 | `<match_id>.log` | Sharpy 与 UniversalLLMBot 运行日志 |
 | `<match_id>.SC2Replay` | SC2 录像 |
 | `<match_id>.json` | 宏观流水线交互记录和结构化观测 |
-| `<match_id>.llm_calls.json` | 每一次 LLM 调用的 prompt 和 output |
+| `<match_id>.llm_calls.json` | 每一次 LLM 调用的 prompt、正式 output、reasoning、raw content 与提取来源 |
 
 轨迹 JSON 会记录：
 

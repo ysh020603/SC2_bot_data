@@ -1,6 +1,15 @@
 {
   "_comment": "Terran BO-list strategies for --bo-list runs. Keep this list in sync with BO_list/terran/<strategy>/ directories. Each registered folder must contain BO.json and strategy_tools.py.",
   "registered_strategies": [
-    "marine_rush"
+    "marine_rush",
+    "battle_cruisers",
+    "banshees",
+    "bio",
+    "cyclones",
+    "one_base_turtle",
+    "rusty",
+    "safe_tvt_raven",
+    "terran_silver_bio",
+    "two_base_tanks"
   ]
 }

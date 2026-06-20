@@ -4,6 +4,14 @@
 直接 ``from API_Tools.llm_caller import call_openai`` 单独验证。
 """
 
-from .llm_caller import call_openai, load_agent_pool, strip_think_tags
+from .llm_caller import call_openai, call_openai_detailed, load_agent_pool, strip_think_tags
+from .reasoning_extractor import extract_final_content, extract_reasoning
 
-__all__ = ["call_openai", "load_agent_pool", "strip_think_tags"]
+__all__ = [
+    "call_openai",
+    "call_openai_detailed",
+    "extract_final_content",
+    "extract_reasoning",
+    "load_agent_pool",
+    "strip_think_tags",
+]

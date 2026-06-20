@@ -28,7 +28,7 @@ from sharpy.managers.core.manager_base import ManagerBase
 from sharpy.managers.extensions import BuildDetector
 from sharpy.plans import BuildOrder, SequentialList
 
-from API_Tools.llm_caller import call_openai
+from API_Tools.llm_caller import call_openai_detailed
 from SC2_Agent.top_agent import parse_top_agent_0_md
 
 # --- 新五阶段增量驱动流水线 ---
@@ -52,7 +52,6 @@ from SC2_Agent.data_tools import (
     detect_action_conflicts,
     is_known_terran_entity,
     plan_supply_with_trace,
-    resolve_alias,
     tech_chain_relations,
     terran_unit_names,
     terran_upgrade_names,
@@ -113,6 +112,8 @@ class UniversalLLMBot(KnowledgeBot):
     #: 实验参数：True = 从 LLM 输出中提取 depot 并通过算法重新插入（稳定托管）；
     #: False = 直接执行 LLM 排好的序列（含 LLM 自行放置的 depot，实验性）。
     SUPPLY_MANAGED: bool = True
+    #: BO list 每段安装的 action 数量。
+    BO_CHUNK_SIZE: int = 15
     zone_manager: IZoneManager
 
     def __init__(
@@ -147,7 +148,12 @@ class UniversalLLMBot(KnowledgeBot):
         # --- BO list direct-execute mode state ---
         # Populated by ``_apply_bo_list`` when ``self.bo_list`` is set.
         self._bo_actions: List[str] = []
-        self._bo_loaded_into_scheduler: bool = False
+        #: 下一段待安装的起始索引（0 表示尚未安装首段）。
+        self._bo_next_index: int = 0
+        #: 已安装的分段数（用于轨迹记录）。
+        self._bo_installation_count: int = 0
+        #: 上一次安装分段的时间（用于 MACRO_MIN_RETRIGGER 门控）。
+        self._last_bo_chunk_time: float = -60.0
 
         # --- 命令式执行调度器 ---
         self.scheduler: Optional[ExecutionScheduler] = None
@@ -246,16 +252,25 @@ class UniversalLLMBot(KnowledgeBot):
         2. ``actions`` 列表全部 terminal → ``sequence_drained`` 装下一步。
         3. ``actions`` 中无可执行动作（只剩 deferred）→ ``executable_drained``。
 
-        BO list 直接执行模式：跳过 LLM 流水线。仅在首次（scheduler 已构造、
-        但尚未装载）时一次性把 BO.json 整条 action 列表注入 scheduler；之后
-        无论 scheduler drained 与否都不再补料，让 ``strategy_tools`` 后台战
-        术继续运行。
+        BO list 直接执行模式：跳过 LLM 流水线。按 BO_CHUNK_SIZE 分段注入
+        scheduler（首段 replace，后续 drain 后 append）。waiter 槽跨分段
+        自然延续，与 force-strategy 模式的 step 续作语义一致。
         """
         if self.bo_list:
-            if self.scheduler is not None and not self._bo_loaded_into_scheduler:
-                self._install_bo_list_actions()
+            if self.scheduler is None:
+                return
+            # 首次：安装第一段
+            if self._bo_next_index == 0:
+                self._install_bo_first_chunk()
+                return
+            # 所有分段已装完
+            if self._bo_next_index >= len(self._bo_actions):
+                return
+            # 当前分段 drain 后装下一段（与 force-strategy 触发语义一致）
+            since = self.time - self._last_bo_chunk_time
+            if since >= self.MACRO_MIN_RETRIGGER and self.scheduler.is_drained_for_macro():
+                self._install_bo_next_chunk()
             return
-
         since = self.time - self._last_macro_time
         trigger_reason: Optional[str] = None
 
@@ -394,7 +409,7 @@ class UniversalLLMBot(KnowledgeBot):
 
         self._llm_infer_emit(
             f">>> BO LIST: '{name}' loaded ({len(self._bo_actions)} actions). "
-            f"LLM macro pipeline disabled; executor LLM still active."
+            f"LLM macro pipeline disabled; executor LLM only active for train."
         )
         self._record_llm_interaction({
             "game_time": 0.0,
@@ -408,25 +423,61 @@ class UniversalLLMBot(KnowledgeBot):
             },
         })
 
-    def _install_bo_list_actions(self) -> None:
-        """把整条 BO.json 一次性注入 scheduler（mode='replace'，单次）。"""
-        if self.scheduler is None or self._bo_loaded_into_scheduler:
-            return
-        pairs: List[Tuple[str, int]] = [(name, 1) for name in self._bo_actions]
+
+    def _install_bo_first_chunk(self) -> None:
+        """BO 首段：取前 BO_CHUNK_SIZE 条，mode="replace" 注入。"""
+        chunk_size = self.BO_CHUNK_SIZE
+        end = min(chunk_size, len(self._bo_actions))
+        chunk = self._bo_actions[:end]
+        pairs: List[Tuple[str, int]] = [(name, 1) for name in chunk]
         self.scheduler.set_actions(pairs, mode="replace")
-        self._bo_loaded_into_scheduler = True
+        self._bo_next_index = end
+        self._bo_installation_count = 1
+        self._last_bo_chunk_time = self.time
+        total_chunks = (len(self._bo_actions) + chunk_size - 1) // chunk_size
+        self._llm_infer_emit(
+            f"    [BO list] installed chunk 1/{total_chunks}: actions [0:{end}), {end} of {len(self._bo_actions)} total"
+        )
+        self._record_bo_chunk_installed(start=0, end=end, chunk_index=1, total_chunks=total_chunks)
+
+    def _install_bo_next_chunk(self) -> None:
+        """BO 后续段：取下一段 BO_CHUNK_SIZE 条，mode="append" 注入。"""
+        chunk_size = self.BO_CHUNK_SIZE
+        start = self._bo_next_index
+        end = min(start + chunk_size, len(self._bo_actions))
+        chunk = self._bo_actions[start:end]
+        pairs: List[Tuple[str, int]] = [(name, 1) for name in chunk]
+        self.scheduler.set_actions(pairs, mode="append")
+        self._bo_next_index = end
+        self._bo_installation_count += 1
+        self._last_bo_chunk_time = self.time
+        chunk_index = self._bo_installation_count
+        total_chunks = (len(self._bo_actions) + chunk_size - 1) // chunk_size
+        all_done = self._bo_next_index >= len(self._bo_actions)
+        self._llm_infer_emit(
+            f"    [BO list] installed chunk {chunk_index}/{total_chunks}: actions [{start}:{end}), all_done={all_done}"
+        )
+        self._record_bo_chunk_installed(start=start, end=end, chunk_index=chunk_index, total_chunks=total_chunks)
+
+    def _record_bo_chunk_installed(self, start: int, end: int, chunk_index: int, total_chunks: int) -> None:
+        """记录一次 BO 分段安装到轨迹 JSON。"""
+        chunk = self._bo_actions[start:end]
+        pairs: List[Tuple[str, int]] = [(name, 1) for name in chunk]
         active = [
             a.short_label()
             for a in self.scheduler.all_planned_actions()
             if not a.is_terminal()
         ]
-        self._llm_infer_emit(
-            f"    [BO list] installed {len(pairs)} actions into scheduler."
-        )
+        all_done = self._bo_next_index >= len(self._bo_actions)
         self._record_llm_interaction({
             "game_time": round(float(getattr(self, "time", 0.0)), 2),
-            "trigger_reason": "bo_list_installed",
+            "trigger_reason": "bo_list_chunk_installed",
             "wall_elapsed_seconds": 0.0,
+            "chunk_index": chunk_index,
+            "total_chunks": total_chunks,
+            "chunk_range": [start, end],
+            "chunk_size": end - start,
+            "all_chunks_installed": all_done,
             "installed_pairs": pairs,
             "scheduler_active_after_install": active,
         })
@@ -571,27 +622,14 @@ class UniversalLLMBot(KnowledgeBot):
             name_raw = self._call_llm(name_msgs, agent="naming")
             record["naming_raw"] = name_raw
             items = parse_naming_response(name_raw) or []
-            # 别名归一 + 合法性校验；SupplyDepot 与其他实体一样正常流入 valid_items
+            # Stage2 is strict: only exact canonical Unit/Upgrade names survive.
             valid_items: List[Dict[str, Any]] = []
-            macro_normalizations: List[Dict[str, str]] = []
             for it in items:
-                raw_name = str(it.get("name", ""))
-                resolved = self._generic_addon_from_raw(raw_name) or resolve_alias(raw_name)
-                canonical = self._normalize_macro_entity_name(resolved, plan_text)
-                if canonical != resolved:
-                    macro_normalizations.append({
-                        "raw": raw_name,
-                        "resolved": resolved,
-                        "normalized": canonical,
-                    })
-                    self._llm_infer_emit(
-                        f"    Stage2 normalized macro entity {resolved!r} -> {canonical!r}."
-                    )
-                if is_known_terran_entity(canonical):
-                    valid_items.append({"name": canonical, "count": it["count"]})
+                raw_name = str(it.get("name", "")).strip()
+                if is_known_terran_entity(raw_name):
+                    valid_items.append({"name": raw_name, "count": it["count"]})
                 else:
                     self._llm_infer_emit(f"    Stage2 dropped unknown entity: {it['name']!r}")
-            record["macro_normalizations"] = macro_normalizations
             record["named_items"] = valid_items
             self._llm_infer_emit(f"    Stage2 named items: {valid_items}")
             if not valid_items:
@@ -753,69 +791,6 @@ class UniversalLLMBot(KnowledgeBot):
         return pairs
 
     @staticmethod
-    def _addon_host_from_plan(plan_text: str, addon_kind: str = "") -> str:
-        text = (plan_text or "").lower()
-        host_patterns = (
-            ("Starport", r"\bstar\s*ports?\b|\bstarports?\b"),
-            ("Factory", r"\bfactor(?:y|ies)\b"),
-            ("Barracks", r"\bbarracks\b|\brax\b"),
-        )
-        addon_patterns = {
-            "TechLab": r"\btech\s*labs?\b|\btechlabs?\b",
-            "Reactor": r"\breactors?\b",
-        }
-        addon_pattern = addon_patterns.get(addon_kind)
-        if addon_pattern:
-            best: Optional[Tuple[int, str]] = None
-            for addon_match in re.finditer(addon_pattern, text):
-                start = max(0, addon_match.start() - 64)
-                end = min(len(text), addon_match.end() + 64)
-                window = text[start:end]
-                for host, pattern in host_patterns:
-                    for host_match in re.finditer(pattern, window):
-                        distance = abs((start + host_match.start()) - addon_match.start())
-                        if best is None or distance < best[0]:
-                            best = (distance, host)
-            if best is not None:
-                return best[1]
-
-        hosts = [host for host, pattern in host_patterns if re.search(pattern, text)]
-        if len(hosts) == 1:
-            return hosts[0]
-        return "Barracks"
-
-    @staticmethod
-    def _generic_addon_from_raw(name: str) -> Optional[str]:
-        normalized = re.sub(r"[\s_-]+", "", (name or "").lower())
-        if normalized == "techlab":
-            return "TechLab"
-        if normalized == "reactor":
-            return "Reactor"
-        return None
-
-    @classmethod
-    def _normalize_macro_entity_name(cls, canonical: str, plan_text: str) -> str:
-        """Convert alternate unit states into producible macro targets."""
-        alternate_forms = {
-            "SupplyDepotLowered": "SupplyDepot",
-            "BarracksFlying": "Barracks",
-            "FactoryFlying": "Factory",
-            "StarportFlying": "Starport",
-            "CommandCenterFlying": "CommandCenter",
-            "OrbitalCommandFlying": "OrbitalCommand",
-            "SiegeTankSieged": "SiegeTank",
-        }
-        if canonical in alternate_forms:
-            return alternate_forms[canonical]
-
-        host = cls._addon_host_from_plan(plan_text, canonical)
-        generic_addons = {
-            "TechLab": f"{host}TechLab",
-            "Reactor": f"{host}Reactor",
-        }
-        return generic_addons.get(canonical, canonical)
-
-    @staticmethod
     def _is_supply_depot_step(plan_text: str) -> bool:
         """True for strategy steps that only ask for supply-depot headroom."""
         text = (plan_text or "").lower()
@@ -906,7 +881,7 @@ class UniversalLLMBot(KnowledgeBot):
         except Exception as exc:
             logger.debug("prereq hints failed: %s", exc)
         try:
-            for rel in tech_chain_relations(actions):
+            for rel in tech_chain_relations(actions, available_entities=entities):
                 lines.append(
                     f"  - {rel['action']} requires {rel['depends_on']} first (via {rel['via_entity']})"
                 )
@@ -942,7 +917,7 @@ class UniversalLLMBot(KnowledgeBot):
                 logger.debug("cost hint failed for %s: %s", a, exc)
         return "\n".join(lines)
 
-    # --- 执行者 Agent 回调（注入调度器，仅 train/addon/morph 多候选时调用）------
+    # --- 执行者 Agent 回调（注入调度器，仅 train 多候选时调用（addon/morph 规则选））------
 
     def _executor_llm_select(
         self,
@@ -990,8 +965,15 @@ class UniversalLLMBot(KnowledgeBot):
             )
             return ""
 
-        response = call_openai(messages=messages, model_key=model_key)
-        self._record_llm_call(agent=agent, model_key=model_key, messages=messages, output=response)
+        llm_result = call_openai_detailed(messages=messages, model_key=model_key)
+        response = str(llm_result.get("content") or "")
+        self._record_llm_call(
+            agent=agent,
+            model_key=model_key,
+            messages=messages,
+            output=response,
+            llm_result=llm_result,
+        )
         return response
 
     def _record_llm_call(
@@ -1001,6 +983,7 @@ class UniversalLLMBot(KnowledgeBot):
         model_key: str,
         messages: List[Dict[str, str]],
         output: str,
+        llm_result: Optional[Dict[str, Any]] = None,
     ) -> None:
         """把一次 LLM 调用的 prompt 与 output 追加到内存，并增量落盘到专门 JSON。"""
         self._llm_call_seq += 1
@@ -1008,6 +991,7 @@ class UniversalLLMBot(KnowledgeBot):
             game_time = round(float(getattr(self, "time", 0.0)), 2)
         except Exception:
             game_time = None
+        llm_result = llm_result or {}
         self._llm_call_records.append(
             {
                 "seq": self._llm_call_seq,
@@ -1015,8 +999,16 @@ class UniversalLLMBot(KnowledgeBot):
                 "macro_cycle": self._macro_cycle_count,
                 "agent": agent,
                 "model_key": model_key,
+                "model": llm_result.get("model", ""),
+                "is_reasoning": llm_result.get("is_reasoning"),
                 "prompt": list(messages),
                 "output": output,
+                "reasoning": llm_result.get("reasoning", "") or "",
+                "reasoning_source": llm_result.get("reasoning_source", "none") or "none",
+                "reasoning_extract_mode": llm_result.get("reasoning_extract_mode", "auto"),
+                "raw_content": llm_result.get("raw_content", "") or "",
+                "raw_message_keys": llm_result.get("raw_message_keys", []) or [],
+                "error": llm_result.get("error", "") or "",
             }
         )
         # 增量落盘：即便对局中途被 kill，也能保留已发生的调用记录。
@@ -1116,7 +1108,7 @@ class UniversalLLMBot(KnowledgeBot):
           minerals / gas / supply 的工具，避免和 ``ExecutionScheduler`` 抢资源。
         """
         self.scheduler = ExecutionScheduler(wait_abandon_sec=self.WAIT_ABANDON_SEC)
-        # 注入执行者 Agent 回调（train/addon/morph 多候选时由 LLM 选执行单位）。
+        # 注入执行者 Agent 回调（train 多候选时由 LLM 选执行单位（addon/morph 规则选））。
         self.scheduler.executor_llm = self._executor_llm_select
 
         strategy_tools = self._load_strategy_tools()

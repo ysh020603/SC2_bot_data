@@ -19,7 +19,7 @@ CLI 示例::
 
 所有默认值集中在文件内 **「运行配置」** 常量区（``DEFAULT_*``），
 直接 ``python run_vs_ai.py`` 即生效；CLI 显式传参会覆盖对应项。
-当前版本必须指定固定策略；``--force-strategy none`` 会报错。
+当前版本必须指定固定策略或 BO list；``--force-strategy none`` 单独使用会报错。
 
 批量脚本可通过环境变量 ``FORCE_STRATEGY`` 传入（见 ``run_vs_ai_batch.sh``）。
 
@@ -72,7 +72,7 @@ DEFAULT_FORCE_STRATEGY = "marine_rush"
 
 # --- BO list 直接执行模式 ---
 # 填 BO_list/<种族>/ 下的文件夹名（如 marine_rush → BO_list/terran/marine_rush/）。
-# 非空时启用 BO 直接执行模式，跳过 Naming/Ordering 流水线（Executor LLM 仍生效），
+# 非空时启用 BO 直接执行模式，跳过 Naming/Ordering 流水线（Executor LLM 仅 train 生效），
 # 与 DEFAULT_FORCE_STRATEGY 互斥。``None``/`""` 表示不启用。
 DEFAULT_BO_LIST: Optional[str] = None
 
@@ -280,7 +280,7 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     p.add_argument("--bot-race", default=DEFAULT_BOT_RACE, help="我方种族")
     p.add_argument("--naming-model", default=DEFAULT_NAMING_MODEL, help="Naming Agent (stage 2)")
     p.add_argument("--ordering-model", default=DEFAULT_ORDERING_MODEL, help="Ordering Agent (stage 4)")
-    p.add_argument("--executor-model", default=DEFAULT_EXECUTOR_MODEL, help="Executor Agent (train/addon/morph)")
+    p.add_argument("--executor-model", default=DEFAULT_EXECUTOR_MODEL, help="Executor Agent (train)")
     p.add_argument("--batch-name", default="", help="记录写入 game_records/<batch-name>/ 归档")
     p.add_argument("--run-index", type=int, default=None, help="批处理序号以防并发冲突")
     p.add_argument("--output-base-dir", default=OUTPUT_BASE_DIR, help="记录根目录")

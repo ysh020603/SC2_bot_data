@@ -150,7 +150,7 @@ Builds:
         )
         parser.add_argument(
             "--executor-model",
-            help="Model key from config.json for Executor Agent (train/addon/morph).",
+            help="Model key from config.json for Executor Agent (train).",
             default="",
         )
         parser.add_argument(

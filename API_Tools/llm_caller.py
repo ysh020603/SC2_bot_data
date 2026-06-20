@@ -19,6 +19,12 @@ import re
 import threading
 from typing import Any, Dict, List, Optional
 
+from API_Tools.reasoning_extractor import (
+    DEFAULT_REASONING_EXTRACT_MODE,
+    REASONING_NONE,
+    extract_reasoning,
+)
+
 logger = logging.getLogger("API_Tools.llm_caller")
 
 _AGENT_POOL_REL_PATH = os.path.join("API_config", "config.json")
@@ -138,6 +144,72 @@ def _apply_reasoning_disable(model: str, request_kwargs: Dict[str, Any]) -> None
     request_kwargs["extra_body"] = extra_body
 
 
+def _deep_merge_dict(base: Dict[str, Any], overlay: Dict[str, Any]) -> Dict[str, Any]:
+    result = dict(base)
+    for key, value in overlay.items():
+        if isinstance(result.get(key), dict) and isinstance(value, dict):
+            result[key] = _deep_merge_dict(result[key], value)
+        else:
+            result[key] = value
+    return result
+
+
+def _merge_extra_body(request_kwargs: Dict[str, Any], extra_body: Optional[Dict[str, Any]]) -> None:
+    if not extra_body:
+        return
+    current = dict(request_kwargs.get("extra_body") or {})
+    request_kwargs["extra_body"] = _deep_merge_dict(current, extra_body)
+
+
+def _message_to_dict(message: Any) -> Dict[str, Any]:
+    if message is None:
+        return {}
+    if isinstance(message, dict):
+        return dict(message)
+    for method_name in ("model_dump", "dict"):
+        method = getattr(message, method_name, None)
+        if callable(method):
+            try:
+                return dict(method())
+            except Exception:
+                pass
+    result: Dict[str, Any] = {}
+    for key in (
+        "role",
+        "content",
+        "reasoning_content",
+        "reasoning",
+        "reasoning_details",
+        "tool_calls",
+    ):
+        if hasattr(message, key):
+            result[key] = getattr(message, key)
+    return result
+
+
+def _empty_call_result(
+    *,
+    model_key: Optional[str],
+    model: Optional[str] = None,
+    is_reasoning: Any = None,
+    reasoning_extract_mode: str = DEFAULT_REASONING_EXTRACT_MODE,
+    error: str = "",
+) -> Dict[str, Any]:
+    return {
+        "content": "",
+        "reasoning": "",
+        "raw_content": "",
+        "reasoning_source": REASONING_NONE,
+        "reasoning_extract_mode": reasoning_extract_mode,
+        "model_key": model_key or "",
+        "model": model or "",
+        "is_reasoning": None if is_reasoning is _MISSING else is_reasoning,
+        "raw_message": {},
+        "raw_message_keys": [],
+        "error": error,
+    }
+
+
 def call_openai(
     messages: List[Dict[str, str]],
     *,
@@ -153,6 +225,7 @@ def call_openai(
     extra_body: Optional[Dict[str, Any]] = None,
     config_path: Optional[str] = None,
     top_p: Optional[float] = None,
+    reasoning_extract_mode: Optional[str] = None,
     **passthrough: Any,
 ) -> str:
     """同步调用 OpenAI 兼容 chat completion，返回清洗后的纯文本。
@@ -164,13 +237,52 @@ def call_openai(
       - ``false`` : 按模型名注入厂商对应的关闭 thinking 参数；
       - ``null`` / 未配置：不干预，按服务端默认行为。
     """
+    result = call_openai_detailed(
+        messages=messages,
+        model_key=model_key,
+        model=model,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        is_reasoning=is_reasoning,
+        api_key=api_key,
+        base_url=base_url,
+        timeout=timeout,
+        response_format=response_format,
+        extra_body=extra_body,
+        config_path=config_path,
+        top_p=top_p,
+        reasoning_extract_mode=reasoning_extract_mode,
+        **passthrough,
+    )
+    return result.get("content", "") or ""
+
+
+def call_openai_detailed(
+    messages: List[Dict[str, str]],
+    *,
+    model_key: Optional[str] = None,
+    model: Optional[str] = None,
+    temperature: Optional[float] = None,
+    max_tokens: Optional[int] = None,
+    is_reasoning: Any = _MISSING,
+    api_key: Optional[str] = None,
+    base_url: Optional[str] = None,
+    timeout: Optional[float] = None,
+    response_format: Optional[Dict[str, Any]] = None,
+    extra_body: Optional[Dict[str, Any]] = None,
+    config_path: Optional[str] = None,
+    top_p: Optional[float] = None,
+    reasoning_extract_mode: Optional[str] = None,
+    **passthrough: Any,
+) -> Dict[str, Any]:
+    """同步调用 OpenAI 兼容 chat completion，返回正式内容和 reasoning 明细。"""
     if not model_key:
         logger.warning("call_openai: model_key is required (configure llm_agents_pool in config.json).")
-        return ""
+        return _empty_call_result(model_key=model_key, error="missing_model_key")
 
     pool_cfg = _resolve_model_from_pool(model_key, config_path)
     if not pool_cfg:
-        return ""
+        return _empty_call_result(model_key=model_key, error="missing_model_config")
 
     def _pick(explicit: Any, pool_key: str, default: Any = _MISSING) -> Any:
         if explicit is not _MISSING and explicit is not None:
@@ -194,22 +306,44 @@ def call_openai(
     final_timeout = _pick(timeout, "timeout_seconds", _MISSING)
     final_response_format = _pick(response_format, "response_format", _MISSING)
     final_top_p = _pick(top_p, "top_p", _MISSING)
+    final_reasoning_extract_mode = (
+        reasoning_extract_mode
+        or pool_cfg.get("reasoning_extract_mode")
+        or DEFAULT_REASONING_EXTRACT_MODE
+    )
 
     if pool_cfg.get("enable_identity") and pool_cfg.get("identity_prompt"):
         messages = _inject_identity_prompt(messages, pool_cfg["identity_prompt"])
 
     if not final_model or final_model is _MISSING:
         logger.warning("call_openai: no model configured for model_key=%s", model_key)
-        return ""
+        return _empty_call_result(
+            model_key=model_key,
+            is_reasoning=final_is_reasoning,
+            reasoning_extract_mode=final_reasoning_extract_mode,
+            error="missing_model",
+        )
     if not final_api_key or final_api_key is _MISSING:
         logger.warning("call_openai: no api_key configured for model_key=%s", model_key)
-        return ""
+        return _empty_call_result(
+            model_key=model_key,
+            model=str(final_model),
+            is_reasoning=final_is_reasoning,
+            reasoning_extract_mode=final_reasoning_extract_mode,
+            error="missing_api_key",
+        )
 
     try:
         from openai import OpenAI
     except ImportError:
         logger.warning("openai SDK is not installed; please `pip install openai`.")
-        return ""
+        return _empty_call_result(
+            model_key=model_key,
+            model=str(final_model),
+            is_reasoning=final_is_reasoning,
+            reasoning_extract_mode=final_reasoning_extract_mode,
+            error="missing_openai_sdk",
+        )
 
     client_kwargs: Dict[str, Any] = {"api_key": final_api_key}
     if final_base_url is not _MISSING and final_base_url:
@@ -221,7 +355,13 @@ def call_openai(
         client = OpenAI(**client_kwargs)
     except Exception as exc:
         logger.warning("call_openai: failed to build OpenAI client (%s)", exc)
-        return ""
+        return _empty_call_result(
+            model_key=model_key,
+            model=str(final_model),
+            is_reasoning=final_is_reasoning,
+            reasoning_extract_mode=final_reasoning_extract_mode,
+            error=f"client_init_failed: {exc}",
+        )
 
     request_kwargs: Dict[str, Any] = {
         "model": final_model,
@@ -235,11 +375,18 @@ def call_openai(
         request_kwargs["top_p"] = final_top_p
     if final_response_format is not _MISSING and final_response_format is not None:
         request_kwargs["response_format"] = final_response_format
-    if extra_body:
-        request_kwargs["extra_body"] = dict(extra_body)
 
-    if final_is_reasoning is False:
-        _apply_reasoning_disable(str(final_model), request_kwargs)
+    if final_is_reasoning is True:
+        _merge_extra_body(request_kwargs, pool_cfg.get("reasoning_extra_body"))
+    elif final_is_reasoning is False:
+        if pool_cfg.get("non_reasoning_extra_body"):
+            _merge_extra_body(request_kwargs, pool_cfg.get("non_reasoning_extra_body"))
+            if pool_cfg.get("non_reasoning_temperature") is not None:
+                request_kwargs["temperature"] = pool_cfg["non_reasoning_temperature"]
+        else:
+            _apply_reasoning_disable(str(final_model), request_kwargs)
+    if extra_body:
+        _merge_extra_body(request_kwargs, extra_body)
 
     request_kwargs.update(passthrough)
 
@@ -251,16 +398,44 @@ def call_openai(
             final_model,
             exc,
         )
-        return ""
+        return _empty_call_result(
+            model_key=model_key,
+            model=str(final_model),
+            is_reasoning=final_is_reasoning,
+            reasoning_extract_mode=final_reasoning_extract_mode,
+            error=f"completion_failed: {exc}",
+        )
 
     try:
         message = completion.choices[0].message
-        content = getattr(message, "content", "") or ""
     except Exception as exc:
         logger.warning("call_openai: cannot parse completion (%s)", exc)
-        return ""
+        return _empty_call_result(
+            model_key=model_key,
+            model=str(final_model),
+            is_reasoning=final_is_reasoning,
+            reasoning_extract_mode=final_reasoning_extract_mode,
+            error=f"parse_failed: {exc}",
+        )
 
-    return strip_think_tags(content)
+    extraction = extract_reasoning(completion, mode=final_reasoning_extract_mode)
+    raw_message = _message_to_dict(message)
+    content = extraction.get("final_content", "") or ""
+    if not content and final_reasoning_extract_mode == REASONING_NONE:
+        content = strip_think_tags(extraction.get("raw_content", "") or "")
+    return {
+        "content": content,
+        "reasoning": extraction.get("reasoning", "") or "",
+        "raw_content": extraction.get("raw_content", "") or "",
+        "reasoning_source": extraction.get("source", REASONING_NONE) or REASONING_NONE,
+        "reasoning_extract_mode": extraction.get("mode", final_reasoning_extract_mode),
+        "model_key": model_key,
+        "model": str(final_model),
+        "is_reasoning": None if final_is_reasoning is _MISSING else final_is_reasoning,
+        "raw_message": raw_message,
+        "raw_message_keys": sorted(raw_message.keys()),
+        "error": "",
+    }
 
 
-__all__ = ["call_openai", "load_agent_pool", "strip_think_tags"]
+__all__ = ["call_openai", "call_openai_detailed", "load_agent_pool", "strip_think_tags"]

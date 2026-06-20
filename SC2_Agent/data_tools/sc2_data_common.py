@@ -49,6 +49,7 @@ GENERIC_TECHLAB_HOST_ACTIONS = {
 
 #: Module-level cache so the ~2 MB database is parsed at most once per process.
 _DATABASE_CACHE: dict[str, Any] | None = None
+_ENTITY_IMPLICATION_CACHE: dict[int, dict[str, set[str]]] = {}
 
 
 def load_database(data_path: str | Path | None = None) -> dict[str, Any]:
@@ -108,6 +109,71 @@ def build_entity_indexes(data: dict[str, Any]) -> tuple[dict[str, dict[str, Any]
     units = {unit["name"]: unit for unit in data.get("Unit", [])}
     upgrades = {upgrade["name"]: upgrade for upgrade in data.get("Upgrade", [])}
     return units, upgrades
+
+
+def build_entity_implication_index(data: dict[str, Any]) -> dict[str, set[str]]:
+    """Return entity implications inferred from DB aliases and normal modes.
+
+    Example: ``SupplyDepotLowered`` has ``normal_mode_name=SupplyDepot`` in the
+    database, so having a lowered depot should satisfy tech checks that require a
+    normal ``SupplyDepot``.
+    """
+    cache_key = id(data)
+    cached = _ENTITY_IMPLICATION_CACHE.get(cache_key)
+    if cached is not None:
+        return {entity: set(implied) for entity, implied in cached.items()}
+
+    units, upgrades = build_entity_indexes(data)
+    valid_entities = set(units) | set(upgrades)
+    implications: dict[str, set[str]] = {}
+
+    for entity in units.values():
+        name = entity.get("name")
+        if not name:
+            continue
+        implied: set[str] = set()
+        for key in ("normal_mode_name", "unit_alias_name"):
+            value = entity.get(key)
+            if isinstance(value, str) and value and value != name:
+                implied.add(value)
+        for value in entity.get("tech_alias_names") or []:
+            if isinstance(value, str) and value and value != name:
+                implied.add(value)
+
+        implied = {value for value in implied if value in valid_entities}
+        if implied:
+            implications.setdefault(name, set()).update(implied)
+
+    _ENTITY_IMPLICATION_CACHE[cache_key] = {
+        entity: set(implied) for entity, implied in implications.items()
+    }
+    return implications
+
+
+def expand_entity_implications(
+    entities: set[str],
+    *,
+    data: dict[str, Any] | None = None,
+    extra_implications: dict[str, set[str]] | None = None,
+) -> set[str]:
+    """Expand entity names through explicit and database-derived implications."""
+    if data is None:
+        data = load_database()
+    implications = build_entity_implication_index(data)
+    if extra_implications:
+        for entity, implied in extra_implications.items():
+            implications.setdefault(entity, set()).update(implied)
+
+    closed = set(entities)
+    changed = True
+    while changed:
+        changed = False
+        for entity in list(closed):
+            for implied in implications.get(entity, set()):
+                if implied not in closed:
+                    closed.add(implied)
+                    changed = True
+    return closed
 
 
 def canonical_entity_name(data: dict[str, Any], entity_name: str) -> str:

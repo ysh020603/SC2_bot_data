@@ -12,6 +12,9 @@ and launcher cleanup, but are not game-running experiment tools.
 - `test_ordering_agent_prompt.py`
   - Verifies Ordering Agent prompts include the current strategy step.
   - Verifies the prompt still tells the model not to add or remove actions.
+- `test_naming_agent_prompt.py`
+  - Verifies Naming Agent prompts include jargon and upgrade category hints.
+  - Verifies Terran entity validation accepts exact canonical names only.
 
 ## Run
 

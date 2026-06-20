@@ -21,26 +21,20 @@ try:  # package import (normal runtime)
     from .check_action_prereqs import check_action_prerequisites, ENTITY_IMPLIES
     from .entity_to_actions import actions_for_entities
     from .obs_entities import collect_entities
-    from .sc2_data_common import canonical_ability_name, load_database
+    from .sc2_data_common import canonical_ability_name, expand_entity_implications, load_database
 except ImportError:  # pragma: no cover
     from check_action_prereqs import check_action_prerequisites, ENTITY_IMPLIES  # type: ignore
     from entity_to_actions import actions_for_entities  # type: ignore
     from obs_entities import collect_entities  # type: ignore
-    from sc2_data_common import canonical_ability_name, load_database  # type: ignore
+    from sc2_data_common import canonical_ability_name, expand_entity_implications, load_database  # type: ignore
 
 
 def _expand_implications(entities: set[str]) -> set[str]:
     """Add implied entities (e.g. having a Barracks if you have BarracksTechLab)."""
-    closed = set(entities)
-    changed = True
-    while changed:
-        changed = False
-        for ent in list(closed):
-            for implied in ENTITY_IMPLIES.get(ent, set()):
-                if implied not in closed:
-                    closed.add(implied)
-                    changed = True
-    return closed
+    return expand_entity_implications(
+        set(entities),
+        extra_implications=ENTITY_IMPLIES,
+    )
 
 
 def _report_for(ai: Any, action: str) -> dict[str, Any]:

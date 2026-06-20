@@ -67,6 +67,16 @@ def _upgrade_cost(upgrade: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _normalise_action_cost(cost: dict[str, Any], target_kind: str | None) -> dict[str, Any]:
+    normalized = dict(cost)
+    # Morph/upgrade-to actions replace an existing unit. If the result unit has
+    # supply-providing stats in the DB (for example OrbitalCommand), that is not
+    # extra supply gained by issuing the morph command.
+    if target_kind in {"Morph", "MorphPlace"}:
+        normalized["supply"] = 0
+    return normalized
+
+
 def cost_for_action(action_name: str, *, data_path: str | Path | None = None) -> dict[str, Any]:
     data = load_database(data_path)
     ability_index = build_ability_index(data)
@@ -113,9 +123,8 @@ def cost_for_action(action_name: str, *, data_path: str | Path | None = None) ->
         primary_cost = dict(cost_override)
         if results:
             results[0]["cost"] = dict(cost_override)
-    elif target_kind in {"Morph", "MorphPlace"} and primary_cost is not None:
-        primary_cost = dict(primary_cost)
-        primary_cost["supply"] = 0
+    if primary_cost is not None:
+        primary_cost = _normalise_action_cost(primary_cost, target_kind)
         if results:
             results[0]["cost"] = primary_cost
     return {
