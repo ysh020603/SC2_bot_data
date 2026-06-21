@@ -1,0 +1,1770 @@
+{
+  "total_trajectories": 10,
+  "success": 10,
+  "failed": 0,
+  "bo_data": {
+    "marine_rush": {
+      "bot_name": "Marine Rush",
+      "map": "KairosJunctionLE",
+      "sequence_file": "marine-ai.zerg.veryhard_KairosJunctionLE_2026-06-16 21_26_19_53554.json",
+      "total_actions": 93,
+      "total_steps": 9,
+      "steps": [
+        {
+          "step": 1,
+          "range": [
+            0,
+            10
+          ],
+          "action_count": 11,
+          "llm_call_done": true
+        },
+        {
+          "step": 2,
+          "range": [
+            11,
+            20
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 3,
+          "range": [
+            21,
+            30
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 4,
+          "range": [
+            31,
+            40
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 5,
+          "range": [
+            41,
+            50
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 6,
+          "range": [
+            51,
+            60
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 7,
+          "range": [
+            61,
+            70
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 8,
+          "range": [
+            71,
+            80
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 9,
+          "range": [
+            81,
+            92
+          ],
+          "action_count": 12,
+          "llm_call_done": true
+        },
+        {
+          "step": 10,
+          "range": null,
+          "action_count": null,
+          "llm_call_done": true,
+          "is_final_step": true
+        }
+      ],
+      "md_path": "D:\\SC2\\bo_collection_runs\\Tools\\bo_docs_balanced\\marine_rush.md"
+    },
+    "banshees": {
+      "bot_name": "Rusty Screams",
+      "map": "KairosJunctionLE",
+      "sequence_file": "banshee-ai.zerg.mediumhard_KairosJunctionLE_2026-06-16 21_05_19_723436.json",
+      "total_actions": 176,
+      "total_steps": 15,
+      "steps": [
+        {
+          "step": 1,
+          "range": [
+            0,
+            9
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 2,
+          "range": [
+            10,
+            24
+          ],
+          "action_count": 15,
+          "llm_call_done": true
+        },
+        {
+          "step": 3,
+          "range": [
+            25,
+            35
+          ],
+          "action_count": 11,
+          "llm_call_done": true
+        },
+        {
+          "step": 4,
+          "range": [
+            36,
+            45
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 5,
+          "range": [
+            46,
+            59
+          ],
+          "action_count": 14,
+          "llm_call_done": true
+        },
+        {
+          "step": 6,
+          "range": [
+            60,
+            69
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 7,
+          "range": [
+            70,
+            83
+          ],
+          "action_count": 14,
+          "llm_call_done": true
+        },
+        {
+          "step": 8,
+          "range": [
+            84,
+            93
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 9,
+          "range": [
+            94,
+            103
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 10,
+          "range": [
+            104,
+            113
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 11,
+          "range": [
+            114,
+            123
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 12,
+          "range": [
+            124,
+            133
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 13,
+          "range": [
+            134,
+            147
+          ],
+          "action_count": 14,
+          "llm_call_done": true
+        },
+        {
+          "step": 14,
+          "range": [
+            148,
+            160
+          ],
+          "action_count": 13,
+          "llm_call_done": true
+        },
+        {
+          "step": 15,
+          "range": [
+            161,
+            175
+          ],
+          "action_count": 15,
+          "llm_call_done": true
+        },
+        {
+          "step": 16,
+          "range": null,
+          "action_count": null,
+          "llm_call_done": true,
+          "is_final_step": true
+        }
+      ],
+      "md_path": "D:\\SC2\\bo_collection_runs\\Tools\\bo_docs_balanced\\banshees.md"
+    },
+    "one_base_turtle": {
+      "bot_name": "One Base Turtle Defence",
+      "map": "KairosJunctionLE",
+      "sequence_file": "terranturtle-ai.zerg.veryhard_KairosJunctionLE_2026-06-16 21_30_16_713792.json",
+      "total_actions": 104,
+      "total_steps": 10,
+      "steps": [
+        {
+          "step": 1,
+          "range": [
+            0,
+            10
+          ],
+          "action_count": 11,
+          "llm_call_done": true
+        },
+        {
+          "step": 2,
+          "range": [
+            11,
+            20
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 3,
+          "range": [
+            21,
+            31
+          ],
+          "action_count": 11,
+          "llm_call_done": true
+        },
+        {
+          "step": 4,
+          "range": [
+            32,
+            41
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 5,
+          "range": [
+            42,
+            51
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 6,
+          "range": [
+            52,
+            61
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 7,
+          "range": [
+            62,
+            71
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 8,
+          "range": [
+            72,
+            81
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 9,
+          "range": [
+            82,
+            91
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 10,
+          "range": [
+            92,
+            103
+          ],
+          "action_count": 12,
+          "llm_call_done": true
+        },
+        {
+          "step": 11,
+          "range": null,
+          "action_count": null,
+          "llm_call_done": true,
+          "is_final_step": true
+        }
+      ],
+      "md_path": "D:\\SC2\\bo_collection_runs\\Tools\\bo_docs_balanced\\one_base_turtle.md"
+    },
+    "bio": {
+      "bot_name": "Rusty Infantry",
+      "map": "KairosJunctionLE",
+      "sequence_file": "bio-ai.zerg.veryhard_KairosJunctionLE_2026-06-16 21_17_05_730704.json",
+      "total_actions": 187,
+      "total_steps": 17,
+      "steps": [
+        {
+          "step": 1,
+          "range": [
+            0,
+            10
+          ],
+          "action_count": 11,
+          "llm_call_done": true
+        },
+        {
+          "step": 2,
+          "range": [
+            11,
+            20
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 3,
+          "range": [
+            21,
+            31
+          ],
+          "action_count": 11,
+          "llm_call_done": true
+        },
+        {
+          "step": 4,
+          "range": [
+            32,
+            42
+          ],
+          "action_count": 11,
+          "llm_call_done": true
+        },
+        {
+          "step": 5,
+          "range": [
+            43,
+            52
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 6,
+          "range": [
+            53,
+            65
+          ],
+          "action_count": 13,
+          "llm_call_done": true
+        },
+        {
+          "step": 7,
+          "range": [
+            66,
+            75
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 8,
+          "range": [
+            76,
+            85
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 9,
+          "range": [
+            86,
+            95
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 10,
+          "range": [
+            96,
+            108
+          ],
+          "action_count": 13,
+          "llm_call_done": true
+        },
+        {
+          "step": 11,
+          "range": [
+            109,
+            118
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 12,
+          "range": [
+            119,
+            128
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 13,
+          "range": [
+            129,
+            138
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 14,
+          "range": [
+            139,
+            148
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 15,
+          "range": [
+            149,
+            158
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 16,
+          "range": [
+            159,
+            168
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 17,
+          "range": [
+            169,
+            186
+          ],
+          "action_count": 18,
+          "llm_call_done": true
+        },
+        {
+          "step": 18,
+          "range": null,
+          "action_count": null,
+          "llm_call_done": true,
+          "is_final_step": true
+        }
+      ],
+      "md_path": "D:\\SC2\\bo_collection_runs\\Tools\\bo_docs_balanced\\bio.md"
+    },
+    "cyclones": {
+      "bot_name": "Rusty Locks",
+      "map": "KairosJunctionLE",
+      "sequence_file": "cyclone-ai.zerg.mediumhard_KairosJunctionLE_2026-06-16 21_21_26_56167.json",
+      "total_actions": 204,
+      "total_steps": 19,
+      "steps": [
+        {
+          "step": 1,
+          "range": [
+            0,
+            14
+          ],
+          "action_count": 15,
+          "llm_call_done": true
+        },
+        {
+          "step": 2,
+          "range": [
+            15,
+            24
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 3,
+          "range": [
+            25,
+            37
+          ],
+          "action_count": 13,
+          "llm_call_done": true
+        },
+        {
+          "step": 4,
+          "range": [
+            38,
+            47
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 5,
+          "range": [
+            48,
+            60
+          ],
+          "action_count": 13,
+          "llm_call_done": true
+        },
+        {
+          "step": 6,
+          "range": [
+            61,
+            70
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 7,
+          "range": [
+            71,
+            80
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 8,
+          "range": [
+            81,
+            90
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 9,
+          "range": [
+            91,
+            100
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 10,
+          "range": [
+            101,
+            110
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 11,
+          "range": [
+            111,
+            120
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 12,
+          "range": [
+            121,
+            133
+          ],
+          "action_count": 13,
+          "llm_call_done": true
+        },
+        {
+          "step": 13,
+          "range": [
+            134,
+            143
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 14,
+          "range": [
+            144,
+            153
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 15,
+          "range": [
+            154,
+            163
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 16,
+          "range": [
+            164,
+            174
+          ],
+          "action_count": 11,
+          "llm_call_done": true
+        },
+        {
+          "step": 17,
+          "range": [
+            175,
+            184
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 18,
+          "range": [
+            185,
+            194
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 19,
+          "range": [
+            195,
+            203
+          ],
+          "action_count": 9,
+          "llm_call_done": true
+        },
+        {
+          "step": 20,
+          "range": null,
+          "action_count": null,
+          "llm_call_done": true,
+          "is_final_step": true
+        }
+      ],
+      "md_path": "D:\\SC2\\bo_collection_runs\\Tools\\bo_docs_balanced\\cyclones.md"
+    },
+    "battle_cruisers": {
+      "bot_name": "Flying Rust",
+      "map": "KairosJunctionLE",
+      "sequence_file": "bc-ai.zerg.veryhard_KairosJunctionLE_2026-06-16 21_12_56_143001.json",
+      "total_actions": 246,
+      "total_steps": 23,
+      "steps": [
+        {
+          "step": 1,
+          "range": [
+            0,
+            9
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 2,
+          "range": [
+            10,
+            19
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 3,
+          "range": [
+            20,
+            30
+          ],
+          "action_count": 11,
+          "llm_call_done": true
+        },
+        {
+          "step": 4,
+          "range": [
+            31,
+            41
+          ],
+          "action_count": 11,
+          "llm_call_done": true
+        },
+        {
+          "step": 5,
+          "range": [
+            42,
+            51
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 6,
+          "range": [
+            52,
+            61
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 7,
+          "range": [
+            62,
+            71
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 8,
+          "range": [
+            72,
+            82
+          ],
+          "action_count": 11,
+          "llm_call_done": true
+        },
+        {
+          "step": 9,
+          "range": [
+            83,
+            97
+          ],
+          "action_count": 15,
+          "llm_call_done": true
+        },
+        {
+          "step": 10,
+          "range": [
+            98,
+            107
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 11,
+          "range": [
+            108,
+            117
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 12,
+          "range": [
+            118,
+            127
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 13,
+          "range": [
+            128,
+            137
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 14,
+          "range": [
+            138,
+            147
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 15,
+          "range": [
+            148,
+            157
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 16,
+          "range": [
+            158,
+            167
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 17,
+          "range": [
+            168,
+            177
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 18,
+          "range": [
+            178,
+            187
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 19,
+          "range": [
+            188,
+            197
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 20,
+          "range": [
+            198,
+            208
+          ],
+          "action_count": 11,
+          "llm_call_done": true
+        },
+        {
+          "step": 21,
+          "range": [
+            209,
+            219
+          ],
+          "action_count": 11,
+          "llm_call_done": true
+        },
+        {
+          "step": 22,
+          "range": [
+            220,
+            229
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 23,
+          "range": [
+            230,
+            245
+          ],
+          "action_count": 16,
+          "llm_call_done": true
+        },
+        {
+          "step": 24,
+          "range": null,
+          "action_count": null,
+          "llm_call_done": true,
+          "is_final_step": true
+        }
+      ],
+      "md_path": "D:\\SC2\\bo_collection_runs\\Tools\\bo_docs_balanced\\battle_cruisers.md"
+    },
+    "rusty": {
+      "bot_name": "Old Rusty",
+      "map": "KairosJunctionLE",
+      "sequence_file": "oldrusty-ai.zerg.veryhard_KairosJunctionLE_2026-06-16 21_34_17_28063.json",
+      "total_actions": 238,
+      "total_steps": 22,
+      "steps": [
+        {
+          "step": 1,
+          "range": [
+            0,
+            9
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 2,
+          "range": [
+            10,
+            23
+          ],
+          "action_count": 14,
+          "llm_call_done": true
+        },
+        {
+          "step": 3,
+          "range": [
+            24,
+            33
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 4,
+          "range": [
+            34,
+            47
+          ],
+          "action_count": 14,
+          "llm_call_done": true
+        },
+        {
+          "step": 5,
+          "range": [
+            48,
+            62
+          ],
+          "action_count": 15,
+          "llm_call_done": true
+        },
+        {
+          "step": 6,
+          "range": [
+            63,
+            73
+          ],
+          "action_count": 11,
+          "llm_call_done": true
+        },
+        {
+          "step": 7,
+          "range": [
+            74,
+            83
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 8,
+          "range": [
+            84,
+            93
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 9,
+          "range": [
+            94,
+            103
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 10,
+          "range": [
+            104,
+            113
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 11,
+          "range": [
+            114,
+            123
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 12,
+          "range": [
+            124,
+            133
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 13,
+          "range": [
+            134,
+            143
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 14,
+          "range": [
+            144,
+            153
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 15,
+          "range": [
+            154,
+            163
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 16,
+          "range": [
+            164,
+            173
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 17,
+          "range": [
+            174,
+            183
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 18,
+          "range": [
+            184,
+            193
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 19,
+          "range": [
+            194,
+            203
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 20,
+          "range": [
+            204,
+            213
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 21,
+          "range": [
+            214,
+            223
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 22,
+          "range": [
+            224,
+            237
+          ],
+          "action_count": 14,
+          "llm_call_done": true
+        },
+        {
+          "step": 23,
+          "range": null,
+          "action_count": null,
+          "llm_call_done": true,
+          "is_final_step": true
+        }
+      ],
+      "md_path": "D:\\SC2\\bo_collection_runs\\Tools\\bo_docs_balanced\\rusty.md"
+    },
+    "two_base_tanks": {
+      "bot_name": "Two base tanks",
+      "map": "KairosJunctionLE",
+      "sequence_file": "tank-ai.zerg.veryhard_KairosJunctionLE_2026-06-16 21_45_10_513008.json",
+      "total_actions": 195,
+      "total_steps": 18,
+      "steps": [
+        {
+          "step": 1,
+          "range": [
+            0,
+            9
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 2,
+          "range": [
+            10,
+            19
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 3,
+          "range": [
+            20,
+            29
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 4,
+          "range": [
+            30,
+            39
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 5,
+          "range": [
+            40,
+            50
+          ],
+          "action_count": 11,
+          "llm_call_done": true
+        },
+        {
+          "step": 6,
+          "range": [
+            51,
+            61
+          ],
+          "action_count": 11,
+          "llm_call_done": true
+        },
+        {
+          "step": 7,
+          "range": [
+            62,
+            75
+          ],
+          "action_count": 14,
+          "llm_call_done": true
+        },
+        {
+          "step": 8,
+          "range": [
+            76,
+            85
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 9,
+          "range": [
+            86,
+            97
+          ],
+          "action_count": 12,
+          "llm_call_done": true
+        },
+        {
+          "step": 10,
+          "range": [
+            98,
+            107
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 11,
+          "range": [
+            108,
+            117
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 12,
+          "range": [
+            118,
+            127
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 13,
+          "range": [
+            128,
+            137
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 14,
+          "range": [
+            138,
+            147
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 15,
+          "range": [
+            148,
+            157
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 16,
+          "range": [
+            158,
+            167
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 17,
+          "range": [
+            168,
+            178
+          ],
+          "action_count": 11,
+          "llm_call_done": true
+        },
+        {
+          "step": 18,
+          "range": [
+            179,
+            194
+          ],
+          "action_count": 16,
+          "llm_call_done": true
+        },
+        {
+          "step": 19,
+          "range": null,
+          "action_count": null,
+          "llm_call_done": true,
+          "is_final_step": true
+        }
+      ],
+      "md_path": "D:\\SC2\\bo_collection_runs\\Tools\\bo_docs_balanced\\two_base_tanks.md"
+    },
+    "terran_silver_bio": {
+      "bot_name": "Rusty Infantry",
+      "map": "KairosJunctionLE",
+      "sequence_file": "silverbio-ai.zerg.veryhard_KairosJunctionLE_2026-06-16 21_41_17_618653.json",
+      "total_actions": 223,
+      "total_steps": 21,
+      "steps": [
+        {
+          "step": 1,
+          "range": [
+            0,
+            9
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 2,
+          "range": [
+            10,
+            20
+          ],
+          "action_count": 11,
+          "llm_call_done": true
+        },
+        {
+          "step": 3,
+          "range": [
+            21,
+            30
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 4,
+          "range": [
+            31,
+            40
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 5,
+          "range": [
+            41,
+            50
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 6,
+          "range": [
+            51,
+            60
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 7,
+          "range": [
+            61,
+            70
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 8,
+          "range": [
+            71,
+            81
+          ],
+          "action_count": 11,
+          "llm_call_done": true
+        },
+        {
+          "step": 9,
+          "range": [
+            82,
+            93
+          ],
+          "action_count": 12,
+          "llm_call_done": true
+        },
+        {
+          "step": 10,
+          "range": [
+            94,
+            105
+          ],
+          "action_count": 12,
+          "llm_call_done": true
+        },
+        {
+          "step": 11,
+          "range": [
+            106,
+            115
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 12,
+          "range": [
+            116,
+            125
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 13,
+          "range": [
+            126,
+            135
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 14,
+          "range": [
+            136,
+            145
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 15,
+          "range": [
+            146,
+            155
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 16,
+          "range": [
+            156,
+            165
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 17,
+          "range": [
+            166,
+            175
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 18,
+          "range": [
+            176,
+            185
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 19,
+          "range": [
+            186,
+            195
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 20,
+          "range": [
+            196,
+            205
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 21,
+          "range": [
+            206,
+            222
+          ],
+          "action_count": 17,
+          "llm_call_done": true
+        },
+        {
+          "step": 22,
+          "range": null,
+          "action_count": null,
+          "llm_call_done": true,
+          "is_final_step": true
+        }
+      ],
+      "md_path": "D:\\SC2\\bo_collection_runs\\Tools\\bo_docs_balanced\\terran_silver_bio.md"
+    },
+    "safe_tvt_raven": {
+      "bot_name": "Safe TvT Raven Opening",
+      "map": "KairosJunctionLE",
+      "sequence_file": "saferaven-ai.zerg.veryhard_KairosJunctionLE_2026-06-16 21_38_56_20895.json",
+      "total_actions": 249,
+      "total_steps": 23,
+      "steps": [
+        {
+          "step": 1,
+          "range": [
+            0,
+            9
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 2,
+          "range": [
+            10,
+            19
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 3,
+          "range": [
+            20,
+            33
+          ],
+          "action_count": 14,
+          "llm_call_done": true
+        },
+        {
+          "step": 4,
+          "range": [
+            34,
+            43
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 5,
+          "range": [
+            44,
+            53
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 6,
+          "range": [
+            54,
+            63
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 7,
+          "range": [
+            64,
+            74
+          ],
+          "action_count": 11,
+          "llm_call_done": true
+        },
+        {
+          "step": 8,
+          "range": [
+            75,
+            85
+          ],
+          "action_count": 11,
+          "llm_call_done": true
+        },
+        {
+          "step": 9,
+          "range": [
+            86,
+            100
+          ],
+          "action_count": 15,
+          "llm_call_done": true
+        },
+        {
+          "step": 10,
+          "range": [
+            101,
+            110
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 11,
+          "range": [
+            111,
+            120
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 12,
+          "range": [
+            121,
+            131
+          ],
+          "action_count": 11,
+          "llm_call_done": true
+        },
+        {
+          "step": 13,
+          "range": [
+            132,
+            143
+          ],
+          "action_count": 12,
+          "llm_call_done": true
+        },
+        {
+          "step": 14,
+          "range": [
+            144,
+            153
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 15,
+          "range": [
+            154,
+            163
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 16,
+          "range": [
+            164,
+            173
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 17,
+          "range": [
+            174,
+            183
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 18,
+          "range": [
+            184,
+            193
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 19,
+          "range": [
+            194,
+            203
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 20,
+          "range": [
+            204,
+            213
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 21,
+          "range": [
+            214,
+            223
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 22,
+          "range": [
+            224,
+            233
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 23,
+          "range": [
+            234,
+            248
+          ],
+          "action_count": 15,
+          "llm_call_done": true
+        },
+        {
+          "step": 24,
+          "range": null,
+          "action_count": null,
+          "llm_call_done": true,
+          "is_final_step": true
+        }
+      ],
+      "md_path": "D:\\SC2\\bo_collection_runs\\Tools\\bo_docs_balanced\\safe_tvt_raven.md"
+    }
+  }
+}

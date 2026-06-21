@@ -1,0 +1,152 @@
+{
+  "total_trajectories": 1,
+  "success": 1,
+  "failed": 0,
+  "bo_data": {
+    "banshees": {
+      "bot_name": "Rusty Screams",
+      "map": "KairosJunctionLE",
+      "sequence_file": "banshee-ai.zerg.mediumhard_KairosJunctionLE_2026-06-16 21_05_19_723436.json",
+      "total_actions": 176,
+      "total_steps": 15,
+      "steps": [
+        {
+          "step": 1,
+          "range": [
+            0,
+            9
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 2,
+          "range": [
+            10,
+            24
+          ],
+          "action_count": 15,
+          "llm_call_done": true
+        },
+        {
+          "step": 3,
+          "range": [
+            25,
+            35
+          ],
+          "action_count": 11,
+          "llm_call_done": true
+        },
+        {
+          "step": 4,
+          "range": [
+            36,
+            45
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 5,
+          "range": [
+            46,
+            59
+          ],
+          "action_count": 14,
+          "llm_call_done": true
+        },
+        {
+          "step": 6,
+          "range": [
+            60,
+            69
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 7,
+          "range": [
+            70,
+            83
+          ],
+          "action_count": 14,
+          "llm_call_done": true
+        },
+        {
+          "step": 8,
+          "range": [
+            84,
+            93
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 9,
+          "range": [
+            94,
+            103
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 10,
+          "range": [
+            104,
+            113
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 11,
+          "range": [
+            114,
+            123
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 12,
+          "range": [
+            124,
+            133
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 13,
+          "range": [
+            134,
+            147
+          ],
+          "action_count": 14,
+          "llm_call_done": true
+        },
+        {
+          "step": 14,
+          "range": [
+            148,
+            160
+          ],
+          "action_count": 13,
+          "llm_call_done": true
+        },
+        {
+          "step": 15,
+          "range": [
+            161,
+            175
+          ],
+          "action_count": 15,
+          "llm_call_done": true
+        }
+      ],
+      "md_path": "Tools/bo_docs_v1_cmp\\banshees.md"
+    }
+  }
+}
