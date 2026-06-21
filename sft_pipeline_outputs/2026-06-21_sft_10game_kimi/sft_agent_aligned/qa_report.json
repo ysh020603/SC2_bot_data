@@ -1,0 +1,54 @@
+{
+  "naming": {
+    "thinking": {
+      "total": 184,
+      "kept": 184,
+      "dropped_empty_answer": 0,
+      "file": "C:\\code\\SC2_bot_data\\sft_pipeline_outputs\\2026-06-21_sft_10game_kimi\\sft_agent_aligned\\naming\\sc2_naming_qwen3_thinking_sft.json"
+    },
+    "nothink": {
+      "total": 184,
+      "kept": 184,
+      "dropped_empty_answer": 0,
+      "file": "C:\\code\\SC2_bot_data\\sft_pipeline_outputs\\2026-06-21_sft_10game_kimi\\sft_agent_aligned\\naming\\sc2_naming_qwen3_nothink_sft.json"
+    }
+  },
+  "ordering": {
+    "thinking": {
+      "total": 184,
+      "kept": 177,
+      "dropped_short": 0,
+      "dropped_shuffle_same": 7,
+      "dropped_counter_mismatch": 0,
+      "file": "C:\\code\\SC2_bot_data\\sft_pipeline_outputs\\2026-06-21_sft_10game_kimi\\sft_agent_aligned\\ordering\\sc2_ordering_qwen3_thinking_sft.json"
+    },
+    "nothink": {
+      "total": 184,
+      "kept": 177,
+      "dropped_short": 0,
+      "dropped_shuffle_same": 7,
+      "dropped_counter_mismatch": 0,
+      "file": "C:\\code\\SC2_bot_data\\sft_pipeline_outputs\\2026-06-21_sft_10game_kimi\\sft_agent_aligned\\ordering\\sc2_ordering_qwen3_nothink_sft.json"
+    }
+  },
+  "executor": {
+    "thinking": {
+      "total": 1166,
+      "kept": 1166,
+      "dropped_no_context": 865,
+      "dropped_single_candidate": 0,
+      "dropped_bad_selected_tag": 0,
+      "dropped_tag_alias_collision": 0,
+      "file": "C:\\code\\SC2_bot_data\\sft_pipeline_outputs\\2026-06-21_sft_10game_kimi\\sft_agent_aligned\\executor\\sc2_executor_qwen3_thinking_sft.json"
+    },
+    "nothink": {
+      "total": 1166,
+      "kept": 1166,
+      "dropped_no_context": 865,
+      "dropped_single_candidate": 0,
+      "dropped_bad_selected_tag": 0,
+      "dropped_tag_alias_collision": 0,
+      "file": "C:\\code\\SC2_bot_data\\sft_pipeline_outputs\\2026-06-21_sft_10game_kimi\\sft_agent_aligned\\executor\\sc2_executor_qwen3_nothink_sft.json"
+    }
+  }
+}

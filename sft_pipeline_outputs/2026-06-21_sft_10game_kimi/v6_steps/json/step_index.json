@@ -1,0 +1,1741 @@
+{
+  "items": {
+    "bio_bio-ai_zerg_hard_凯罗斯中转站-天梯版_2026-06-21_19_40_15_569664": {
+      "source_sequence_file": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-21_sft_10game_kimi\\match_01_bio_zerg_hard_KairosJunctionLE\\bio\\sequences\\bio-ai.zerg.hard_凯罗斯中转站-天梯版_2026-06-21 19_40_15_569664.json",
+      "md_path": "C:\\code\\SC2_bot_data\\sft_pipeline_outputs\\2026-06-21_sft_10game_kimi\\v6_steps\\md\\bio_bio-ai_zerg_hard_凯罗斯中转站-天梯版_2026-06-21_19_40_15_569664.md",
+      "total_actions": 165,
+      "total_steps": 15,
+      "steps": [
+        {
+          "step": 1,
+          "range": [
+            0,
+            10
+          ],
+          "action_count": 11,
+          "step_text_v6": "[Step 1] Keep workers rolling out of the CC and throw down a depot to avoid supply block, then grab a refinery to start gas production. Drop the first rax and quickly add a second, with a reaper coming out to scout and apply early pressure."
+        },
+        {
+          "step": 2,
+          "range": [
+            11,
+            20
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 2] Morph the main CC into an orbital, then take the natural expansion to set up a second base. Keep worker production rolling and throw down a depot to stay ahead of supply. Train a couple of marines for early defense while adding a bunker at the natural to hold off any aggression. Finish by putting a reactor on the rax and throwing down the first factory to start transitioning into factory tech."
+        },
+        {
+          "step": 3,
+          "range": [
+            21,
+            30
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 3] Keep worker production rolling from the CC while training a steady stream of marines out of the rax. Throw down the factory tech lab and morph an OC to unlock scan and mule energy, setting up for the upcoming tech transition."
+        },
+        {
+          "step": 4,
+          "range": [
+            31,
+            44
+          ],
+          "action_count": 14,
+          "step_text_v6": "[Step 4] Keep the marine production rolling while the factory pumps out its first tank. Throw down a couple of depots to stay ahead of supply, then grab a second gas to fuel the tech transition. Add a tech lab onto the rax so stim or combat shield can come online soon, and queue up a few more SCVs to keep the economy ticking."
+        },
+        {
+          "step": 5,
+          "range": [
+            45,
+            54
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 5] Throw down a starport to open up air options while queuing up a couple of marines and several SCVs to keep the economy and army ticking. Research concussive shells at the tech lab to give marauders their slowing grenades, then add a second rax for more bio production and top off with a depot to avoid supply block."
+        },
+        {
+          "step": 6,
+          "range": [
+            55,
+            64
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 6] Keep worker production rolling while throwing down a couple of depots to avoid supply block. Add another tank from the factory and round out the rax output with a few more marines to reinforce the frontline or prepare for a push."
+        },
+        {
+          "step": 7,
+          "range": [
+            65,
+            79
+          ],
+          "action_count": 15,
+          "step_text_v6": "[Step 7] Start stim research and add a tech lab to the rax while keeping worker production rolling. Train a wave of marines and queue up the first medivac to prepare for a bio push, then throw down a depot to keep supply ahead of the production curve."
+        },
+        {
+          "step": 8,
+          "range": [
+            80,
+            93
+          ],
+          "action_count": 14,
+          "step_text_v6": "[Step 8] Take the third CC while keeping worker production rolling, then grab combat shields to toughen up the bio. Throw down a couple more rax for extra production and start cranking out marauders and a wave of marines, while adding a medivac to keep the push healthy—don't forget to drop a depot so you don't get supply blocked."
+        },
+        {
+          "step": 9,
+          "range": [
+            94,
+            103
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 9] Add a third rax and keep the marine-marauder production rolling to build out your bio force, throw down a couple depots to stay ahead of supply, then slap a reactor onto one of the rax for faster marine output. Start building out your starport with a viking to gain air control and scout for incoming threats."
+        },
+        {
+          "step": 10,
+          "range": [
+            104,
+            113
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 10] Keep marine production rolling and add a few marauders to the mix for extra punch, throw down a couple depots to stay ahead of supply, and morph an OC on the natural to get that economy humming. Finish by adding a reactor to the rax so you can flood even more bio onto the field."
+        },
+        {
+          "step": 11,
+          "range": [
+            114,
+            125
+          ],
+          "action_count": 12,
+          "step_text_v6": "[Step 11] Keep the marine pump flowing while mixing in a couple of marauders for added beef against armored targets. Add a reactor to the starport to start doubling air production, and throw down both your third and fourth refineries to support the growing gas demands of your tech and unit mix."
+        },
+        {
+          "step": 12,
+          "range": [
+            126,
+            135
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 12] Throw down a second rax to ramp up bio production, then queue up a marauder and a wave of marines alongside a second marauder to build out your core army. Start a medivac at the starport to get drop potential rolling and support the bio ball as it moves out."
+        },
+        {
+          "step": 13,
+          "range": [
+            136,
+            145
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 13] Throw down a depot to keep supply ahead of the incoming bio ball, then rally a medivac from the starport to support the push. Queue up a wave of marines and a couple of marauders out of the rax to reinforce the frontline, and drop two more depots so you don't get supply blocked as the army swells."
+        },
+        {
+          "step": 14,
+          "range": [
+            146,
+            155
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 14] Keep the rax humming with a mix of marines and marauders while queuing up 2 medivacs from the starport to support the bio ball; throw down a couple depots to stay ahead of supply as the army rounds out for the mid-game push."
+        },
+        {
+          "step": 15,
+          "range": [
+            156,
+            164
+          ],
+          "action_count": 9,
+          "step_text_v6": "[Step 15] Keep the rax hot by pumping out a mixed bio force—several Marines and a couple of Marauders—to hold the front, while throwing down a depot to avoid supply block. Meanwhile, get a Viking and a medivac rolling out of the starport to establish air control and set up drop play."
+        }
+      ]
+    },
+    "marine_rush_marine-ai_protoss_mediumhard_滨海卫城-天梯版_2026-06-21_19_42_53_336966": {
+      "source_sequence_file": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-21_sft_10game_kimi\\match_02_marine_protoss_mediumhard_AcropolisLE\\marine_rush\\sequences\\marine-ai.protoss.mediumhard_滨海卫城-天梯版_2026-06-21 19_42_53_336966.json",
+      "md_path": "C:\\code\\SC2_bot_data\\sft_pipeline_outputs\\2026-06-21_sft_10game_kimi\\v6_steps\\md\\marine_rush_marine-ai_protoss_mediumhard_滨海卫城-天梯版_2026-06-21_19_42_53_336966.md",
+      "total_actions": 92,
+      "total_steps": 9,
+      "steps": [
+        {
+          "step": 1,
+          "range": [
+            0,
+            10
+          ],
+          "action_count": 11,
+          "step_text_v6": "[Step 1] Keep worker production rolling while throwing down a couple of depots to avoid supply block, then slam down 3 rax to set up a solid bio foundation."
+        },
+        {
+          "step": 2,
+          "range": [
+            11,
+            22
+          ],
+          "action_count": 12,
+          "step_text_v6": "[Step 2] Morph your first CC into an orbital to get that sweet mule energy rolling, then throw down the second and third rax to power up marine production. Keep workers training nonstop while you pump out a wave of marines across all your barracks, and drop a depot to stay ahead of supply block as your army count starts climbing."
+        },
+        {
+          "step": 3,
+          "range": [
+            23,
+            32
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 3] Throw down a second rax and keep marine production rolling non-stop, pumping out a solid wave of marines to build up early map pressure and defense. Add a depot to keep supply from getting tight as the army grows."
+        },
+        {
+          "step": 4,
+          "range": [
+            33,
+            42
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 4] Keep the rax humming with steady marine production while adding another worker to the mineral line, then throw down a depot to clear up supply block before reinforcing with a few more marines."
+        },
+        {
+          "step": 5,
+          "range": [
+            43,
+            52
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 5] Throw down a depot to keep supply ahead of your production, then flood out a wave of Marines from your rax to build up a critical mass of bio. This heavy marine production phase is about establishing map presence and preparing for a potential timing push or defensive hold."
+        },
+        {
+          "step": 6,
+          "range": [
+            53,
+            62
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 6] Throw down a couple of depots to keep supply from capping out while flooding out a wave of Marines from your rax — this is pure bio production to build up a critical mass of infantry heading into the mid-game."
+        },
+        {
+          "step": 7,
+          "range": [
+            63,
+            72
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 7] Spam out a massive wave of marines from your rax to build up a critical mass of bio, preparing for a timing push or to hold off an enemy attack with overwhelming numbers."
+        },
+        {
+          "step": 8,
+          "range": [
+            73,
+            82
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 8] Queue up a massive wave of 10 Marines across your rax to flood the field with bio, signaling an all-in or heavy pressure timing where you're committing fully to marine production rather than teching up."
+        },
+        {
+          "step": 9,
+          "range": [
+            83,
+            91
+          ],
+          "action_count": 9,
+          "step_text_v6": "[Step 9] Keep marine production rolling out of the rax while throwing down three depots to avoid supply block. This is a heavy marine reinforcement phase to build up a critical mass of bio for the upcoming push or to hold off aggression."
+        }
+      ]
+    },
+    "two_base_tanks_tank-ai_terran_harder_伊菲莫隆-天梯版_2026-06-21_19_47_18_875845": {
+      "source_sequence_file": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-21_sft_10game_kimi\\match_03_tank_terran_harder_EphemeronLE\\two_base_tanks\\sequences\\tank-ai.terran.harder_伊菲莫隆-天梯版_2026-06-21 19_47_18_875845.json",
+      "md_path": "C:\\code\\SC2_bot_data\\sft_pipeline_outputs\\2026-06-21_sft_10game_kimi\\v6_steps\\md\\two_base_tanks_tank-ai_terran_harder_伊菲莫隆-天梯版_2026-06-21_19_47_18_875845.md",
+      "total_actions": 355,
+      "total_steps": 34,
+      "steps": [
+        {
+          "step": 1,
+          "range": [
+            0,
+            9
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 1] Keep worker production rolling with several SCVs while throwing down a depot, the first rax, and a refinery to get gas flowing. This sets up the standard opening for a bio or tech build, establishing basic production and economy before committing to any specific direction."
+        },
+        {
+          "step": 2,
+          "range": [
+            10,
+            19
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 2] Take the natural expansion and throw down a depot to keep supply ahead, then queue up several SCVs across both bases. Start the first Refinery to get gas flowing and lay down a Factory for the eventual tech switch, while training a couple of Marines to hold the front."
+        },
+        {
+          "step": 3,
+          "range": [
+            20,
+            29
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 3] Keep workers rolling out of the CC while throwing down depots to clear the supply block and prepare for heavy production. Drop a tech lab on the factory so you can start getting useful tech online—this is the setup phase before you start pumping out real units."
+        },
+        {
+          "step": 4,
+          "range": [
+            30,
+            40
+          ],
+          "action_count": 11,
+          "step_text_v6": "[Step 4] Throw down the first factory and keep worker production rolling with several SCVs, then queue up a tank while adding a tech lab to the factory for siege mode and future upgrades."
+        },
+        {
+          "step": 5,
+          "range": [
+            41,
+            50
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 5] Throw down depots to keep supply ahead of production while training a couple of tanks from the factory to establish a defensive core. Add a second Refinery to fuel the growing gas demands, and keep worker production rolling with several SCVs to maintain a healthy economy behind the mech setup."
+        },
+        {
+          "step": 6,
+          "range": [
+            51,
+            60
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 6] Keep worker production rolling with several SCVs coming out across both bases while the factory pumps out a couple of Siege Tanks to shore up the defensive line and prepare for a potential push or hold against incoming pressure."
+        },
+        {
+          "step": 7,
+          "range": [
+            61,
+            71
+          ],
+          "action_count": 11,
+          "step_text_v6": "[Step 7] Keep the worker production rolling with several SCVs while the factory pumps out a couple of Siege Tanks to anchor your position. Add a few Marines from the rax for frontline support, and throw down two depots to stay ahead of supply as your army grows."
+        },
+        {
+          "step": 8,
+          "range": [
+            72,
+            82
+          ],
+          "action_count": 11,
+          "step_text_v6": "[Step 8] Throw down a second rax and a depot to keep supply healthy while queueing up a couple of tanks from the factory. Keep worker production rolling, then add a tech lab to the first rax and start combat shield so your bio gets beefier. Morph the main CC into an orbital for that sweet scan and mule income, and grab a third gas to fuel the tank and upgrade costs."
+        },
+        {
+          "step": 9,
+          "range": [
+            83,
+            93
+          ],
+          "action_count": 11,
+          "step_text_v6": "[Step 9] Morph the natural CC into an orbital to keep the macro rolling, then queue up a couple of tanks from the factory to form the backbone of your siege line. Throw down 3 depots to clear supply block before adding 3 more rax with a reactor, while slipping in one marine to keep the ball rolling. This is the classic 1-1-1 into heavy bio-tank production switch, setting up a massive reinforcement wave and preparing for a powerful two-base push."
+        },
+        {
+          "step": 10,
+          "range": [
+            94,
+            103
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 10] Keep the tank production rolling with a couple more Siege Tanks coming out of the factory while throwing down a second factory to really ramp up mech output. Add reactors onto two of the rax so you can flood marines faster, and queue up a few more marines to buffer the bio numbers while the tank count builds. This is where you start shifting hard into a heavy mech-bio mix, getting ready to siege up and take control of the map."
+        },
+        {
+          "step": 11,
+          "range": [
+            104,
+            113
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 11] Flood the field with a wave of Marines out of your rax while sneaking in a Siege Tank from the factory to anchor your push. This bio-mech hybrid gives you the map presence and siege potential to start posturing for the mid-game."
+        },
+        {
+          "step": 12,
+          "range": [
+            114,
+            123
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 12] Queue up a tank from the factory while adding the tech lab to it, throw down a marine for defense, and then spam out seven depots to clear the supply block and prepare for heavy production."
+        },
+        {
+          "step": 13,
+          "range": [
+            124,
+            133
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 13] Throw down a massive wall of six depots to clear supply block and prepare for a large army, then churn out 2 more tanks from the factory and reinforce with a couple of marines to hold the line while the siege count builds up."
+        },
+        {
+          "step": 14,
+          "range": [
+            134,
+            143
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 14] Queue up a tank from the factory while reinforcing with a wave of marines from the rax, building out a solid bio-meek core to prep for the upcoming push or to hold any mid-game aggression."
+        },
+        {
+          "step": 15,
+          "range": [
+            144,
+            153
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 15] Keep the raxes spinning with a steady stream of marines while adding a tank from the factory to anchor your army, then take your third CC to keep the economy rolling for the mid-game push."
+        },
+        {
+          "step": 16,
+          "range": [
+            154,
+            163
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 16] Pump out several more marines from the rax while adding a second tank to the factory queue, reinforcing your bio core and building up the siege tank count for the upcoming push."
+        },
+        {
+          "step": 17,
+          "range": [
+            164,
+            173
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 17] Queue up another tank from the factory while massing marines out of the rax to build a strong bio-meek core, then follow up with a second tank to solidify the siege line."
+        },
+        {
+          "step": 18,
+          "range": [
+            174,
+            183
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 18] Keep marine production rolling out of the rax while queuing up a couple of tanks from the factory, building out a solid bio-mech core to siege up or defend key positions."
+        },
+        {
+          "step": 19,
+          "range": [
+            184,
+            197
+          ],
+          "action_count": 14,
+          "step_text_v6": "[Step 19] Flood out a massive wave of Marines from multiple rax while simultaneously producing 3 Siege Tanks from the factory, building up a strong bio-meath core to either defend a push or prepare for a timing attack."
+        },
+        {
+          "step": 20,
+          "range": [
+            198,
+            207
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 20] Morph the natural CC into an orbital to get scans and mules online, then dump minerals into a wave of marines while the factory cranks out 3 tanks. This marine-tank core gives you a solid mid-game army to siege positions or defend against all-ins."
+        },
+        {
+          "step": 21,
+          "range": [
+            208,
+            217
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 21] Power up bio production by training a wave of Marines across your rax while adding 3 Siege Tanks from the factory to give your army some serious siege backbone."
+        },
+        {
+          "step": 22,
+          "range": [
+            218,
+            227
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 22] Flood out a massive wave of Marines from your raxes to max out your bio force, pressing your advantage and preparing to move across the map for a decisive timing push."
+        },
+        {
+          "step": 23,
+          "range": [
+            228,
+            237
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 23] Keep the rax hot with a steady stream of marines while the factory pumps out a third tank, reinforcing the bio-mech core and preparing for the next push."
+        },
+        {
+          "step": 24,
+          "range": [
+            238,
+            247
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 24] Flood out a wave of Marines from your rax while queuing up a couple of Tanks from the factory, building a solid bio-mech core to hold the mid-game or set up for a push."
+        },
+        {
+          "step": 25,
+          "range": [
+            248,
+            257
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 25] Flood out a wave of marines from the rax while adding a tank from the factory, building up a solid bio-mechanized core to hold the mid-game and prepare for a push."
+        },
+        {
+          "step": 26,
+          "range": [
+            258,
+            267
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 26] Crank out a wave of Marines from the rax while queuing up 2 Siege Tanks from the factory, building out a solid bio-mech core that can siege up positions and hold the line against any mid-game aggression."
+        },
+        {
+          "step": 27,
+          "range": [
+            268,
+            277
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 27] Keep the marine ball growing with a wave of marines rolling out of the rax while sneaking in a tank from the factory to give your bio some siege support."
+        },
+        {
+          "step": 28,
+          "range": [
+            278,
+            287
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 28] Keep marine production rolling out of the rax while building up a core of 3 tanks from the factory, establishing a solid bio-meath backbone to siege up and control the map."
+        },
+        {
+          "step": 29,
+          "range": [
+            288,
+            297
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 29] Flood out a wave of Marines from the rax while throwing down the second Refinery to start banking gas for tech. This marine-heavy phase should help secure map presence and defend against early aggression while setting up the economy for a Factory or Starport transition."
+        },
+        {
+          "step": 30,
+          "range": [
+            298,
+            312
+          ],
+          "action_count": 15,
+          "step_text_v6": "[Step 30] Flood the rax with marine production while cranking out 3 tanks from the factory, building up a solid bio-mech core to siege key positions or defend against enemy pushes."
+        },
+        {
+          "step": 31,
+          "range": [
+            313,
+            322
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 31] Take the third CC to secure the economy while pumping out a wave of marines and cranking out 3 tanks from the factory. This is where the mech-bio hybrid really starts to come online—use the tanks to anchor your position and the marines to screen and apply pressure across the map."
+        },
+        {
+          "step": 32,
+          "range": [
+            323,
+            332
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 32] Pour all rax production into a massive wave of Marines while throwing down a third Refinery to bank gas for the transition, then queue up a Siege Tank from the factory to add some backbone to the bio ball."
+        },
+        {
+          "step": 33,
+          "range": [
+            333,
+            342
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 33] Morph your CC into an orbital to unlock MULE calldowns and scanner sweeps, while continuously producing a wave of marines from your rax to build up a sizable bio force."
+        },
+        {
+          "step": 34,
+          "range": [
+            343,
+            354
+          ],
+          "action_count": 12,
+          "step_text_v6": "[Step 34] Flood the rax with a massive wave of Marines—train 11 marines straight through to max out bio production and build a critical mass for the upcoming push. Add a fourth Refinery to keep gas income flowing as you prepare to tech up and support the growing army."
+        }
+      ]
+    },
+    "banshees_banshee-ai_zerg_veryhard_特里同-天梯版_2026-06-21_19_50_01_853960": {
+      "source_sequence_file": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-21_sft_10game_kimi\\match_04_banshee_zerg_veryhard_TritonLE\\banshees\\sequences\\banshee-ai.zerg.veryhard_特里同-天梯版_2026-06-21 19_50_01_853960.json",
+      "md_path": "C:\\code\\SC2_bot_data\\sft_pipeline_outputs\\2026-06-21_sft_10game_kimi\\v6_steps\\md\\banshees_banshee-ai_zerg_veryhard_特里同-天梯版_2026-06-21_19_50_01_853960.md",
+      "total_actions": 195,
+      "total_steps": 17,
+      "steps": [
+        {
+          "step": 1,
+          "range": [
+            0,
+            9
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 1] Throw down a depot and keep worker production rolling with several SCVs, then get your first rax up alongside a refinery to start gas collection. Drop a second depot to keep supply ahead as you continue churning out workers, setting up a clean standard opening for whatever tech path you want to pursue."
+        },
+        {
+          "step": 2,
+          "range": [
+            10,
+            24
+          ],
+          "action_count": 15,
+          "step_text_v6": "[Step 2] Morph the first CC into an orbital and drop a second CC at the natural to set up the expansion, then throw down the first Refinery to start gas income. Keep workers and marines flowing non-stop, then add a Factory to begin the tech transition into mech or a bio-mech mix, and top it off with a depot to stay ahead of supply."
+        },
+        {
+          "step": 3,
+          "range": [
+            25,
+            35
+          ],
+          "action_count": 11,
+          "step_text_v6": "[Step 3] Throw down a starport and a bunker to shore up defense, then morph the main CC into an orbital as it finishes. Keep worker production rolling and add a second rax for more marine output. Meanwhile, attach a tech lab to the factory and the starport to unlock siege tank and banshee tech."
+        },
+        {
+          "step": 4,
+          "range": [
+            36,
+            45
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 4] Keep the worker production rolling with several SCVs while training a pair of Marines to hold the front. Add a tank from the factory and queue up a banshee from the starport to start building your harassment potential. Throw down a depot to keep supply ahead of your growing army."
+        },
+        {
+          "step": 5,
+          "range": [
+            46,
+            59
+          ],
+          "action_count": 14,
+          "step_text_v6": "[Step 5] Keep worker production rolling while training up a wave of Marines and a Siege Tank to shore up your frontline. Throw down four depots to clear up supply block as your army grows, setting up a solid defensive posture before you push out."
+        },
+        {
+          "step": 6,
+          "range": [
+            60,
+            69
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 6] Add a second rax and throw down a tech lab and reactor on your Barracks to unlock bio upgrades and double marine production, while also putting up a second starport and a third refinery to fuel your air transition. Keep worker production rolling with several SCVs and continue building out your banshee count for map pressure."
+        },
+        {
+          "step": 7,
+          "range": [
+            70,
+            84
+          ],
+          "action_count": 15,
+          "step_text_v6": "[Step 7] Keep worker production rolling while throwing down depots to stay ahead of supply, then add a third Refinery to fuel your tech. Produce a Siege Tank from the factory and a Banshee from the starport, add a tech lab to the port for follow-up, and train a few Marines to round out your army."
+        },
+        {
+          "step": 8,
+          "range": [
+            85,
+            94
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 8] Queue up combat shield research while training a wave of Marines to reinforce the bio ball, then add a Banshee from the starport for harassment potential and throw down two depots to keep supply clear for the incoming units."
+        },
+        {
+          "step": 9,
+          "range": [
+            95,
+            104
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 9] Keep the rax pumping with a wave of marines while the port cranks out a banshee and the factory adds a tank to the army. Throw down a couple depots to stay ahead of supply, then reinforce with several more marines to build up a solid bio core."
+        },
+        {
+          "step": 10,
+          "range": [
+            105,
+            114
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 10] Keep the marine ball growing with several more marines while queuing up a pair of banshees from the starport for map pressure and harassment. Add a tank from the factory to anchor your push, and throw down a couple depots to stay ahead of supply block as production ramps up."
+        },
+        {
+          "step": 11,
+          "range": [
+            115,
+            124
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 11] Keep the rax rolling with a steady stream of marines while throwing down a couple depots to stay ahead on supply, then queue up your first tank from the factory to start building that core mech backbone."
+        },
+        {
+          "step": 12,
+          "range": [
+            125,
+            134
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 12] Throw down a depot to keep supply ahead while the starport churns out a couple of Banshees for map pressure. Flood out a wave of Marines from the rax to build up a solid bio ball, then add two more depots as the army grows to prevent getting supply blocked."
+        },
+        {
+          "step": 13,
+          "range": [
+            135,
+            146
+          ],
+          "action_count": 12,
+          "step_text_v6": "[Step 13] Keep marine production rolling while adding another tank from the factory and a banshee from the starport to diversify your threat. Throw down two depots to stay ahead of supply, then add a third rax to really crank up bio output. This phase is about building a critical mass of infantry while mixing in air and armor for a multi-pronged push."
+        },
+        {
+          "step": 14,
+          "range": [
+            147,
+            156
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 14] Throw down a second rax to bolster production while the starport cranks out another banshee for harassment. Queue up a tank from the factory to anchor your position, then flood out a wave of marines to reinforce your army and prepare for a push."
+        },
+        {
+          "step": 15,
+          "range": [
+            157,
+            166
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 15] Take a third CC while keeping marine production rolling out of the rax and adding a pair of banshees from the starport. Queue up a tank from the factory to hold the front, then reinforce with a wave of marines to support the push."
+        },
+        {
+          "step": 16,
+          "range": [
+            167,
+            176
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 16] Flood out a wave of Marines from your rax while throwing down a depot to keep supply ahead of the curve, then queue up a Siege Tank from the factory to give your bio some real punch as you prep for the mid-game push."
+        },
+        {
+          "step": 17,
+          "range": [
+            177,
+            194
+          ],
+          "action_count": 18,
+          "step_text_v6": "[Step 17] Keep the marine production rolling non-stop from the rax while churning out a couple of banshees from the starport for harassment potential. Throw down a depot and then quickly add two more depots to stay ahead of supply as the army swells. Make an orbital on the expansion CC to keep the macro flowing with extra mule energy and scans."
+        }
+      ]
+    },
+    "battle_cruisers_bc-ai_protoss_hard_黑冬隘口-天梯版_2026-06-21_19_52_46_755788": {
+      "source_sequence_file": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-21_sft_10game_kimi\\match_05_bc_protoss_hard_WintersGateLE\\battle_cruisers\\sequences\\bc-ai.protoss.hard_黑冬隘口-天梯版_2026-06-21 19_52_46_755788.json",
+      "md_path": "C:\\code\\SC2_bot_data\\sft_pipeline_outputs\\2026-06-21_sft_10game_kimi\\v6_steps\\md\\battle_cruisers_bc-ai_protoss_hard_黑冬隘口-天梯版_2026-06-21_19_52_46_755788.md",
+      "total_actions": 192,
+      "total_steps": 17,
+      "steps": [
+        {
+          "step": 1,
+          "range": [
+            0,
+            9
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 1] Keep worker production rolling non-stop while throwing down the first rax and a geyser to start gas income. Drop a couple depots to stay ahead of supply, setting up the standard opening for a bio or tech transition."
+        },
+        {
+          "step": 2,
+          "range": [
+            10,
+            24
+          ],
+          "action_count": 15,
+          "step_text_v6": "[Step 2] Morph your first CC into an orbital, then drop a second CC in your main to start the expo timing. Keep worker production rolling and throw down the first refinery to unlock gas. Add a factory for the tech transition and build a depot to stay ahead of supply, while pumping out a wave of marines to hold the fort."
+        },
+        {
+          "step": 3,
+          "range": [
+            25,
+            39
+          ],
+          "action_count": 15,
+          "step_text_v6": "[Step 3] Throw down the first starport and a bunker for defense while morphing the CC into an orbital, then add a second rax and grab the second geyser. Keep worker production rolling with several SCVs and train a few marines to hold the front, then slap a tech lab onto the factory to start sieging up your tech path."
+        },
+        {
+          "step": 4,
+          "range": [
+            40,
+            49
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 4] Throw down the fusion core and add a tech lab to the starport to unlock BC tech, while sneaking in a third refinery for gas. Keep worker production rolling with several SCVs and reinforce the front with a few marines, then add another tank to the mech ball to keep up the pressure."
+        },
+        {
+          "step": 5,
+          "range": [
+            50,
+            59
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 5] Keep the worker production rolling with several SCVs while throwing down a depot to clear supply block. Pump out 4 Marines from the rax to build up a small bio force, setting up for early map pressure or defense depending on what scouting reveals."
+        },
+        {
+          "step": 6,
+          "range": [
+            60,
+            69
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 6] Queue up a BC from the starport to keep the air fleet growing, then throw down 4 depots to clear supply block and make room for more units. Keep worker production rolling with a couple SCVs, add another tank from the factory for siege support, and train a few marines to round out the ground army."
+        },
+        {
+          "step": 7,
+          "range": [
+            70,
+            84
+          ],
+          "action_count": 15,
+          "step_text_v6": "[Step 7] Keep worker production rolling with several SCVs while training a wave of Marines out of the rax to build up a bio ball. Throw down a few depots to stay ahead of supply, then get the first Siege Tank rolling out of the factory to add some heavy firepower to the army."
+        },
+        {
+          "step": 8,
+          "range": [
+            85,
+            99
+          ],
+          "action_count": 15,
+          "step_text_v6": "[Step 8] Throw down a second rax and mass depots to clear supply block, then start a BC out of the fusion core while adding a tech lab and reactor to your raxes. Build a second port with a tech lab, pump a few marines, and queue up a tank to round out your ground forces as you transition into heavy air."
+        },
+        {
+          "step": 9,
+          "range": [
+            100,
+            109
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 9] Research combat shields while throwing down 4 more rax to flood the production tab, then reinforce with several Marines and queue up a tank from the factory to give the bio ball some siege support."
+        },
+        {
+          "step": 10,
+          "range": [
+            110,
+            119
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 10] Queue up a pair of BCs from the starport while throwing down three depots to clear supply block, then reinforce with four marines and add a tank from the factory to help anchor your ground presence while the air fleet comes online."
+        },
+        {
+          "step": 11,
+          "range": [
+            120,
+            129
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 11] Dump all rax production into a massive wave of marines, flooding out units to reinforce your army and prepare for a major push or to solidify your defensive line."
+        },
+        {
+          "step": 12,
+          "range": [
+            130,
+            139
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 12] Keep marine production rolling while throwing down three depots to clear supply block, then queue up a tank from the factory and start your first BC at the starport. Drop the third CC to secure your economy as you transition into the late-game air fleet."
+        },
+        {
+          "step": 13,
+          "range": [
+            140,
+            149
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 13] Queue up a BC from the starport while massing a wave of marines from the rax, then throw down a couple depots to clear up supply cap before continuing marine production."
+        },
+        {
+          "step": 14,
+          "range": [
+            150,
+            159
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 14] Keep marine production rolling while queuing up a BC and a tank to reinforce the army, then throw down a bunker for defensive positioning at the front. Morph another OC to keep the economy humming, and start a second BC so the starport stays busy."
+        },
+        {
+          "step": 15,
+          "range": [
+            160,
+            169
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 15] Push out a wave of Marines from the rax while queuing up a tank from the factory—this is the core of your bio-mech reinforcement cycle. Keep the marine production rolling to replace any losses and maintain map pressure, with the siege tank adding the backbone your army needs to control key chokes and force favorable engagements."
+        },
+        {
+          "step": 16,
+          "range": [
+            170,
+            179
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 16] Keep the rax pumping with a wave of Marines while queuing up a BC from the starport, then add a tank from the factory and throw down a depot to keep supply ahead of the production curve."
+        },
+        {
+          "step": 17,
+          "range": [
+            180,
+            191
+          ],
+          "action_count": 12,
+          "step_text_v6": "[Step 17] Continue marine production while throwing down several depots to support the growing army, and queue up 2 BCs from the starport to build out the late-game air fleet."
+        }
+      ]
+    },
+    "rusty_oldrusty-ai_terran_mediumhard_梦境世界-天梯版_2026-06-21_19_55_56_322134": {
+      "source_sequence_file": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-21_sft_10game_kimi\\match_06_oldrusty_terran_mediumhard_WorldofSleepersLE\\rusty\\sequences\\oldrusty-ai.terran.mediumhard_梦境世界-天梯版_2026-06-21 19_55_56_322134.json",
+      "md_path": "C:\\code\\SC2_bot_data\\sft_pipeline_outputs\\2026-06-21_sft_10game_kimi\\v6_steps\\md\\rusty_oldrusty-ai_terran_mediumhard_梦境世界-天梯版_2026-06-21_19_55_56_322134.md",
+      "total_actions": 210,
+      "total_steps": 19,
+      "steps": [
+        {
+          "step": 1,
+          "range": [
+            0,
+            11
+          ],
+          "action_count": 12,
+          "step_text_v6": "[Step 1] Keep worker production rolling with several SCVs while throwing down the first rax and a Refinery to start gas income; add a couple depots to stay ahead of supply and queue up a Marine for early defense."
+        },
+        {
+          "step": 2,
+          "range": [
+            12,
+            25
+          ],
+          "action_count": 14,
+          "step_text_v6": "[Step 2] Morph the main CC into an orbital, then take the natural expansion with a second CC. Keep worker production rolling while throwing down the first factory and a refinery to start gas income. Add a depot for supply, attach a tech lab to the factory, and train a couple of marines for early defense as you transition into factory tech."
+        },
+        {
+          "step": 3,
+          "range": [
+            26,
+            35
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 3] Morph the CC into an orbital to boost economy with MULEs, then add a second factory while keeping tank production rolling from the first. Train a few marines and keep worker production steady with several SCVs to support the growing mech infrastructure."
+        },
+        {
+          "step": 4,
+          "range": [
+            36,
+            48
+          ],
+          "action_count": 13,
+          "step_text_v6": "[Step 4] Throw down the third and fourth refineries to start banking gas for mech tech, keep worker production rolling with several SCVs, and add a Factory tech lab while churning out the first Siege Tank. Drop a depot to stay ahead of supply block as the mech transition gets underway."
+        },
+        {
+          "step": 5,
+          "range": [
+            49,
+            61
+          ],
+          "action_count": 13,
+          "step_text_v6": "[Step 5] Throw down the starport and drop 3 rax on the map while keeping worker production rolling—this is the classic 1-1-1 setup expanding into a bio-heavy follow-up. Add a couple of depots to stay ahead of supply and keep SCVs flowing so you can support the upcoming tech lab transitions and unit production."
+        },
+        {
+          "step": 6,
+          "range": [
+            62,
+            72
+          ],
+          "action_count": 11,
+          "step_text_v6": "[Step 6] Throw down a second rax and slap a tech lab on it, then queue up a medivac from the starport and a pair of tanks from the factory to round out the core army. Research combat shields while training four marines to reinforce the bio ball, and finish by adding a reactor to the starport to double medivac production going forward."
+        },
+        {
+          "step": 7,
+          "range": [
+            73,
+            82
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 7] Keep tank production rolling with a second Siege Tank coming out of the factory while throwing down depots to stay ahead of supply. Add a marine for light defense and start fitting reactors onto the Barracks to flood marines later. Drop a couple more depots and finish adding reactors across the rax so you're ready to swap into heavy bio production once the tech is online."
+        },
+        {
+          "step": 8,
+          "range": [
+            83,
+            92
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 8] Drop the third CC to secure your economic lead while throwing down a couple depots to stay ahead on supply. Keep marine production rolling and queue up a medivac alongside a viking for air control and drop defense. The factory should pump out 2 tanks to anchor your positions, rounding out a solid mid-game reinforcement package."
+        },
+        {
+          "step": 9,
+          "range": [
+            93,
+            102
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 9] Keep the rax humming with a steady stream of marines while queuing up 2 medivacs from the starport, building out the core of a classic bio force that'll be ready to apply pressure or defend across the map once the dropship count comes online."
+        },
+        {
+          "step": 10,
+          "range": [
+            103,
+            112
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 10] Queue up a couple of tanks from the factory and throw down four depots to clear the supply block, then add two medivacs from the starport to start building the air bridge. Morph a fresh CC into an orbital for macro boost, and slip in a marine to keep the barracks cycling."
+        },
+        {
+          "step": 11,
+          "range": [
+            113,
+            122
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 11] Push out a wave of Marines from the rax while adding two more Tanks from the factory, building up a solid bio-mech core to either siege up or move across the map."
+        },
+        {
+          "step": 12,
+          "range": [
+            123,
+            132
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 12] Keep marine production rolling with a wave of 5 marines while the factory cranks out a tank for siege support. Throw down 4 depots to clear the supply block and keep the macro flowing smoothly."
+        },
+        {
+          "step": 13,
+          "range": [
+            133,
+            142
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 13] Continue massing marines out of the rax while adding a viking from the starport and a couple of tanks from the factory, building up a solid bio-mechanized core to support the upcoming push."
+        },
+        {
+          "step": 14,
+          "range": [
+            143,
+            152
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 14] Keep the rax pumping as you train a wave of Marines to reinforce your bio ball, queue up a Siege Tank from the factory for positional control, and add a viking from the starport to scout or secure air superiority."
+        },
+        {
+          "step": 15,
+          "range": [
+            153,
+            162
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 15] Flood out a wave of Marines from the rax while throwing down four depots to clear the supply block, then add a Siege Tank from the factory to give your bio ball some real punch. Keep the marine production rolling to build up a critical mass for the upcoming push."
+        },
+        {
+          "step": 16,
+          "range": [
+            163,
+            172
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 16] Queue up a tank from the factory while mass-producing marines from the rax — you should be cranking out a steady stream of bio to reinforce your frontline and prepare for the upcoming push."
+        },
+        {
+          "step": 17,
+          "range": [
+            173,
+            182
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 17] Keep the marine production rolling and queue up a couple of tanks from the factory to solidify your siege potential; throw down three depots to stay ahead of supply while reinforcing with a wave of marines."
+        },
+        {
+          "step": 18,
+          "range": [
+            183,
+            192
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 18] Flood the field with a massive wave of Marines from your rax, pouring everything into pure bio production to overwhelm the opponent before they can stabilize their tech."
+        },
+        {
+          "step": 19,
+          "range": [
+            193,
+            209
+          ],
+          "action_count": 17,
+          "step_text_v6": "[Step 19] Queue up a massive wave of marines from the rax while throwing down 4 depots to keep supply from blocking. This is a heavy production spike to flood the map with bio and set up for a timing push or to reinforce against pressure."
+        }
+      ]
+    },
+    "safe_tvt_raven_saferaven-ai_zerg_harder_浴血迪斯科-天梯版_2026-06-21_19_59_59_922025": {
+      "source_sequence_file": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-21_sft_10game_kimi\\match_07_saferaven_zerg_harder_DiscoBloodbathLE\\safe_tvt_raven\\sequences\\saferaven-ai.zerg.harder_浴血迪斯科-天梯版_2026-06-21 19_59_59_922025.json",
+      "md_path": "C:\\code\\SC2_bot_data\\sft_pipeline_outputs\\2026-06-21_sft_10game_kimi\\v6_steps\\md\\safe_tvt_raven_saferaven-ai_zerg_harder_浴血迪斯科-天梯版_2026-06-21_19_59_59_922025.md",
+      "total_actions": 227,
+      "total_steps": 21,
+      "steps": [
+        {
+          "step": 1,
+          "range": [
+            0,
+            9
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 1] Keep worker production rolling nonstop while throwing down the first depot and both refineries to get gas flowing early. Drop the first rax as mineral income ramps up, setting the foundation for a tech-heavy opening."
+        },
+        {
+          "step": 2,
+          "range": [
+            10,
+            24
+          ],
+          "action_count": 15,
+          "step_text_v6": "[Step 2] Morph the CC into an orbital and throw down the factory, then queue up a couple of reapers for early map pressure while keeping worker production rolling. Add a depot for supply, then transition into hellion production from the factory as you take your natural expansion. Keep the SCVs flowing and drop another depot to stay ahead of supply, rounding out with a third reaper and a second hellion to secure map control going into the mid-game."
+        },
+        {
+          "step": 3,
+          "range": [
+            25,
+            34
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 3] Throw down a starport and keep worker production rolling while adding tech labs to your factory and first rax, then start a cyclone out of the factory. Add a tech lab to the starport as well and morph your CC into an orbital to unlock macro abilities and keep the economy flowing."
+        },
+        {
+          "step": 4,
+          "range": [
+            35,
+            44
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 4] Throw down the second, third, and fourth Refineries to get your gas economy rolling, then queue up a Raven from the starport and a Siege Tank from the factory to start building your mid-game army. Keep worker production flowing with several SCVs, and secure the third CC to set up your expansion timing."
+        },
+        {
+          "step": 5,
+          "range": [
+            45,
+            56
+          ],
+          "action_count": 12,
+          "step_text_v6": "[Step 5] Keep worker production rolling with several SCVs while throwing down a couple depots to stay ahead of supply. Queue up a Raven from the starport and a Siege Tank from the factory to build out your core army, then add a second starport to start ramping up air production."
+        },
+        {
+          "step": 6,
+          "range": [
+            57,
+            70
+          ],
+          "action_count": 14,
+          "step_text_v6": "[Step 6] Add a second and third rax while keeping worker production rolling and throwing down a couple depots for supply. Queue up another tank from the factory and start building out the viking count with 3 vikings from the starport to establish air control and set up for a potential push."
+        },
+        {
+          "step": 7,
+          "range": [
+            71,
+            80
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 7] Morph the natural CC into an orbital while keeping worker production rolling, then add a reactor to the first rax and a reactor to the starport to pump out medivacs and marines faster. Start siege tank production at the factory and queue up a viking from the port to begin establishing air control and a solid mid-game army core."
+        },
+        {
+          "step": 8,
+          "range": [
+            81,
+            92
+          ],
+          "action_count": 12,
+          "step_text_v6": "[Step 8] Throw down two e-bays to get +1 upgrades rolling, then add a third and fourth geyser to support the tech transition. Keep workers pumping while swapping the rax over to a reactor, and drop a depot to stay ahead on supply."
+        },
+        {
+          "step": 9,
+          "range": [
+            93,
+            102
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 9] Kick off stim research at the rax tech lab while keeping worker production rolling with several SCVs. Queue up a couple of vikings from the starport to start gaining air control, throw down two depots to keep supply ahead of your production, and add a second rax to begin ramping up your bio output."
+        },
+        {
+          "step": 10,
+          "range": [
+            103,
+            112
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 10] Throw down a second and third rax alongside a couple depots to shore up supply while keeping worker production rolling. Start both +1 attack and +1 armor at the ebay to get your bio upgrades rolling, setting up for a strong mid-game timing."
+        },
+        {
+          "step": 11,
+          "range": [
+            113,
+            122
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 11] Keep worker production rolling with a few SCVs while the factory pumps out another tank and the rax churns out a wave of marines. Queue up a medivac from the starport to start building your air support backbone."
+        },
+        {
+          "step": 12,
+          "range": [
+            123,
+            132
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 12] Throw down a couple depots to keep supply from capping while queuing up two medivacs from the starport. Keep worker production rolling at the CC and reinforce with a wave of four marines to build up the bio core."
+        },
+        {
+          "step": 13,
+          "range": [
+            133,
+            142
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 13] Throw down a couple of depots and slap reactors on two rax to start cranking out marines, while adding a tank from the factory and a medivac from the starport to round out the core bio-mechanical army. Drop one more depot to keep supply ahead of the production curve."
+        },
+        {
+          "step": 14,
+          "range": [
+            143,
+            156
+          ],
+          "action_count": 14,
+          "step_text_v6": "[Step 14] Keep the marine ball growing with a wave of fresh recruits while throwing down depots to stay ahead of supply. Start the armory to unlock future upgrades and pump out a pair of libs from the starport for map control and siege potential."
+        },
+        {
+          "step": 15,
+          "range": [
+            157,
+            166
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 15] Research combat shields while throwing down a few depots to keep supply ahead of your production. Train a couple more Marines, queue up a viking from the starport, and add a tank to the factory line to keep your mech count growing."
+        },
+        {
+          "step": 16,
+          "range": [
+            167,
+            176
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 16] Keep the rax pumping marines non-stop while throwing down a couple depots to stay ahead of supply. Start a viking out of the starport to begin establishing air control and scout for any incoming threats."
+        },
+        {
+          "step": 17,
+          "range": [
+            177,
+            187
+          ],
+          "action_count": 11,
+          "step_text_v6": "[Step 17] Flood out a wave of Marines from multiple rax while queuing up 2 Vikings at the starport to contest air control, add another Siege Tank from the factory, and start mech +1 / vehicle weapons at the armory to keep your tank and viking damage scaling into the mid-game."
+        },
+        {
+          "step": 18,
+          "range": [
+            188,
+            197
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 18] Throw down a factory to start transitioning into mech or support production, then queue up a wave of marines from the rax to keep pressure on the map. Toss down a depot to stay ahead of supply, and kick off infantry +1 attack so your bio scales into the mid-game."
+        },
+        {
+          "step": 19,
+          "range": [
+            198,
+            207
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 19] Keep marine production rolling out of the rax while queuing up a couple vikings from the starport to contest air control and scout for drops or BC transitions."
+        },
+        {
+          "step": 20,
+          "range": [
+            208,
+            217
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 20] Pump out a wave of Marines from the rax while adding a Siege Tank from the factory for some backbone, then queue up a few more marines and start researching infantry armor to toughen up the bio ball moving forward."
+        },
+        {
+          "step": 21,
+          "range": [
+            218,
+            226
+          ],
+          "action_count": 9,
+          "step_text_v6": "[Step 21] Keep the rax humming with a steady stream of marines while queuing up a couple of vikings from the starport to contest air control. Meanwhile, slap a tech lab onto the factory to unlock siege tank or cyclone production for the mid-game push."
+        }
+      ]
+    },
+    "raven_liberator_tank_ravlibtank-ai_protoss_hard_雷鸟-天梯版_2026-06-21_20_12_38_817626": {
+      "source_sequence_file": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-21_sft_10game_kimi\\match_08b_ravlibtank_protoss_hard_ThunderbirdLE\\raven_liberator_tank\\sequences\\ravlibtank-ai.protoss.hard_雷鸟-天梯版_2026-06-21 20_12_38_817626.json",
+      "md_path": "C:\\code\\SC2_bot_data\\sft_pipeline_outputs\\2026-06-21_sft_10game_kimi\\v6_steps\\md\\raven_liberator_tank_ravlibtank-ai_protoss_hard_雷鸟-天梯版_2026-06-21_20_12_38_817626.md",
+      "total_actions": 205,
+      "total_steps": 18,
+      "steps": [
+        {
+          "step": 1,
+          "range": [
+            0,
+            9
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 1] Keep worker production rolling non-stop while throwing down the first rax and a Refinery to get gas flowing. Add a couple depots to stay ahead of supply, setting up the standard opening for a bio or tech transition."
+        },
+        {
+          "step": 2,
+          "range": [
+            10,
+            21
+          ],
+          "action_count": 12,
+          "step_text_v6": "[Step 2] Morph your first CC into an orbital, then grab a reaper for early scout pressure and map info. Drop a bunker at the front to hold off any aggression while you take your natural expansion behind it. Keep worker production rolling, add a refinery to start mining gas, and throw down a depot to avoid supply block while training a couple of marines to fill that bunker."
+        },
+        {
+          "step": 3,
+          "range": [
+            22,
+            31
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 3] Throw down the first factory and attach a tech lab to it while keeping marine production rolling and training a few SCVs. Morph the CC into an orbital and add a second refinery to support the upcoming tech transition."
+        },
+        {
+          "step": 4,
+          "range": [
+            32,
+            46
+          ],
+          "action_count": 15,
+          "step_text_v6": "[Step 4] Keep workers flowing constantly while adding a third Refinery to support the growing gas demands, then queue up another tank from the factory and reinforce with a few Marines from the rax. Throw down a couple of depots to avoid supply block as production ramps up."
+        },
+        {
+          "step": 5,
+          "range": [
+            47,
+            56
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 5] Throw down the first starport and start massing depots to clear supply block, dropping four depots back-to-back while keeping SCV production rolling. Train another marine and continue pumping workers to keep the economy humming as the starport comes online."
+        },
+        {
+          "step": 6,
+          "range": [
+            57,
+            66
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 6] Keep worker production rolling with several SCVs while adding a tech lab to the starport and a reactor to the rax for faster unit output. Train a marine and a tank to reinforce the army, then start a raven for detection and map control."
+        },
+        {
+          "step": 7,
+          "range": [
+            67,
+            76
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 7] Throw down the first starport to open up air production while keeping the worker pipeline flowing with several SCVs. Start churning out a tank from the factory for defensive positioning and siege potential, then add a couple of depots to stay ahead of supply block. Finish by training a marine to reinforce the bio line as the tech transition gets rolling."
+        },
+        {
+          "step": 8,
+          "range": [
+            77,
+            89
+          ],
+          "action_count": 13,
+          "step_text_v6": "[Step 8] Throw down three depots to clear supply block and support the growing army, then add a second starport with a reactor while churning out another raven and a tank. Keep worker production rolling with several SCVs and reinforce with a couple of marines to hold the front."
+        },
+        {
+          "step": 9,
+          "range": [
+            90,
+            104
+          ],
+          "action_count": 15,
+          "step_text_v6": "[Step 9] Throw down the first starport and immediately queue up a raven for detection and harassment support, while the factory continues pumping out a tank for siege line defense. Keep marine and SCV production rolling, add a reactor to the starport to enable faster lib production, and start a liberator for map control and zone denial. Top off the supply with a depot so you don't get blocked as the production ramps up."
+        },
+        {
+          "step": 10,
+          "range": [
+            105,
+            117
+          ],
+          "action_count": 13,
+          "step_text_v6": "[Step 10] Throw down a starport with a reactor while keeping worker production and marine training rolling. Add a tank from the factory for ground control, then queue up a liberator to start establishing air presence. Drop a few depots to stay ahead of supply and keep the marine pump flowing for a solid bio backbone."
+        },
+        {
+          "step": 11,
+          "range": [
+            118,
+            127
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 11] Throw down the factory and get a reactor on the starport while training up a wave of marines. Add a couple depots to keep supply ahead and start cranking out a siege tank and a liberator to establish some serious firepower for the mid-game push."
+        },
+        {
+          "step": 12,
+          "range": [
+            128,
+            137
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 12] Pump out a Liberator and a wave of Vikings from the starport to seize air control and siege key positions, then throw down a tech lab on the factory for tank or mine tech, and spam several depots to clear up the supply block and keep production flowing smoothly."
+        },
+        {
+          "step": 13,
+          "range": [
+            138,
+            147
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 13] Throw down a wave of depots to clear supply block and make room for the air army, then queue up 4 vikings from the starport to establish air superiority and counter any colossus or brood lord threats heading your way."
+        },
+        {
+          "step": 14,
+          "range": [
+            148,
+            161
+          ],
+          "action_count": 14,
+          "step_text_v6": "[Step 14] Flood the starport with a massive wave of vikings while mixing in a few marines from the rax, and slip in a raven for detection and interference support as you prepare to siege the sky and establish air dominance."
+        },
+        {
+          "step": 15,
+          "range": [
+            162,
+            174
+          ],
+          "action_count": 13,
+          "step_text_v6": "[Step 15] Throw down a couple of factories to transition into heavier mech production, queue up a wave of marines from the rax, and start cranking out vikings from the starport to contest air control. Add a tank with a factory tech lab to give your army some siege power, setting up a solid mid-game push with mixed bio and mech support."
+        },
+        {
+          "step": 16,
+          "range": [
+            175,
+            184
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 16] Throw down an e-bay and start massing Command Centers to spread across the map, aiming for a fourth and fifth base. Swap the factory onto a reactor while adding a couple of marines and a tank to hold the ground, and queue up a liberator from the starport to help secure airspace and zone enemy armies."
+        },
+        {
+          "step": 17,
+          "range": [
+            185,
+            195
+          ],
+          "action_count": 11,
+          "step_text_v6": "[Step 17] Keep marine production rolling while adding a lib for air control and cranking out a wave of hellions from the factory. Take your third CC and throw down a depot to stay ahead on supply, then start bio +1 attack to keep your infantry relevant into the mid-game."
+        },
+        {
+          "step": 18,
+          "range": [
+            196,
+            204
+          ],
+          "action_count": 9,
+          "step_text_v6": "[Step 18] Throw down an armory to unlock vehicle and ship upgrades, then queue up a lib from the starport for map control. Keep marine production ticking at the rax while cranking out a wave of hellions from the factory, and toss down another depot to stay ahead on supply."
+        }
+      ]
+    },
+    "safe_211_mine_safe211-ai_terran_hard_零纪元-天梯版_2026-06-21_20_15_32_78718": {
+      "source_sequence_file": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-21_sft_10game_kimi\\match_09b_safe211_terran_hard_YearZeroLE\\safe_211_mine\\sequences\\safe211-ai.terran.hard_零纪元-天梯版_2026-06-21 20_15_32_78718.json",
+      "md_path": "C:\\code\\SC2_bot_data\\sft_pipeline_outputs\\2026-06-21_sft_10game_kimi\\v6_steps\\md\\safe_211_mine_safe211-ai_terran_hard_零纪元-天梯版_2026-06-21_20_15_32_78718.md",
+      "total_actions": 200,
+      "total_steps": 18,
+      "steps": [
+        {
+          "step": 1,
+          "range": [
+            0,
+            9
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 1] Keep worker production rolling non-stop while throwing down the first rax and a refinery to get gas flowing. Add a couple of depots to stay ahead of supply, setting up the standard opening for a bio or tech transition."
+        },
+        {
+          "step": 2,
+          "range": [
+            10,
+            21
+          ],
+          "action_count": 12,
+          "step_text_v6": "[Step 2] Morph the CC into an orbital to get energy for mules and scans, then produce a reaper for early scout pressure while keeping worker production rolling. Drop the natural CC to set up expansion, throw down a bunker for safety, and add a second rax with a reactor for marine production. Keep training SCVs and grab the first refinery to start banking gas for future tech."
+        },
+        {
+          "step": 3,
+          "range": [
+            22,
+            31
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 3] Throw down the factory and a depot to keep supply smooth while queueing up a few more SCVs and marines. Morph your main CC into an orbital, then slap a tech lab on the rax and start stim research so your bio ball will be ready to punch hard once it comes online."
+        },
+        {
+          "step": 4,
+          "range": [
+            32,
+            41
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 4] Keep the worker production rolling with several SCVs while pumping out a wave of Marines from the rax to build up your bio force. Meanwhile, add a reactor to the factory to start doubling up on production—this sets you up for a stronger midgame push or transition depending on what you scout."
+        },
+        {
+          "step": 5,
+          "range": [
+            42,
+            54
+          ],
+          "action_count": 13,
+          "step_text_v6": "[Step 5] Keep the marine production rolling while throwing down a couple of depots to stay ahead of supply, and queue up a few more SCVs to keep the economy humming. Meanwhile, pump out two widow mines from the factory to set up some defensive traps or map control, then top off with another wave of marines to reinforce the bio ball."
+        },
+        {
+          "step": 6,
+          "range": [
+            55,
+            64
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 6] Throw down the first starport to open up air production while keeping worker production and marine output rolling. Add another depot to stay ahead of supply, then drop a widow mine from the factory for some defensive map coverage or to set up a drop threat."
+        },
+        {
+          "step": 7,
+          "range": [
+            65,
+            74
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 7] Keep the rax busy with marine production while throwing down a depot to stay ahead on supply. Queue up a couple more SCVs and start a widow mine from the factory for some defensive splash. Add a reactor to the starport to begin medivac production, and throw down the ebay to prepare for bio upgrades."
+        },
+        {
+          "step": 8,
+          "range": [
+            75,
+            84
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 8] Keep the marine ball growing with steady production from the rax while flooding out a few more SCVs to keep the economy humming. Throw down a couple of depots to stay ahead of supply, and get the first widow mine rolling out of the factory to set up some defensive map control or early pressure."
+        },
+        {
+          "step": 9,
+          "range": [
+            85,
+            94
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 9] Keep marine and SCV production rolling while throwing down a depot and a couple of turrets to shore up base defense. Start bio +1 and combat shield to power up your infantry, then grab a third refinery to fuel the growing tech demands."
+        },
+        {
+          "step": 10,
+          "range": [
+            95,
+            106
+          ],
+          "action_count": 12,
+          "step_text_v6": "[Step 10] Throw down a third Refinery to fuel your growing tech demands while the starport churns out a pair of medivacs and the rax pumps out several more marines. The factory adds a couple of mines for map control and defensive coverage, and you drop a depot to keep supply from capping as production ramps up."
+        },
+        {
+          "step": 11,
+          "range": [
+            107,
+            119
+          ],
+          "action_count": 13,
+          "step_text_v6": "[Step 11] Throw down three more rax to quickly ramp up bio production, while the starport churns out a trio of medivacs to support the incoming marine wave. Keep marine production rolling across all facilities and add a depot to stay ahead of supply."
+        },
+        {
+          "step": 12,
+          "range": [
+            120,
+            129
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 12] Throw down a second rax and a depot to keep supply ahead, then get reactors on both raxes to start pumping marines in earnest. Queue up a medivac from the starport while adding a third rax, building out the classic 3-rax marine-medivac core for mid-game pressure."
+        },
+        {
+          "step": 13,
+          "range": [
+            130,
+            140
+          ],
+          "action_count": 11,
+          "step_text_v6": "[Step 13] Keep marine production rolling while throwing down two depots to stay ahead of supply, then finish the reactor on the first rax and start one on the second to double the marine output. Queue up a medivac from the starport to begin prepping the drop play, and keep reinforcing with a steady stream of marines as the reactors come online."
+        },
+        {
+          "step": 14,
+          "range": [
+            141,
+            151
+          ],
+          "action_count": 11,
+          "step_text_v6": "[Step 14] Flood the map with a wave of Marines while throwing down a depot to keep supply flowing, then finish by adding a reactor to the rax to kick production into overdrive."
+        },
+        {
+          "step": 15,
+          "range": [
+            152,
+            161
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 15] Flood out a wave of Marines from your rax while keeping the factory busy with a couple of Widow Mines, setting up a solid bio-mine core that can apply pressure or defend against mid-game pushes."
+        },
+        {
+          "step": 16,
+          "range": [
+            162,
+            171
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 16] Keep marine production rolling out of the rax and throw down a depot to stay ahead of supply as you mass up a solid wave of marines for your upcoming push."
+        },
+        {
+          "step": 17,
+          "range": [
+            172,
+            181
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 17] Queue up a massive wave of 10 Marines across your rax to flood the map with bio, stockpiling forces for an imminent push or to hold against an enemy timing."
+        },
+        {
+          "step": 18,
+          "range": [
+            182,
+            199
+          ],
+          "action_count": 18,
+          "step_text_v6": "[Step 18] Mass-produce a huge wave of marines across all your rax to build a formidable bio ball, reinforcing your army for an upcoming push or to defend against a timing attack."
+        }
+      ]
+    },
+    "tank_thor_mech_mechthor-ai_zerg_mediumhard_机械城-天梯版_2026-06-21_20_09_37_209447": {
+      "source_sequence_file": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-21_sft_10game_kimi\\match_10_mechthor_zerg_mediumhard_AutomatonLE\\tank_thor_mech\\sequences\\mechthor-ai.zerg.mediumhard_机械城-天梯版_2026-06-21 20_09_37_209447.json",
+      "md_path": "C:\\code\\SC2_bot_data\\sft_pipeline_outputs\\2026-06-21_sft_10game_kimi\\v6_steps\\md\\tank_thor_mech_mechthor-ai_zerg_mediumhard_机械城-天梯版_2026-06-21_20_09_37_209447.md",
+      "total_actions": 190,
+      "total_steps": 16,
+      "steps": [
+        {
+          "step": 1,
+          "range": [
+            0,
+            9
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 1] Keep worker production rolling from the CC while throwing down the first rax and getting gas online with a Refinery. Add a couple depots to stay ahead of supply and smooth out the early macro as you transition into producing units."
+        },
+        {
+          "step": 2,
+          "range": [
+            10,
+            23
+          ],
+          "action_count": 14,
+          "step_text_v6": "[Step 2] Morph an orbital on the main CC, then train a reaper for early scout pressure while keeping worker production rolling. Drop the second CC for an early expo, throw down the first refinery, and start a factory with a tech lab shortly after. Add a depot to keep supply clean and continue pumping several SCVs to saturate both bases."
+        },
+        {
+          "step": 3,
+          "range": [
+            24,
+            33
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 3] Morph your main CC into an orbital to unlock mule energy, then throw down the first refinery to start gas income. Queue up a couple of tanks from the factory while keeping worker production rolling with several SCVs, and add a bunker for early defense. Drop the second factory to ramp up tank production heading into the mid-game."
+        },
+        {
+          "step": 4,
+          "range": [
+            34,
+            43
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 4] Throw down a Refinery to get gas flowing for factory tech, then churn out several SCVs to keep the economy humming while the first Siege Tank rolls out. Add a couple of depots to stay ahead of supply as production ramps up."
+        },
+        {
+          "step": 5,
+          "range": [
+            44,
+            56
+          ],
+          "action_count": 13,
+          "step_text_v6": "[Step 5] Throw down a wall of depots to clear supply block and make room for a massive army, keep worker production rolling with a couple more SCVs, and add a tech lab to the factory to unlock tank or hellbat tech."
+        },
+        {
+          "step": 6,
+          "range": [
+            57,
+            66
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 6] Throw down an armory to unlock vehicle upgrades and get your mech ball rolling, queue up a couple of tanks from the factory, and keep the worker production flowing with several SCVs across your bases. Drop your third CC to secure the economic foundation for a heavier mid-game push."
+        },
+        {
+          "step": 7,
+          "range": [
+            67,
+            76
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 7] Throw down 4 factories to establish a heavy mech production backbone while keeping SCV production rolling. Start cranking out the first Siege Tank as the factories come online, setting up for a powerful tank-based mid-game push."
+        },
+        {
+          "step": 8,
+          "range": [
+            77,
+            91
+          ],
+          "action_count": 15,
+          "step_text_v6": "[Step 8] Keep worker production rolling while adding a starport and throwing down a depot to stay ahead on supply. The factories get their tech labs online, and a couple of tanks come out to start building that siege-based core. This is the mech transition taking shape—tanks for the frontline, with the port setting up for eventual air support or medivac follow-up."
+        },
+        {
+          "step": 9,
+          "range": [
+            92,
+            102
+          ],
+          "action_count": 11,
+          "step_text_v6": "[Step 9] Morph the CC into an orbital to unlock mule production and scouting, then throw down two refineries to secure gas for the upcoming mech transition. Add three factories and slap a reactor on the starport to start cranking out production, while kicking off mech +1 at the armory. Keep worker production rolling with a few SCVs to maintain economic momentum."
+        },
+        {
+          "step": 10,
+          "range": [
+            103,
+            113
+          ],
+          "action_count": 11,
+          "step_text_v6": "[Step 10] Throw down 2 factories and start pumping tanks immediately, with 4 Siege Tanks rolling out to anchor your army. Keep supply from blocking by dropping depots in between, then add tech labs onto both factories so you can keep the tank production flowing with proper upgrades."
+        },
+        {
+          "step": 11,
+          "range": [
+            114,
+            128
+          ],
+          "action_count": 15,
+          "step_text_v6": "[Step 11] Throw down a starport to open up air tech options while keeping tank production rolling with several Siege Tanks coming out of the factory. Drop a wave of depots to clear supply block and keep the production flowing, then add tech labs onto the factories so you can keep cranking out tanks with proper support."
+        },
+        {
+          "step": 12,
+          "range": [
+            129,
+            138
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 12] Throw down 5 factories all at once to kick the mech production into overdrive, then queue up a couple of tanks and start teching two of the factories with tech labs. Take a fourth CC in the back to keep the economy rolling and support the heavy gas demands of this factory-heavy transition."
+        },
+        {
+          "step": 13,
+          "range": [
+            139,
+            148
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 13] Push out a tank and a wave of Thors from the factory while throwing down depots to clear the supply block and make room for the heavy mech army."
+        },
+        {
+          "step": 14,
+          "range": [
+            149,
+            162
+          ],
+          "action_count": 14,
+          "step_text_v6": "[Step 14] Spam down a wall of depots to clear the supply block and make room for the heavy mech army, queue up 4 Thors from the factory, and morph an OC while grabbing a couple more gas to keep the thor production rolling."
+        },
+        {
+          "step": 15,
+          "range": [
+            163,
+            172
+          ],
+          "action_count": 10,
+          "step_text_v6": "[Step 15] Throw down the armory and start mech +1 vehicle weapons to power up the heavy hitters. The factory churns out a wave of Thors while the starport adds a handful of vikings for air control, setting up a beefy mech deathball that can push across the map."
+        },
+        {
+          "step": 16,
+          "range": [
+            173,
+            189
+          ],
+          "action_count": 17,
+          "step_text_v6": "[Step 16] Mass produce vikings out of the starport to seize air dominance and counter any enemy colossi or air threats, queue up a tank for ground support, and drop a new CC to expand the economy and support this heavy production."
+        }
+      ]
+    }
+  },
+  "total_steps": 184
+}

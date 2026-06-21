@@ -1,0 +1,25 @@
+{
+  "recorded_at": "2026-06-21T20:15:34.137683",
+  "total_games": 1,
+  "wins": 1,
+  "losses": 0,
+  "matches": [
+    {
+      "bot_key": "safe211",
+      "bot_folder": "safe_211_mine",
+      "opponent": "ai.terran.hard",
+      "enemy_race": "terran",
+      "difficulty": "hard",
+      "map": "YearZeroLE",
+      "port": 27416,
+      "log_path": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-21_sft_10game_kimi\\match_09b_safe211_terran_hard_YearZeroLE\\safe_211_mine\\logs\\safe211-ai.terran.hard_YearZeroLE_2026-06-21 20_12_43_368054.log",
+      "replay_path": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-21_sft_10game_kimi\\match_09b_safe211_terran_hard_YearZeroLE\\safe_211_mine\\replays\\safe211-ai.terran.hard_YearZeroLE_2026-06-21 20_12_43_368054.SC2Replay",
+      "sequence_dir": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-21_sft_10game_kimi\\match_09b_safe211_terran_hard_YearZeroLE\\safe_211_mine\\sequences",
+      "status": "ok",
+      "result": "Victory",
+      "error": null,
+      "sequence_file": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-21_sft_10game_kimi\\match_09b_safe211_terran_hard_YearZeroLE\\safe_211_mine\\sequences\\safe211-ai.terran.hard_零纪元-天梯版_2026-06-21 20_15_32_78718.json",
+      "victory": true
+    }
+  ]
+}

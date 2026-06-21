@@ -1,0 +1,20 @@
+{
+  "created_at": "2026-06-21T20:31:38.555334",
+  "standard": "v6",
+  "source": "recovered_from_existing_markdown",
+  "require_victory": true,
+  "data_dir": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-21_sft_10game_kimi",
+  "md_dir": "C:\\code\\SC2_bot_data\\sft_pipeline_outputs\\2026-06-21_sft_10game_kimi\\v6_steps\\md",
+  "output_dir": "C:\\code\\SC2_bot_data\\sft_pipeline_outputs\\2026-06-21_sft_10game_kimi\\v6_steps",
+  "labeled_step_count": 184,
+  "labeled_steps": "C:\\code\\SC2_bot_data\\sft_pipeline_outputs\\2026-06-21_sft_10game_kimi\\v6_steps\\json\\labeled_steps.jsonl",
+  "step_index": "C:\\code\\SC2_bot_data\\sft_pipeline_outputs\\2026-06-21_sft_10game_kimi\\v6_steps\\json\\step_index.json",
+  "qa": {
+    "sequence_count": 11,
+    "victory_sequences": 10,
+    "matched_md_sequences": 10,
+    "skipped_non_victory": 1,
+    "skipped_missing_md": 0,
+    "skipped_missing_step_text": 0
+  }
+}

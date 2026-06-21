@@ -1,183 +1,194 @@
 # Terran BO 轨迹批量采集
 
-批量运行 `dummies/terran/` 下的 10 个 dummy bot，对战内置 AI（三族 × 五档难度），采集 macro ability sequence（BO 轨迹）并记录胜负。
+本文说明如何使用本仓库的 Terran bot 采集 BO/action 轨迹。采集产物是后续 v6 step 标注和 SFT 构造的数据源。
 
-## 采集机制
+## 采集入口
 
-- 由 `AbilityRecorderManager`（`sharpy/managers/extensions/ability_recorder.py`）在对局中记录宏操作序列
-- 每局结束写入 JSON，包含 `meta`（bot、对手、地图、胜负、时长）和 `sequence`（逐步 ability + obs）
-- 需在 `config.ini` 中开启 `write_ability_sequence = yes`（脚本运行时会按 bot 子目录覆盖输出路径）
+推荐使用 pipeline 包装入口：
 
-## 对战矩阵
-
-| 项目 | 内容 |
-|------|------|
-| Bot 数量 | 10 |
-| 对手种族 | protoss / zerg / terran |
-| AI 难度 | medium / mediumhard / hard / harder / veryhard |
-| 每 bot 对局数 | 3 × 5 = **15 场** |
-| 总对局数 | 10 × 15 = **150 场** |
-| 并行策略 | **每个 bot 内 15 场并行**，bot 之间串行 |
-| 单局时限 | 30 分钟 |
-
-### Bot 列表（bot_loader key → 输出目录名）
-
-| bot key | 源文件 | 输出子目录 |
-|---------|--------|------------|
-| `banshee` | `banshees.py` | `banshees/` |
-| `bc` | `battle_cruisers.py` | `battle_cruisers/` |
-| `bio` | `bio.py` | `bio/` |
-| `cyclone` | `cyclones.py` | `cyclones/` |
-| `marine` | `marine_rush.py` | `marine_rush/` |
-| `terranturtle` | `one_base_turtle.py` | `one_base_turtle/` |
-| `oldrusty` | `rusty.py` | `rusty/` |
-| `saferaven` | `safe_tvt_raven.py` | `safe_tvt_raven/` |
-| `silverbio` | `terran_silver_bio.py` | `terran_silver_bio/` |
-| `tank` | `two_base_tanks.py` | `two_base_tanks/` |
-
-对手格式：`ai.<种族>.<难度>`，例如 `ai.zerg.veryhard`。
-
-## 环境要求
-
-```bash
-conda activate SC2_0615
-cd /data2/SC2_2606/sharpy-sc2
+```powershell
+python -m sft_pipeline.collect.run_collect `
+  --output bo_collection_runs/<run_id> `
+  --map KairosJunctionLE `
+  --bots bio marine tank `
+  --races zerg protoss terran `
+  --difficulties hard harder veryhard `
+  --workers 4
 ```
 
-需已安装 StarCraft II 及 ladder 地图（如 `KairosJunctionLE`）。
+底层脚本是：
 
-## 推荐：tmux 后台运行
-
-```bash
-cd /data2/SC2_2606/sharpy-sc2
-chmod +x tools/run_terran_bo_collect.sh
-
-# 默认：地图 KairosJunctionLE，会话名 sc2_terran_bo_collect
-./tools/run_terran_bo_collect.sh
-
-# 自定义输出目录和会话名
-OUTPUT=bo_collection_runs/my_run_001 \
-TMUX_SESSION=sc2_terran_bo_collect \
-MAP=KairosJunctionLE \
-./tools/run_terran_bo_collect.sh
+```powershell
+python tools/collect_terran_bo.py ...
 ```
 
-### tmux 常用操作
+`run_collect.py` 会记录 `run_manifest.json`，更适合作为标准流程入口。
 
-```bash
-tmux attach -t sc2_terran_bo_collect   # 进入会话
-# 脱离（不杀进程）：Ctrl+b 然后按 d
-tmux ls                                 # 查看所有会话
-tmux kill-session -t sc2_terran_bo_collect  # 终止会话（会中断采集）
+## 地图命名要求
+
+所有命令行参数中的地图都必须使用 SC2 引擎英文 map id：
+
+```text
+KairosJunctionLE
+AcropolisLE
+ThunderbirdLE
+YearZeroLE
 ```
 
-### 手动 tmux 启动（等价命令）
-
-```bash
-tmux new-session -d -s sc2_terran_bo_collect -c /data2/SC2_2606/sharpy-sc2 \
-  'source ~/miniconda3/etc/profile.d/conda.sh && conda activate SC2_0615 && \
-   python tools/collect_terran_bo.py \
-     --output bo_collection_runs/2026-06-16_terran_bo \
-     --map KairosJunctionLE \
-     --workers 15 \
-     2>&1 | tee bo_collection_runs/2026-06-16_terran_bo_run.log'
-```
-
-## 直接运行 Python 脚本
-
-```bash
-conda activate SC2_0615
-cd /data2/SC2_2606/sharpy-sc2
-
-python tools/collect_terran_bo.py \
-  --output bo_collection_runs/2026-06-16_terran_bo \
-  --map KairosJunctionLE
-```
-
-### 命令行参数
-
-| 参数 | 默认值 | 说明 |
-|------|--------|------|
-| `--output` | `bo_collection_runs/<时间戳>` | 输出根目录 |
-| `--map` | 随机 melee 图 | 固定地图名 |
-| `--bots` | 全部 10 个 | 只跑指定 bot（key 或目录名） |
-| `--workers` | 15 | 每个 bot 的并行对局数 |
-| `--port-offset` | 25000 | SC2 起始端口 |
-
-示例：只跑 `bio` 和 `marine`：
-
-```bash
-python tools/collect_terran_bo.py --bots bio marine --output bo_collection_runs/test_bio_marine
-```
-
-## 输出目录结构
-
-```
-bo_collection_runs/2026-06-16_terran_bo/
-├── summary.json              # 全部 150 场汇总（胜负、路径）
-├── banshees/
-│   ├── sequences/            # BO 轨迹 JSON（AbilityRecorder 输出）
-│   ├── logs/                 # 单局 Sharpy log
-│   ├── replays/              # SC2Replay 录像
-│   └── results.json          # 该 bot 15 场胜负明细
-├── battle_cruisers/
-├── ...
-└── two_base_tanks/
-```
-
-### 轨迹 JSON 示例（`meta` 字段）
+不要使用客户端中文显示名。采集侧会把输入的英文 map id 写入：
 
 ```json
 {
   "meta": {
-    "bot_name": "Marine Rush",
-    "opponent_id": "marine-ai.terran.veryhard",
     "map": "KairosJunctionLE",
-    "my_race": "Terran",
-    "enemy_race": "Terran",
-    "result": "Victory",
-    "game_duration": 539.29,
-    "sequence_count": 453
-  },
-  "sequence": [ ... ]
+    "map_localized": "凯罗斯中转站-天梯版"
+  }
 }
 ```
 
-### 查看进度
+`meta.map`、sequence 文件名、step Markdown 文件名和 SFT 元数据都应使用英文 map id。`map_localized` 只用于人工参考。
 
-```bash
-# 若用 run 脚本或 tee，日志在 <output>_run.log
-tail -f bo_collection_runs/2026-06-16_terran_bo_run.log
+## 并发
 
-# 已完成序列数量
-find bo_collection_runs/2026-06-16_terran_bo -path '*/sequences/*.json' | wc -l
+`--workers` 是采集对局的最大并发数。Windows 上建议先用：
 
-# 某 bot 胜负
-cat bo_collection_runs/2026-06-16_terran_bo/banshees/results.json | python -m json.tool
+```text
+--workers 1
 ```
 
-## 相关文件
+确认 SC2 能稳定启动和关闭后，再逐步增加到 `2` 或 `4`。并发过高会导致端口冲突、SC2 客户端卡死或资源不足。
 
-| 文件 | 说明 |
-|------|------|
-| `tools/collect_terran_bo.py` | 批量采集主脚本 |
-| `tools/run_terran_bo_collect.sh` | tmux 一键启动包装 |
-| `sharpy/managers/extensions/ability_recorder.py` | 轨迹记录器 |
-| `config.ini` | `write_ability_sequence`、`ability_sequence_dir` |
-| `bot_loader/bot_definitions.py` | bot key 与 dummy 注册 |
+`--port-offset` 可用于错开端口：
 
-## 当前运行实例（2026-06-16）
+```powershell
+python -m sft_pipeline.collect.run_collect `
+  --output bo_collection_runs/run_a `
+  --map KairosJunctionLE `
+  --workers 2 `
+  --port-offset 0
+```
 
-| 项目 | 值 |
-|------|-----|
-| 输出目录 | `bo_collection_runs/2026-06-16_terran_bo/` |
-| 日志 | `bo_collection_runs/2026-06-16_terran_bo_run.log` |
-| 地图 | `KairosJunctionLE` |
-| tmux 监控会话 | `sc2_terran_bo_collect`（`tail -f` 日志，主进程为 nohup 启动） |
+## 参数
 
-查看：
+| 参数 | 说明 |
+| --- | --- |
+| `--output` | 输出根目录，建议为 `bo_collection_runs/<run_id>` |
+| `--map` | 英文 map id；不传时从已知 melee 地图中选择 |
+| `--bots` | bot key，例如 `bio marine tank` |
+| `--races` | 内置 AI 种族：`protoss zerg terran` |
+| `--difficulties` | 内置 AI 难度：`medium mediumhard hard harder veryhard` |
+| `--workers` | 最大并发对局数 |
+| `--port-offset` | 起始端口偏移 |
 
-```bash
-tmux attach -t sc2_terran_bo_collect
-tail -f bo_collection_runs/2026-06-16_terran_bo_run.log
+可用 bot key 在 `tools/collect_terran_bo.py` 的 `TERRAN_BOTS` 中维护。
+
+## 输出目录
+
+```text
+bo_collection_runs/<run_id>/
+  run_manifest.json
+  summary.json
+  <bot_folder>/
+    sequences/
+      *.json
+    logs/
+      *.log
+    replays/
+      *.SC2Replay
+    results.json
+```
+
+sequence JSON 的核心字段：
+
+```json
+{
+  "meta": {
+    "bot_name": "Rusty Infantry",
+    "opponent_id": "bio-ai.zerg.hard",
+    "map": "KairosJunctionLE",
+    "map_localized": "凯罗斯中转站-天梯版",
+    "my_race": "Terran",
+    "enemy_race": "Zerg",
+    "result": "Victory",
+    "sequence_count": 165,
+    "order_list_count": 165
+  },
+  "sequence": [
+    {
+      "seq": 0,
+      "ability": "COMMANDCENTERTRAIN_SCV",
+      "obs": {
+        "text": "...",
+        "structured": {}
+      },
+      "local_obs": {}
+    }
+  ],
+  "order_list": ["COMMANDCENTERTRAIN_SCV"]
+}
+```
+
+train 且候选执行单位大于 1 时，`sequence[]` 会额外包含：
+
+```json
+{
+  "executor_context": {
+    "ability_name": "BARRACKSTRAIN_MARINE",
+    "selected_tag": 4355260417,
+    "selected_type": "BARRACKS",
+    "candidate_count": 2,
+    "candidate_executors": []
+  }
+}
+```
+
+addon/morph 不保存 executor LLM 上下文，因为当前标准流程中它们不再由 LLM 选择执行单位。
+
+## 胜局要求
+
+采集阶段可以保留所有结果，但标准 step 和 SFT 阶段默认只使用：
+
+```text
+meta.result == "Victory"
+```
+
+因此采集完成后应查看 `summary.json` / `results.json`，确认胜局数量足够。非胜局不会进入默认 SFT 数据。
+
+## Obs QA
+
+采集后运行：
+
+```powershell
+python -m sft_pipeline.collect.validate_obs `
+  --run bo_collection_runs/<run_id> `
+  --output sft_pipeline_outputs/<run_id>/obs_qa.json
+```
+
+重点检查：
+
+- `missing_obs_text == 0`
+- `missing_obs_structured == 0`
+- `order_mismatch == 0`
+- `executor_context_train_multi` 是否合理
+
+## 下一步
+
+转 v6 step：
+
+```powershell
+python -m sft_pipeline.label_steps.build_v6_steps `
+  --data-dir bo_collection_runs/<run_id> `
+  --output sft_pipeline_outputs/<run_id>/v6_steps `
+  --model-key kimi-k2.5 `
+  --no-thinking `
+  --workers 4
+```
+
+构造 SFT：
+
+```powershell
+python -m sft_pipeline.build_sft.build_all `
+  --labeled-steps sft_pipeline_outputs/<run_id>/v6_steps/json/labeled_steps.jsonl `
+  --output sft_pipeline_outputs/<run_id>/sft_agent_aligned `
+  --shuffle-variants 1
 ```

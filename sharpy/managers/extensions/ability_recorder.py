@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Union
 
 from sc2.data import Result
+from sc2.constants import abilityid_to_unittypeid
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.position import Point2
@@ -37,6 +38,7 @@ class PendingAction:
     target_key: Optional[int]
     issued_iteration: int
     issued_time: float
+    executor_context: Optional[Dict[str, Any]] = None
 
 
 class AbilityRecorderManager(ManagerBase):
@@ -136,6 +138,12 @@ class AbilityRecorderManager(ManagerBase):
             target_key=self._target_key(action.target),
             issued_iteration=getattr(getattr(self, "knowledge", None), "iteration", 0),
             issued_time=bot.time,
+            executor_context=self._capture_train_executor_context(
+                bot,
+                action,
+                resolved_ability,
+                semantic_target,
+            ),
         )
 
     def _target_key(self, target: Optional[Union[Unit, Point2]]) -> Optional[int]:
@@ -206,11 +214,124 @@ class AbilityRecorderManager(ManagerBase):
             "obs": self._capture_obs(bot),
             "local_obs": collect_entities(bot, self.data_ref_path),
         }
+        if pending.executor_context is not None:
+            entry["executor_context"] = pending.executor_context
         place = self._serialize_place(action.target, semantic_target["type"])
         if place is not None:
             entry["place"] = place
         self.sequence.append(entry)
         self._seq += 1
+
+    def _capture_train_executor_context(
+        self,
+        bot: Any,
+        action: UnitCommand,
+        resolved_ability: str,
+        semantic_target: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        """Capture executor-choice context only for train actions with >1 candidates.
+
+        The real executor LLM is only useful when several producers could issue
+        the same train command. For offline SFT data we save the selected
+        producer plus a lightweight snapshot of same-type candidate producers.
+        Addon and morph actions intentionally do not use this path.
+        """
+        if semantic_target.get("type") != "Train":
+            return None
+
+        trainer_types = self._trainer_types_for_ability(action.ability)
+        if not trainer_types:
+            return None
+
+        candidates: List[Dict[str, Any]] = []
+        seen_tags: Set[int] = set()
+        for unit in list(getattr(bot, "units", [])) + list(getattr(bot, "structures", [])):
+            tag = getattr(unit, "tag", None)
+            if tag is None or tag in seen_tags:
+                continue
+            seen_tags.add(tag)
+            if getattr(unit, "type_id", None) not in trainer_types:
+                continue
+            if getattr(unit, "build_progress", 1.0) < 1.0:
+                continue
+            candidates.append(self._serialize_executor_candidate(unit))
+
+        if len(candidates) <= 1:
+            return None
+
+        return {
+            "ability_name": resolved_ability,
+            "selected_tag": action.unit.tag,
+            "selected_type": action.unit.type_id.name,
+            "candidate_executors": candidates,
+            "candidate_count": len(candidates),
+            "cost_hint": self._format_action_cost_hint(bot, action),
+            "pending_actions_summary": "",
+            "waiting_actions_summary": "",
+            "executor_conflict_hints": "",
+            "note": "Captured by AbilityRecorder for train actions with more than one same-producer candidate.",
+        }
+
+    def _trainer_types_for_ability(self, ability_id: AbilityId) -> Set[UnitTypeId]:
+        try:
+            from sc2.dicts.unit_train_build_abilities import TRAIN_INFO
+        except Exception:
+            return set()
+
+        trainers: Set[UnitTypeId] = set()
+        for trainer_type, produced in TRAIN_INFO.items():
+            for _produced_type, info in produced.items():
+                if info.get("ability") == ability_id:
+                    trainers.add(trainer_type)
+        return trainers
+
+    def _serialize_executor_candidate(self, unit: Unit) -> Dict[str, Any]:
+        orders: List[Dict[str, Any]] = []
+        for order in getattr(unit, "orders", []) or []:
+            ability = getattr(order, "ability", None)
+            ability_id = getattr(ability, "id", None)
+            orders.append(
+                {
+                    "ability": getattr(ability_id, "name", str(ability_id)),
+                    "progress": round(float(getattr(order, "progress", 0.0) or 0.0), 3),
+                }
+            )
+
+        addon = None
+        if getattr(unit, "has_techlab", False):
+            addon = "TechLab"
+        elif getattr(unit, "has_reactor", False):
+            addon = "Reactor"
+        elif getattr(unit, "has_add_on", False):
+            addon = "AddOn"
+
+        return {
+            "tag": unit.tag,
+            "type": unit.type_id.name,
+            "is_idle": bool(getattr(unit, "is_idle", False)),
+            "add_on": addon,
+            "add_on_tag": int(getattr(unit, "add_on_tag", 0) or 0),
+            "orders": orders,
+        }
+
+    def _format_action_cost_hint(self, bot: Any, action: UnitCommand) -> str:
+        try:
+            cost = bot._game_data.calculate_ability_cost(action.ability)
+            minerals = int(getattr(cost, "minerals", 0) or 0)
+            gas = int(getattr(cost, "vespene", 0) or 0)
+        except Exception:
+            minerals = 0
+            gas = 0
+
+        supply = 0
+        try:
+            unit_type = abilityid_to_unittypeid.get(action.ability)
+            if unit_type is not None:
+                supply = int(bot.calculate_supply_cost(unit_type) or 0)
+        except Exception:
+            supply = 0
+
+        return f"minerals {minerals}, gas {gas}, supply {supply}"
 
     def _capture_obs(self, bot) -> Dict[str, Any]:
         recorder = getattr(bot, "llm_observation_recorder", None)
@@ -250,7 +371,16 @@ class AbilityRecorderManager(ManagerBase):
             os.makedirs(self.output_dir)
 
         opponent_id = getattr(self.ai, "opponent_id", "unknown")
-        map_name = self.ai.game_info.map_name.replace(" ", "")
+        localized_map_name = self.ai.game_info.map_name.replace(" ", "")
+        configured_map_name = getattr(self.ai, "ability_sequence_map_name", None)
+        if not configured_map_name:
+            config = getattr(self.ai, "config", None)
+            if config is not None:
+                try:
+                    configured_map_name = config.get("general", "ability_sequence_map_name", fallback=None)
+                except Exception:
+                    configured_map_name = None
+        map_name = str(configured_map_name or localized_map_name).replace(" ", "")
         timestamp = datetime.now().strftime("%Y-%m-%d %H_%M_%S")
         randomizer = random.randint(0, 999999)
         file_name = f"{opponent_id}_{map_name}_{timestamp}_{randomizer}.json"
@@ -263,6 +393,7 @@ class AbilityRecorderManager(ManagerBase):
                 "bot_name": self.ai.name,
                 "opponent_id": opponent_id,
                 "map": map_name,
+                "map_localized": localized_map_name,
                 "my_race": self.knowledge.my_race.name,
                 "enemy_race": self.knowledge.enemy_race.name,
                 "result": game_result.name,

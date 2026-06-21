@@ -1,0 +1,11 @@
+{
+  "totals": {
+    "sequence_files": 11,
+    "actions": 2417,
+    "missing_obs_text": 0,
+    "missing_obs_structured": 0,
+    "order_mismatch": 0,
+    "executor_context_train_multi": 1354
+  },
+  "files_with_issues": []
+}

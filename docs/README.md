@@ -1,56 +1,54 @@
-﻿# docs 目录索引
+# docs 目录索引
 
-本目录下的文档按用途分为环境配置、bot 运行与测试、数据采集、框架说明和仓库管理五类。建议按以下顺序阅读。
+本目录记录环境配置、bot 运行、轨迹采集、v6 step 标注、SFT 数据构造和仓库管理。当前主线目标是：用本仓库采集胜局轨迹，并构造与 `SC2-Agent-260510` 三个 LLM 位置对齐的训练数据。
 
----
+## 必读顺序
 
-## 环境配置
+1. [windows_environment_setup.md](windows_environment_setup.md)：Windows 环境、conda、SC2PATH、地图安装。
+2. [windows_run_bots.md](windows_run_bots.md)：手动运行 bot 与调试。
+3. [collect_terran_bo.md](collect_terran_bo.md)：批量采集 Terran BO 轨迹。
+4. [sft_pipeline_usage.md](sft_pipeline_usage.md)：采集轨迹 -> v6 step -> SFT 的完整流程。
+5. [sft_data_format.md](sft_data_format.md)：Qwen3 thinking/nothink 的 ShareGPT 数据格式。
 
-**[windows_environment_setup.md](windows_environment_setup.md)**
-Windows 环境下配置 SC2 bot 运行环境的一站式指南。涵盖 conda 环境创建（`SC2_0615`）、Python 依赖安装、`config.ini` 配置以及 sharpy 子模块初始化。所有其他操作都依赖此文档先行完成。
+## 当前统一要求
 
-## Bot 运行与测试
+- 对局采集使用本仓库的 bot 和 `tools/collect_terran_bo.py` / `sft_pipeline.collect.run_collect`。
+- `SC2-Agent-260510` 只作为 prompt/context 标准来源，不作为采集 bot。
+- step 与 SFT 数据默认只使用 `Victory` 对局。
+- 地图名统一使用 SC2 引擎英文 map id，例如 `KairosJunctionLE`，不要使用客户端中文显示名。
+- 输出文件名、`meta.map`、step Markdown 文件名、SFT 元数据都使用英文 map id。
+- 中文本地化地图名如需保留，只能放到 `meta.map_localized`。
+- 最终 SFT 输出目录建议使用 `sft_agent_aligned/`。
 
-**[windows_run_bots.md](windows_run_bots.md)**
-如何在 Windows 上运行 bot 的操作手册。包含启动前环境变量设置、查看可用 bot/地图/AI 参数的方法、单局运行命令以及批量对战示例。是日常调试和手动测试的入口。
+## 数据与流程文档
 
-**[agent_bot_test_and_trajectory_review.md](agent_bot_test_and_trajectory_review.md)**
-面向 Agent 的测试指南。规定了测试时使用的标准参数（地图 `KairosJunctionLE`、对手 AI `ai.terran.veryhard` 等），以及如何检查 bot 对局后生成的动作轨迹（trajectory）JSON 文件。关键约束：所有参数必须使用英文 ID，不要用 SC2 客户端的中文显示名。
+**[collect_terran_bo.md](collect_terran_bo.md)**  
+说明如何批量运行 Terran bot，对抗内置 AI，采集 sequence JSON、obs、replay 和 log。包含 `--workers` 并发、bot/race/difficulty/map 参数、输出目录和 QA 检查。
 
-## 数据采集
+**[ability_recorder_commit_and_addon.md](ability_recorder_commit_and_addon.md)**  
+说明 `AbilityRecorderManager` 为什么要在 action 被 SC2 接受后再写入 sequence，如何处理 TechLab/Reactor 命名，以及 train 多候选 executor context 的保存规则。
 
-**[collect_terran_bo.md](collect_terran_bo.md)**
-批量采集 Terran dummy bot 的 BO 轨迹的方案说明。定义了完整的对战矩阵：10 个 Terran bot 分别对抗三族 × 五档难度的内置 AI，总计 150 局。文档说明了采集机制（`AbilityRecorderManager` 记录 macro ability sequence）、输出格式（含 meta 和 sequence 的 JSON）和并行策略（每个 bot 内部 15 局并行，bot 之间串行）。
+**[sft_pipeline_usage.md](sft_pipeline_usage.md)**  
+说明模块化 SFT pipeline：采集、obs 校验、v6 step 标注、从 Markdown 恢复 JSONL、构造 Agent-aligned SFT。
 
-**[ability_recorder_commit_and_addon.md](ability_recorder_commit_and_addon.md)**
-`AbilityRecorderManager` 核心设计的技术笔记。重点记录了两个关键设计决策：(1) 为什么要在动作被游戏引擎接受并开始执行后才写入 sequence（避免重复条目和未执行动作的污染）；(2) TechLab/Reactor 这类附属建筑的命名和去重策略。供阅读和修改 recorder 代码时参考。
+**[sft_data_format.md](sft_data_format.md)**  
+说明 Qwen3 thinking / nothink 训练样本格式。当前 pipeline 输出 ShareGPT 格式。
 
-## 框架说明
+## 运行与环境文档
 
-**[sharpy_original_readme.md](sharpy_original_readme.md)**
-sharpy-sc2 框架的原始 README。sharpy 是基于 python-sc2 的 SC2 AI bot 快速开发框架，也是 Sharpened Edge bot 所用框架。本仓库中的所有 Terran dummy bot 均构建于 sharpy 之上。文档记录了框架的定位、环境要求（Python 3.8/3.9/3.11 64-bit）、基本用法和项目结构概览。
+**[windows_environment_setup.md](windows_environment_setup.md)**  
+配置 Windows 环境、conda 环境、依赖、SC2 安装路径和地图。
 
-## 仓库管理
+**[windows_run_bots.md](windows_run_bots.md)**  
+手动运行 bot、查看可用 bot/地图/AI 参数、运行小规模采集测试。
 
-**[git_repo_management.md](git_repo_management.md)**
-本仓库的 Git 配置与目录归属说明。覆盖：远程仓库地址（`git@github.com:ysh020603/SC2_bot_data.git`）、子模块（sharpy-sc2、sc2-pathlib 等）的初始化与更新策略、各顶层目录的 Git 追踪归属分类，以及日常分支操作和换机部署方式。
+**[agent_bot_test_and_trajectory_review.md](agent_bot_test_and_trajectory_review.md)**  
+面向 Agent 的测试指南，适合检查单局轨迹和日志。
 
----
+## 参考与管理
 
-## 阅读顺序建议
+**[git_repo_management.md](git_repo_management.md)**  
+仓库结构、子模块、忽略文件和 Git 管理说明。
 
-如果你是**初次配置环境**，按以下顺序阅读：
-
-1. [windows_environment_setup.md](windows_environment_setup.md) — 搭好环境
-2. [git_repo_management.md](git_repo_management.md) — 了解仓库结构
-3. [sharpy_original_readme.md](sharpy_original_readme.md) — 了解框架背景
-4. [windows_run_bots.md](windows_run_bots.md) — 跑起来
-
-如果你要**批量采集 BO 数据**：
-
-1. [collect_terran_bo.md](collect_terran_bo.md) — 了解采集矩阵和方案
-2. [ability_recorder_commit_and_addon.md](ability_recorder_commit_and_addon.md) — 理解 recorder 的设计逻辑
-
-如果你要让 **Agent 自动测试**：
-
-1. [agent_bot_test_and_trajectory_review.md](agent_bot_test_and_trajectory_review.md) — Agent 视角的测试流程
+**[sharpy_original_readme.md](sharpy_original_readme.md)**  
+原始 sharpy-sc2 框架说明。

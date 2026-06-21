@@ -1,0 +1,34 @@
+{
+  "created_at": "2026-06-21T20:10:16.154573",
+  "command": [
+    "C:\\Users\\Descfly\\.conda\\envs\\SC2_0615\\python.exe",
+    "C:\\code\\SC2_bot_data\\tools\\collect_terran_bo.py",
+    "--output",
+    "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-21_sft_10game_kimi\\match_08b_ravlibtank_protoss_hard_ThunderbirdLE",
+    "--workers",
+    "1",
+    "--port-offset",
+    "27300",
+    "--map",
+    "ThunderbirdLE",
+    "--bots",
+    "ravlibtank",
+    "--races",
+    "protoss",
+    "--difficulties",
+    "hard"
+  ],
+  "map": "ThunderbirdLE",
+  "bots": [
+    "ravlibtank"
+  ],
+  "races": [
+    "protoss"
+  ],
+  "difficulties": [
+    "hard"
+  ],
+  "workers": 1,
+  "port_offset": 27300,
+  "obs_schema_version": "v1-train-executor-context"
+}

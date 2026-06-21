@@ -1,0 +1,34 @@
+{
+  "created_at": "2026-06-21T19:40:17.016201",
+  "command": [
+    "C:\\Users\\Descfly\\.conda\\envs\\SC2_0615\\python.exe",
+    "C:\\code\\SC2_bot_data\\tools\\collect_terran_bo.py",
+    "--output",
+    "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-21_sft_10game_kimi\\match_02_marine_protoss_mediumhard_AcropolisLE",
+    "--workers",
+    "1",
+    "--port-offset",
+    "27120",
+    "--map",
+    "AcropolisLE",
+    "--bots",
+    "marine",
+    "--races",
+    "protoss",
+    "--difficulties",
+    "mediumhard"
+  ],
+  "map": "AcropolisLE",
+  "bots": [
+    "marine"
+  ],
+  "races": [
+    "protoss"
+  ],
+  "difficulties": [
+    "mediumhard"
+  ],
+  "workers": 1,
+  "port_offset": 27120,
+  "obs_schema_version": "v1-train-executor-context"
+}

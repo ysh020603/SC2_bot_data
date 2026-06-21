@@ -1,0 +1,25 @@
+{
+  "recorded_at": "2026-06-21T20:12:40.924154",
+  "total_games": 1,
+  "wins": 1,
+  "losses": 0,
+  "matches": [
+    {
+      "bot_key": "ravlibtank",
+      "bot_folder": "raven_liberator_tank",
+      "opponent": "ai.protoss.hard",
+      "enemy_race": "protoss",
+      "difficulty": "hard",
+      "map": "ThunderbirdLE",
+      "port": 27316,
+      "log_path": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-21_sft_10game_kimi\\match_08b_ravlibtank_protoss_hard_ThunderbirdLE\\raven_liberator_tank\\logs\\ravlibtank-ai.protoss.hard_ThunderbirdLE_2026-06-21 20_10_18_371344.log",
+      "replay_path": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-21_sft_10game_kimi\\match_08b_ravlibtank_protoss_hard_ThunderbirdLE\\raven_liberator_tank\\replays\\ravlibtank-ai.protoss.hard_ThunderbirdLE_2026-06-21 20_10_18_371344.SC2Replay",
+      "sequence_dir": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-21_sft_10game_kimi\\match_08b_ravlibtank_protoss_hard_ThunderbirdLE\\raven_liberator_tank\\sequences",
+      "status": "ok",
+      "result": "Victory",
+      "error": null,
+      "sequence_file": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-21_sft_10game_kimi\\match_08b_ravlibtank_protoss_hard_ThunderbirdLE\\raven_liberator_tank\\sequences\\ravlibtank-ai.protoss.hard_雷鸟-天梯版_2026-06-21 20_12_38_817626.json",
+      "victory": true
+    }
+  ]
+}

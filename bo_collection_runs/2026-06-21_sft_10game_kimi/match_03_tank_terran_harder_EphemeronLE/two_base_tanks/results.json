@@ -1,0 +1,25 @@
+{
+  "recorded_at": "2026-06-21T19:47:20.316077",
+  "total_games": 1,
+  "wins": 1,
+  "losses": 0,
+  "matches": [
+    {
+      "bot_key": "tank",
+      "bot_folder": "two_base_tanks",
+      "opponent": "ai.terran.harder",
+      "enemy_race": "terran",
+      "difficulty": "harder",
+      "map": "EphemeronLE",
+      "port": 27244,
+      "log_path": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-21_sft_10game_kimi\\match_03_tank_terran_harder_EphemeronLE\\two_base_tanks\\logs\\tank-ai.terran.harder_EphemeronLE_2026-06-21 19_42_57_77494.log",
+      "replay_path": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-21_sft_10game_kimi\\match_03_tank_terran_harder_EphemeronLE\\two_base_tanks\\replays\\tank-ai.terran.harder_EphemeronLE_2026-06-21 19_42_57_77494.SC2Replay",
+      "sequence_dir": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-21_sft_10game_kimi\\match_03_tank_terran_harder_EphemeronLE\\two_base_tanks\\sequences",
+      "status": "ok",
+      "result": "Victory",
+      "error": null,
+      "sequence_file": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-21_sft_10game_kimi\\match_03_tank_terran_harder_EphemeronLE\\two_base_tanks\\sequences\\tank-ai.terran.harder_伊菲莫隆-天梯版_2026-06-21 19_47_18_875845.json",
+      "victory": true
+    }
+  ]
+}

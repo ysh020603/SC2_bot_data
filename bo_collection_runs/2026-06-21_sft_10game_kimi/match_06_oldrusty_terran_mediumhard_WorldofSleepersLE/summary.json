@@ -1,0 +1,25 @@
+{
+  "recorded_at": "2026-06-21T19:55:58.115960",
+  "total_games": 1,
+  "wins": 1,
+  "losses": 0,
+  "results": [
+    {
+      "bot_key": "oldrusty",
+      "bot_folder": "rusty",
+      "opponent": "ai.terran.mediumhard",
+      "enemy_race": "terran",
+      "difficulty": "mediumhard",
+      "map": "WorldofSleepersLE",
+      "port": 27288,
+      "log_path": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-21_sft_10game_kimi\\match_06_oldrusty_terran_mediumhard_WorldofSleepersLE\\rusty\\logs\\oldrusty-ai.terran.mediumhard_WorldofSleepersLE_2026-06-21 19_52_51_454684.log",
+      "replay_path": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-21_sft_10game_kimi\\match_06_oldrusty_terran_mediumhard_WorldofSleepersLE\\rusty\\replays\\oldrusty-ai.terran.mediumhard_WorldofSleepersLE_2026-06-21 19_52_51_454684.SC2Replay",
+      "sequence_dir": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-21_sft_10game_kimi\\match_06_oldrusty_terran_mediumhard_WorldofSleepersLE\\rusty\\sequences",
+      "status": "ok",
+      "result": "Victory",
+      "error": null,
+      "sequence_file": "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-21_sft_10game_kimi\\match_06_oldrusty_terran_mediumhard_WorldofSleepersLE\\rusty\\sequences\\oldrusty-ai.terran.mediumhard_梦境世界-天梯版_2026-06-21 19_55_56_322134.json",
+      "victory": true
+    }
+  ]
+}

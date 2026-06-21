@@ -1,0 +1,34 @@
+{
+  "created_at": "2026-06-21T19:42:55.305278",
+  "command": [
+    "C:\\Users\\Descfly\\.conda\\envs\\SC2_0615\\python.exe",
+    "C:\\code\\SC2_bot_data\\tools\\collect_terran_bo.py",
+    "--output",
+    "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-21_sft_10game_kimi\\match_03_tank_terran_harder_EphemeronLE",
+    "--workers",
+    "1",
+    "--port-offset",
+    "27140",
+    "--map",
+    "EphemeronLE",
+    "--bots",
+    "tank",
+    "--races",
+    "terran",
+    "--difficulties",
+    "harder"
+  ],
+  "map": "EphemeronLE",
+  "bots": [
+    "tank"
+  ],
+  "races": [
+    "terran"
+  ],
+  "difficulties": [
+    "harder"
+  ],
+  "workers": 1,
+  "port_offset": 27140,
+  "obs_schema_version": "v1-train-executor-context"
+}

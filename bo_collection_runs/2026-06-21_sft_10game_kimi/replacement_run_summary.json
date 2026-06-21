@@ -1,0 +1,12 @@
+﻿[
+    {
+        "match":  "match_08b_ravlibtank_protoss_hard_ThunderbirdLE",
+        "exit_code":  0,
+        "output":  "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-21_sft_10game_kimi\\match_08b_ravlibtank_protoss_hard_ThunderbirdLE"
+    },
+    {
+        "match":  "match_09b_safe211_terran_hard_YearZeroLE",
+        "exit_code":  0,
+        "output":  "C:\\code\\SC2_bot_data\\bo_collection_runs\\2026-06-21_sft_10game_kimi\\match_09b_safe211_terran_hard_YearZeroLE"
+    }
+]

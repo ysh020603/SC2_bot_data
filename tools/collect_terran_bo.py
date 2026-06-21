@@ -60,11 +60,13 @@ BASE_PORT = 25000
 PORT_STRIDE = 8
 
 
-def _make_config(sequence_dir: str, log_file: bool) -> ConfigParser:
+def _make_config(sequence_dir: str, log_file: bool, map_name: str | None = None) -> ConfigParser:
     config = deepcopy(get_config())
     config["general"]["write_ability_sequence"] = "yes"
     config["general"]["ability_sequence_dir"] = sequence_dir
     config["general"]["log_file"] = "yes" if log_file else "no"
+    if map_name:
+        config["general"]["ability_sequence_map_name"] = map_name
     return config
 
 
@@ -121,7 +123,7 @@ def run_match(task: Dict[str, Any]) -> Dict[str, Any]:
         definitions = BotDefinitions()
         playable = definitions.playable
 
-        config = _make_config(seq_dir, log_file=True)
+        config = _make_config(seq_dir, log_file=True, map_name=map_name)
         LoggingUtility.set_logger_file(log_level=config["general"]["log_level"], path=log_path)
 
         player1_bot = playable[bot_key]([])
@@ -133,6 +135,7 @@ def run_match(task: Dict[str, Any]) -> Dict[str, Any]:
         if isinstance(player1_bot, Bot) and hasattr(player1_bot.ai, "config"):
             my_bot: KnowledgeBot = player1_bot.ai
             my_bot.config = config
+            setattr(my_bot, "ability_sequence_map_name", map_name)
 
         seq_before = set(os.listdir(seq_dir)) if os.path.isdir(seq_dir) else set()
 
