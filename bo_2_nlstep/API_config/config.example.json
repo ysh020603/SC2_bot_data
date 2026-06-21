@@ -1,0 +1,22 @@
+{
+  "llm_agents_pool": {
+    "deepseek-v4-flash": {
+      "model_name": "deepseek-v4-flash",
+      "api_key": "YOUR_DEEPSEEK_API_KEY",
+      "api_url": "https://api.deepseek.com/v1",
+      "temperature": 0.3,
+      "max_tokens": 4096,
+      "is_reasoning": true,
+      "timeout_seconds": 120
+    },
+    "deepseek-v4-flash-no-thinking": {
+      "model_name": "deepseek-v4-flash",
+      "api_key": "YOUR_DEEPSEEK_API_KEY",
+      "api_url": "https://api.deepseek.com/v1",
+      "temperature": 0.3,
+      "max_tokens": 4096,
+      "is_reasoning": false,
+      "timeout_seconds": 120
+    }
+  }
+}

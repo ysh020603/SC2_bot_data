@@ -33,33 +33,45 @@ class SafeTwoOneOneMine(KnowledgeBot):
             Step(UnitReady(UnitTypeId.BARRACKS, 1), TerranUnit(UnitTypeId.REAPER, 1, only_once=True, priority=True)),
             Expand(2, priority=True),
             Step(Supply(20), GridBuilding(UnitTypeId.SUPPLYDEPOT, 2)),
-            GridBuilding(UnitTypeId.FACTORY, 1),
+            GridBuilding(UnitTypeId.BARRACKS, 2),
+            Step(UnitExists(UnitTypeId.REAPER, 1, include_killed=True), BuildAddon(UnitTypeId.BARRACKSREACTOR, UnitTypeId.BARRACKS, 1)),
             BuildGas(2),
+            GridBuilding(UnitTypeId.FACTORY, 1),
+            BuildAddon(UnitTypeId.BARRACKSTECHLAB, UnitTypeId.BARRACKS, 1),
+            Step(UnitReady(UnitTypeId.BARRACKSTECHLAB, 1), Tech(UpgradeId.STIMPACK)),
             BuildAddon(UnitTypeId.FACTORYREACTOR, UnitTypeId.FACTORY, 1),
             Step(UnitReady(UnitTypeId.FACTORYREACTOR, 1), TerranUnit(UnitTypeId.WIDOWMINE, 2, priority=True)),
-            GridBuilding(UnitTypeId.BARRACKS, 2),
-            BuildAddon(UnitTypeId.BARRACKSTECHLAB, UnitTypeId.BARRACKS, 1),
-            BuildAddon(UnitTypeId.BARRACKSREACTOR, UnitTypeId.BARRACKS, 1),
-            Step(UnitReady(UnitTypeId.BARRACKSTECHLAB, 1), Tech(UpgradeId.STIMPACK)),
             GridBuilding(UnitTypeId.STARPORT, 1),
             BuildAddon(UnitTypeId.STARPORTREACTOR, UnitTypeId.STARPORT, 1),
             GridBuilding(UnitTypeId.ENGINEERINGBAY, 1),
             Step(UnitReady(UnitTypeId.ENGINEERINGBAY, 1), Tech(UpgradeId.TERRANINFANTRYWEAPONSLEVEL1)),
             Tech(UpgradeId.SHIELDWALL),
-            Step(Supply(44, SupplyType.Workers), Expand(3)),
+            Step(All([Supply(44, SupplyType.Workers), UnitExists(UnitTypeId.MARINE, 24, include_pending=True)]), Expand(3)),
             GridBuilding(UnitTypeId.BARRACKS, 5),
             BuildAddon(UnitTypeId.BARRACKSREACTOR, UnitTypeId.BARRACKS, 4),
             BuildGas(4),
         ]
 
-        units = [
-            Step(UnitReady(UnitTypeId.FACTORYREACTOR, 1), TerranUnit(UnitTypeId.WIDOWMINE, 4, priority=True)),
+        bio_units = [
+            Step(UnitExists(UnitTypeId.REAPER, 1, include_killed=True), TerranUnit(UnitTypeId.MARINE, 12, priority=True)),
+            Step(UnitReady(UnitTypeId.BARRACKSTECHLAB, 1), TerranUnit(UnitTypeId.MARAUDER, 4, priority=True)),
             Step(UnitReady(UnitTypeId.BARRACKSREACTOR, 1), TerranUnit(UnitTypeId.MARINE, 24, priority=True)),
+            BuildOrder(
+                TerranUnit(UnitTypeId.MARINE, 120),
+                TerranUnit(UnitTypeId.MARAUDER, 20),
+            ),
+        ]
+
+        mine_units = [
+            Step(UnitReady(UnitTypeId.FACTORYREACTOR, 1), TerranUnit(UnitTypeId.WIDOWMINE, 4, priority=True)),
+            BuildOrder(
+                TerranUnit(UnitTypeId.WIDOWMINE, 8),
+            ),
+        ]
+
+        air_units = [
             Step(UnitReady(UnitTypeId.STARPORT, 1), TerranUnit(UnitTypeId.MEDIVAC, 2, priority=True)),
             BuildOrder(
-                TerranUnit(UnitTypeId.MARINE, 100),
-                TerranUnit(UnitTypeId.MARAUDER, 16),
-                TerranUnit(UnitTypeId.WIDOWMINE, 8),
                 TerranUnit(UnitTypeId.MEDIVAC, 6),
             ),
         ]
@@ -79,11 +91,11 @@ class SafeTwoOneOneMine(KnowledgeBot):
             Repair(),
             ContinueBuilding(),
             PlanZoneGatherTerran(),
-            Step(All([TechReady(UpgradeId.STIMPACK), UnitExists(UnitTypeId.MEDIVAC, 2, include_pending=True)]), PlanZoneAttack(40)),
+            Step(All([TechReady(UpgradeId.STIMPACK, 0.8), UnitExists(UnitTypeId.MARINE, 18, include_pending=True)]), PlanZoneAttack(32)),
             PlanFinishEnemy(),
         ]
 
-        return BuildOrder(BuildOrder([]).depots, scv, buildings, units, SequentialList(tactics))
+        return BuildOrder(BuildOrder([]).depots, scv, buildings, bio_units, mine_units, air_units, SequentialList(tactics))
 
 
 class LadderBot(SafeTwoOneOneMine):
