@@ -1,3 +1,7 @@
 [submodule "python-sc2"]
 	path = python-sc2
 	url = https://github.com/BurnySc2/python-sc2.git
+[submodule "SC2-Agent-260510"]
+	path = SC2-Agent-260510
+	url = git@github.com:ysh020603/SC2-Agent-260510.git
+	branch = sc2_old
