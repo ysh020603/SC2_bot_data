@@ -298,6 +298,11 @@ class BotDefinitions:
             DummyBuilder("terranturtle", "RustyOneBaseTurtle", Race.Terran, "one_base_turtle.py", OneBaseTurtle),
             DummyBuilder("saferaven", "SafeRaven", Race.Terran, "safe_tvt_raven.py", TerranSafeTvT),
             DummyBuilder("silverbio", "TerranSilverBio", Race.Terran, "terran_silver_bio.py", TerranSilverBio),
+            DummyBuilder("threerax", "Rusty3RaxStim", Race.Terran, "three_rax_stim.py", ThreeRaxStim),
+            DummyBuilder("safe211", "RustySafe211Mine", Race.Terran, "safe_211_mine.py", SafeTwoOneOneMine),
+            DummyBuilder("biomine", "RustyBioMines", Race.Terran, "bio_mine_macro.py", BioMineMacro),
+            DummyBuilder("ravlibtank", "RustyRavenLiberatorTank", Race.Terran, "raven_liberator_tank.py", RavenLiberatorTank),
+            DummyBuilder("mechthor", "RustyTankThorMech", Race.Terran, "tank_thor_mech.py", TankThorMech),
         ]
 
         for bot in bots:

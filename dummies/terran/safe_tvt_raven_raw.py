@@ -1,11 +1,13 @@
 from sc2.data import Race
 from sc2.ids.unit_typeid import UnitTypeId
 from sc2.ids.upgrade_id import UpgradeId
+from sc2.ids.ability_id import AbilityId
 
 from sharpy.knowledges import KnowledgeBot, Knowledge
 from sharpy.plans.terran import *
 
 from sharpy.plans.tactics.terran import CallMule, LowerDepots
+from sharpy.plans.tactics.terran.addon_swap import PlanAddonSwap, ExecuteAddonSwap
 
 
 class TerranSafeTvT(KnowledgeBot):
@@ -13,7 +15,7 @@ class TerranSafeTvT(KnowledgeBot):
     TvT Safe Opening
     Double gas 3 reaper 2 hellion opening
     Leave 4/6 in gas, factory expand
-    Direct addons only: techlab on factory, techlab on starport for ravens, no addon swap.
+    Reactor on rax, techlab on factory - after cyclone, swap with starport to make 2-3 raven, then reactored vikings and tanks
     3rd cc at 4:00 to 5:00
     Then +2 rax
     Then +2 ebays
@@ -110,20 +112,57 @@ class TerranSafeTvT(KnowledgeBot):
         mid_game_addons = Step(
             None,
             BuildOrder(
-                # Build production addons in place; no addon swapping / lift-land cycle.
-                BuildAddon(UnitTypeId.BARRACKSTECHLAB, UnitTypeId.BARRACKS, 1),
-                BuildAddon(UnitTypeId.BARRACKSREACTOR, UnitTypeId.BARRACKS, 4),
+                # Rebuild addons
+                BuildAddon(UnitTypeId.BARRACKSREACTOR, UnitTypeId.BARRACKS, 5),
                 BuildAddon(UnitTypeId.FACTORYTECHLAB, UnitTypeId.FACTORY, 2),
                 BuildAddon(UnitTypeId.STARPORTREACTOR, UnitTypeId.STARPORT, 1),
             ),
             skip_until=UnitExists(UnitTypeId.BARRACKS, 2, include_not_ready=False),
         )
 
+        addon_swap = [
+            # Addon count before 3rd cc is placed
+            Step(
+                None,
+                PlanAddonSwap(barracks_reactor_count=1, factory_techlab_count=1, starport_techlab_count=1),
+                skip=UnitExists(UnitTypeId.COMMANDCENTER, 3, include_killed=True, include_pending=True),
+            ),
+            # Once the 2 ravens are out, swap addons to allow reactored viking production and stim research
+            Step(
+                None,
+                PlanAddonSwap(barracks_techlab_count=1, factory_techlab_count=1, starport_reactor_count=1),
+                skip_until=UnitExists(UnitTypeId.RAVEN, 2, include_killed=True),
+                skip=UnitExists(UnitTypeId.BARRACKS, 5, include_killed=True),
+            ),
+            Step(
+                None,
+                PlanAddonSwap(
+                    barracks_techlab_count=1,
+                    barracks_reactor_count=4,
+                    factory_techlab_count=1,
+                    starport_reactor_count=1,
+                ),
+                skip_until=UnitExists(UnitTypeId.BARRACKS, 5, include_killed=True),
+                skip=TechReady(UpgradeId.SHIELDWALL),
+            ),
+            # Once stim and combatshield is researched, have a 5-2-1 setup
+            Step(
+                None,
+                PlanAddonSwap(
+                    barracks_reactor_count=5, factory_techlab_count=2, starport_reactor_count=1, only_once=False
+                ),
+                skip_until=TechReady(UpgradeId.SHIELDWALL),
+            ),
+        ]
+
         return BuildOrder(
             # Handle all scv production
             scv,
             # Handle gas saturation
             gas_management,
+            # Handle addon swapping
+            addon_swap,
+            ExecuteAddonSwap(),
             # Addon (re-)building
             mid_game_addons,
             # Handle all unit production
@@ -144,8 +183,12 @@ class TerranSafeTvT(KnowledgeBot):
                 GridBuilding(UnitTypeId.SUPPLYDEPOT, 3),
                 GridBuilding(UnitTypeId.STARPORT, 1),
                 BuildAddon(UnitTypeId.FACTORYTECHLAB, UnitTypeId.FACTORY, 1),
-                BuildAddon(UnitTypeId.BARRACKSTECHLAB, UnitTypeId.BARRACKS, 1),
-                BuildAddon(UnitTypeId.STARPORTTECHLAB, UnitTypeId.STARPORT, 1),
+                # TODO Unsure how to handle only building this addon once? Need a 'only_once' for BuildAddon
+                Step(
+                    None,
+                    BuildAddon(UnitTypeId.BARRACKSTECHLAB, UnitTypeId.BARRACKS, 1),
+                    skip=Once(Any(UnitReady(UnitTypeId.TECHLAB), UnitReady(UnitTypeId.FACTORYTECHLAB))),
+                ),
                 # Third gas at natural should be started at 3:20 before the CC finishes
                 BuildGas(3),
                 # At around 4:20, this command center should be placed in-base and flown out later
@@ -157,15 +200,8 @@ class TerranSafeTvT(KnowledgeBot):
                 AutoDepot(),
                 Step(
                     UnitExists(UnitTypeId.RAVEN, 2, include_pending=True, include_killed=True),
-                    GridBuilding(UnitTypeId.STARPORT, 2),
-                ),
-                Step(
-                    UnitExists(UnitTypeId.RAVEN, 2, include_pending=True, include_killed=True),
-                    GridBuilding(UnitTypeId.BARRACKS, 3),
-                ),
-                Step(
-                    UnitExists(UnitTypeId.STARPORT, 2, include_pending=True),
-                    BuildAddon(UnitTypeId.STARPORTREACTOR, UnitTypeId.STARPORT, 1),
+                    BuildAddon(UnitTypeId.BARRACKSREACTOR, UnitTypeId.BARRACKS, 1),
+                    skip=UnitExists(UnitTypeId.BARRACKSTECHLAB),
                 ),
                 Step(
                     UnitExists(UnitTypeId.VIKINGFIGHTER, 2, include_pending=True, include_killed=True),

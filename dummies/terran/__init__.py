@@ -9,3 +9,8 @@ from .terran_random import RandomTerranBot
 from .one_base_turtle import OneBaseTurtle
 from .safe_tvt_raven import TerranSafeTvT
 from .terran_silver_bio import TerranSilverBio
+from .three_rax_stim import ThreeRaxStim
+from .safe_211_mine import SafeTwoOneOneMine
+from .bio_mine_macro import BioMineMacro
+from .raven_liberator_tank import RavenLiberatorTank
+from .tank_thor_mech import TankThorMech

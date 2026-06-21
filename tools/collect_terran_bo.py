@@ -47,6 +47,11 @@ TERRAN_BOTS: List[Tuple[str, str]] = [
     ("saferaven", "safe_tvt_raven"),
     ("silverbio", "terran_silver_bio"),
     ("tank", "two_base_tanks"),
+    ("threerax", "three_rax_stim"),
+    ("safe211", "safe_211_mine"),
+    ("biomine", "bio_mine_macro"),
+    ("ravlibtank", "raven_liberator_tank"),
+    ("mechthor", "tank_thor_mech"),
 ]
 
 RACES = ("protoss", "zerg", "terran")
@@ -137,7 +142,7 @@ def run_match(task: Dict[str, Any]) -> Dict[str, Any]:
             [player1_bot, player2_bot],
             player1_id=player1_id,
             realtime=False,
-            game_time_limit=(30 * 60),
+            game_time_limit=(20 * 60),
             save_replay_as=replay_path,
             start_port=str(port),
         )
@@ -249,12 +254,27 @@ def main() -> None:
     parser.add_argument("--bots", nargs="*", default=None, help="Subset of bot keys or folder names.")
     parser.add_argument("--port-offset", type=int, default=BASE_PORT, help="Starting SC2 port base.")
     parser.add_argument("--workers", type=int, default=15, help="Parallel games per bot.")
+    parser.add_argument("--races", nargs="*", default=None, help="Subset of races (protoss,zerg,terran). Default: all three.")
+    parser.add_argument("--difficulties", nargs="*", default=None, help="Subset of difficulties (medium,mediumhard,hard,harder,veryhard). Default: all five.")
     args = parser.parse_args()
 
     output_root = os.path.abspath(args.output)
     os.makedirs(output_root, exist_ok=True)
 
     all_tasks, maps_used = build_tasks(output_root, args.bots, args.map, args.port_offset)
+
+    # Apply race/difficulty filters
+    if args.races:
+        allowed_races = set(args.races)
+        before = len(all_tasks)
+        all_tasks = [t for t in all_tasks if t["enemy_race"] in allowed_races]
+        print(f"Race filter {sorted(allowed_races)}: {before} -> {len(all_tasks)} tasks")
+    if args.difficulties:
+        allowed_diffs = set(args.difficulties)
+        before = len(all_tasks)
+        all_tasks = [t for t in all_tasks if t["difficulty"] in allowed_diffs]
+        print(f"Difficulty filter {sorted(allowed_diffs)}: {before} -> {len(all_tasks)} tasks")
+
     bot_groups = group_tasks_by_bot(all_tasks)
 
     print(f"Output root: {output_root}")

@@ -112,3 +112,7 @@ tools/build_order.json
 # bo_2_nlstep: local API credentials (example templates remain tracked)
 bo_2_nlstep/API_config/config.json
 bo_2_nlstep/api_call/config/provider_config.json
+
+# Local run outputs (replays, logs, sequences, attribution reports)
+bo_collection_runs/
+attribution_reports/
