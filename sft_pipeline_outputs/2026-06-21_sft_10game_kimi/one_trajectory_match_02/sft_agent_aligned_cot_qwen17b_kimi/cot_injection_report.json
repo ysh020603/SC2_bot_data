@@ -1,0 +1,58 @@
+{
+  "created_at": "2026-06-22T15:24:27",
+  "generation_model_key": "Qwen3-1.7b_think",
+  "generation_model": "qwen3-1.7b",
+  "teacher_model_key": "Kimi-k2.5",
+  "teacher_model": "kimi-k2.5",
+  "config_path": "C:\\code\\SC2_bot_data\\sft_pipeline\\API_config\\config.json",
+  "tasks": {
+    "naming": {
+      "task": "naming",
+      "source_file": "C:\\code\\SC2_bot_data\\sft_pipeline_outputs\\2026-06-21_sft_10game_kimi\\one_trajectory_match_02\\sft_agent_aligned\\naming\\sc2_naming_qwen3_thinking_sft.json",
+      "total": 9,
+      "generated": 9,
+      "rule_pass": 1,
+      "rule_drop": 8,
+      "teacher_use_gold": 0,
+      "teacher_use_generated": 1,
+      "teacher_drop": 0,
+      "kept": 1,
+      "dry_run": false,
+      "output_file": "C:\\code\\SC2_bot_data\\sft_pipeline_outputs\\2026-06-21_sft_10game_kimi\\one_trajectory_match_02\\sft_agent_aligned_cot_qwen17b_kimi\\naming\\sc2_naming_qwen3_thinking_cot_Qwen3-1.7b_think_checked_by_Kimi-k2.5_sft.json",
+      "rejected_file": "C:\\code\\SC2_bot_data\\sft_pipeline_outputs\\2026-06-21_sft_10game_kimi\\one_trajectory_match_02\\sft_agent_aligned_cot_qwen17b_kimi\\naming\\cot_rejected_samples.jsonl",
+      "audit_file": "C:\\code\\SC2_bot_data\\sft_pipeline_outputs\\2026-06-21_sft_10game_kimi\\one_trajectory_match_02\\sft_agent_aligned_cot_qwen17b_kimi\\naming\\cot_audit.jsonl"
+    },
+    "ordering": {
+      "task": "ordering",
+      "source_file": "C:\\code\\SC2_bot_data\\sft_pipeline_outputs\\2026-06-21_sft_10game_kimi\\one_trajectory_match_02\\sft_agent_aligned\\ordering\\sc2_ordering_qwen3_thinking_sft.json",
+      "total": 7,
+      "generated": 7,
+      "rule_pass": 4,
+      "rule_drop": 3,
+      "teacher_use_gold": 0,
+      "teacher_use_generated": 1,
+      "teacher_drop": 3,
+      "kept": 1,
+      "dry_run": false,
+      "output_file": "C:\\code\\SC2_bot_data\\sft_pipeline_outputs\\2026-06-21_sft_10game_kimi\\one_trajectory_match_02\\sft_agent_aligned_cot_qwen17b_kimi\\ordering\\sc2_ordering_qwen3_thinking_cot_Qwen3-1.7b_think_checked_by_Kimi-k2.5_sft.json",
+      "rejected_file": "C:\\code\\SC2_bot_data\\sft_pipeline_outputs\\2026-06-21_sft_10game_kimi\\one_trajectory_match_02\\sft_agent_aligned_cot_qwen17b_kimi\\ordering\\cot_rejected_samples.jsonl",
+      "audit_file": "C:\\code\\SC2_bot_data\\sft_pipeline_outputs\\2026-06-21_sft_10game_kimi\\one_trajectory_match_02\\sft_agent_aligned_cot_qwen17b_kimi\\ordering\\cot_audit.jsonl"
+    },
+    "executor": {
+      "task": "executor",
+      "source_file": "C:\\code\\SC2_bot_data\\sft_pipeline_outputs\\2026-06-21_sft_10game_kimi\\one_trajectory_match_02\\sft_agent_aligned\\executor\\sc2_executor_qwen3_thinking_sft.json",
+      "total": 65,
+      "generated": 65,
+      "rule_pass": 65,
+      "rule_drop": 0,
+      "teacher_use_gold": 13,
+      "teacher_use_generated": 19,
+      "teacher_drop": 33,
+      "kept": 32,
+      "dry_run": false,
+      "output_file": "C:\\code\\SC2_bot_data\\sft_pipeline_outputs\\2026-06-21_sft_10game_kimi\\one_trajectory_match_02\\sft_agent_aligned_cot_qwen17b_kimi\\executor\\sc2_executor_qwen3_thinking_cot_Qwen3-1.7b_think_checked_by_Kimi-k2.5_sft.json",
+      "rejected_file": "C:\\code\\SC2_bot_data\\sft_pipeline_outputs\\2026-06-21_sft_10game_kimi\\one_trajectory_match_02\\sft_agent_aligned_cot_qwen17b_kimi\\executor\\cot_rejected_samples.jsonl",
+      "audit_file": "C:\\code\\SC2_bot_data\\sft_pipeline_outputs\\2026-06-21_sft_10game_kimi\\one_trajectory_match_02\\sft_agent_aligned_cot_qwen17b_kimi\\executor\\cot_audit.jsonl"
+    }
+  }
+}

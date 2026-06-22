@@ -227,7 +227,29 @@ SFT 格式遵循 `docs/sft_data_format.md`：
 - thinking：assistant 为 `<think>\n...\n</think>\n\nfinal answer`
 - nothink：assistant 只包含 final answer
 
-当前 reasoning 先留空，后续可以单独注入。
+当前基础构建阶段会先留空 reasoning。需要补充 CoT 时，使用后处理模块读取已经生成的
+thinking SFT 文件，让 thinking 模型重新答题，再用规则和 teacher 模型筛选：
+
+```powershell
+& $py -m sft_pipeline.build_sft.inject_cot_sft `
+  --input 'C:\code\SC2_bot_data\sft_pipeline_outputs\my_run\sft_agent_aligned' `
+  --output 'C:\code\SC2_bot_data\sft_pipeline_outputs\my_run\sft_agent_aligned_cot' `
+  --tasks all `
+  --gen-model-key qwen3-think `
+  --teacher-model-key kimi-k2.5 `
+  --max-workers 4 `
+  --max-retries 2
+```
+
+流程为：
+
+- 生成模型只接收原始 `system` 和 `human prompt`，重新生成 CoT 与 answer。
+- 程序先做硬规则检查；明显不合法的样本直接丢弃。
+- teacher 模型再三选一：`drop`、`use_gold_answer`、`use_generated_answer`。
+- 通过样本会写成 `<think>\n生成 CoT\n</think>\n\n最终 answer`。
+
+输出会包含 CoT 版训练文件、`cot_injection_report.json`、每个任务目录下的
+`cot_audit.jsonl` 和 `cot_rejected_samples.jsonl`。
 
 ## 4. Agent-aligned Prompt 来源
 

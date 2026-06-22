@@ -1,0 +1,847 @@
+[
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x5 (0/5 issued) [PENDING]\n  - COMMANDCENTERTRAIN_SCV [PENDING]\n  - TERRANBUILD_BARRACKS [PENDING]\n  - TERRANBUILD_SUPPLYDEPOT [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (82%), no add-on]\n  - tag=145 BARRACKS [idle, no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[145]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - COMMANDCENTERTRAIN_SCV [PENDING]\n  - BARRACKSTRAIN_MARINE x4 (0/4 issued) [PENDING]\n  - TERRANBUILD_BARRACKS [PENDING]\n  - TERRANBUILD_SUPPLYDEPOT [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (17%), no add-on]\n  - tag=425 BARRACKS [idle, no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[425]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - TERRANBUILD_BARRACKS [PENDING]\n  - BARRACKSTRAIN_MARINE x3 (0/3 issued) [PENDING]\n  - TERRANBUILD_SUPPLYDEPOT [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=865 BARRACKS [idle, no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (90%), no add-on]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (72%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[865]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x2 (0/2 issued) [PENDING]\n  - TERRANBUILD_SUPPLYDEPOT [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=425 BARRACKS [idle, no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (30%), no add-on]\n  - tag=145 BARRACKS [idle, no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[425]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - TERRANBUILD_SUPPLYDEPOT [PENDING]\n  - BARRACKSTRAIN_MARINE [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (45%), no add-on]\n  - tag=145 BARRACKS [idle, no add-on]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (15%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[145]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed] (none)\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n(none)\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (70%), no add-on]\n  - tag=865 BARRACKS [idle, no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (55%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[865]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x7 (0/7 issued) [PENDING]\n  - TERRANBUILD_SUPPLYDEPOT [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=425 BARRACKS [idle, no add-on]\n  - tag=145 BARRACKS [idle, no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (45%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[425]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x6 (0/6 issued) [PENDING]\n  - TERRANBUILD_SUPPLYDEPOT [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=585 BARRACKS [idle, no add-on]\n  - tag=145 BARRACKS [idle, no add-on]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (20%), no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (65%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[585]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x5 (0/5 issued) [PENDING]\n  - TERRANBUILD_SUPPLYDEPOT [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (30%), no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (10%), no add-on]\n  - tag=145 BARRACKS [idle, no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (75%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[145]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x4 (0/4 issued) [PENDING]\n  - TERRANBUILD_SUPPLYDEPOT [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (35%), no add-on]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (55%), no add-on]\n  - tag=865 BARRACKS [idle, no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (25%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[865]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x3 (0/3 issued) [PENDING]\n  - TERRANBUILD_SUPPLYDEPOT [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (45%), no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (80%), no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (70%), no add-on]\n  - tag=425 BARRACKS [idle, no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[425]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - TERRANBUILD_SUPPLYDEPOT [PENDING]\n  - BARRACKSTRAIN_MARINE x2 (0/2 issued) [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (20%), no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (90%), no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (65%), no add-on]\n  - tag=585 BARRACKS [idle, no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[585]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (30%), no add-on]\n  - tag=145 BARRACKS [idle, no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (75%), no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (10%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[145]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed] (none)\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n(none)\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (45%), no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (25%), no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (15%), no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (90%), no add-on]\n  - tag=881 BARRACKS [idle, no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[881]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - COMMANDCENTERTRAIN_SCV [PENDING]\n  - BARRACKSTRAIN_MARINE x7 (0/7 issued) [PENDING]\n  - TERRANBUILD_SUPPLYDEPOT [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (35%), no add-on]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (55%), no add-on]\n  - tag=865 BARRACKS [idle, no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (25%), no add-on]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (10%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[865]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x6 (0/6 issued) [PENDING]\n  - TERRANBUILD_SUPPLYDEPOT [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (55%), no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (80%), no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (70%), no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (45%), no add-on]\n  - tag=425 BARRACKS [idle, no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[425]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x5 (0/5 issued) [PENDING]\n  - TERRANBUILD_SUPPLYDEPOT [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (90%), no add-on]\n  - tag=585 BARRACKS [idle, no add-on]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (20%), no add-on]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (75%), no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (65%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[585]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x4 (0/4 issued) [PENDING]\n  - TERRANBUILD_SUPPLYDEPOT [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (85%), no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (10%), no add-on]\n  - tag=145 BARRACKS [idle, no add-on]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (30%), no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (75%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[145]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x3 (0/3 issued) [PENDING]\n  - TERRANBUILD_SUPPLYDEPOT [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (67%), no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (47%), no add-on]\n  - tag=465 BARRACKS [idle, no add-on]\n  - tag=865 BARRACKS [idle, no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (37%), no add-on]\n  - tag=881 BARRACKS [idle, no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[465]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x2 (0/2 issued) [PENDING]\n  - TERRANBUILD_SUPPLYDEPOT [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (2%), no add-on]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (70%), no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (50%), no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (40%), no add-on]\n  - tag=881 BARRACKS [idle, no add-on]\n  - tag=865 BARRACKS [idle, no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[881]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - TERRANBUILD_SUPPLYDEPOT [PENDING]\n  - BARRACKSTRAIN_MARINE [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (42%), no add-on]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (2%), no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (52%), no add-on]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (5%), no add-on]\n  - tag=865 BARRACKS [idle, no add-on]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (72%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[865]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed] (none)\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n(none)\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (35%), no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (75%), no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (85%), no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (32%), no add-on]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (37%), no add-on]\n  - tag=425 BARRACKS [idle, no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[425]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x8 (0/8 issued) [PENDING]\n  - TERRANBUILD_SUPPLYDEPOT [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (95%), no add-on]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (20%), no add-on]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (57%), no add-on]\n  - tag=585 BARRACKS [idle, no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (52%), no add-on]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (55%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[585]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - TERRANBUILD_SUPPLYDEPOT [PENDING]\n  - BARRACKSTRAIN_MARINE x7 (0/7 issued) [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (27%), no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (60%), no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (7%), no add-on]\n  - tag=145 BARRACKS [idle, no add-on]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (65%), no add-on]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (62%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[145]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x6 (0/6 issued) [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=881 BARRACKS [idle, no add-on]\n  - tag=465 BARRACKS [idle, no add-on]\n  - tag=865 BARRACKS [idle, no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (47%), no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (40%), no add-on]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (67%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[881]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x5 (0/5 issued) [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (85%), no add-on]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (17%), no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (57%), no add-on]\n  - tag=465 BARRACKS [idle, no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (65%), no add-on]\n  - tag=865 BARRACKS [idle, no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[465]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x4 (0/4 issued) [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (55%), no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (95%), no add-on]\n  - tag=865 BARRACKS [idle, no add-on]\n  - tag=585 BARRACKS [idle, no add-on]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (37%), no add-on]\n  - tag=425 BARRACKS [idle, no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[865]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x3 (0/3 issued) [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=145 BARRACKS [idle, no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (17%), no add-on]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (55%), no add-on]\n  - tag=585 BARRACKS [idle, no add-on]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (72%), no add-on]\n  - tag=425 BARRACKS [idle, no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[145]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x2 (0/2 issued) [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=425 BARRACKS [idle, no add-on]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (57%), no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (2%), no add-on]\n  - tag=585 BARRACKS [idle, no add-on]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (75%), no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (20%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[425]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (5%), no add-on]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (60%), no add-on]\n  - tag=585 BARRACKS [idle, no add-on]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (2%), no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (22%), no add-on]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (77%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[585]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed] (none)\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n(none)\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (25%), no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (22%), no add-on]\n  - tag=881 BARRACKS [idle, no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (27%), no add-on]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (82%), no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (45%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[881]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x7 (0/7 issued) [PENDING]\n  - TERRANBUILD_SUPPLYDEPOT [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (52%), no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (72%), no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (50%), no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (55%), no add-on]\n  - tag=465 BARRACKS [idle, no add-on]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (27%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[465]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x6 (0/6 issued) [PENDING]\n  - TERRANBUILD_SUPPLYDEPOT [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (80%), no add-on]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (55%), no add-on]\n  - tag=865 BARRACKS [idle, no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (77%), no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (82%), no add-on]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (27%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[865]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x5 (0/5 issued) [PENDING]\n  - TERRANBUILD_SUPPLYDEPOT [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (72%), no add-on]\n  - tag=145 BARRACKS [idle, no add-on]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (97%), no add-on]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (45%), no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (17%), no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (95%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[145]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x4 (0/4 issued) [PENDING]\n  - TERRANBUILD_SUPPLYDEPOT [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (75%), no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (2%), no add-on]\n  - tag=425 BARRACKS [idle, no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (97%), no add-on]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (47%), no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (20%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[425]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x3 (0/3 issued) [PENDING]\n  - TERRANBUILD_SUPPLYDEPOT [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (12%), no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (30%), no add-on]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (10%), no add-on]\n  - tag=585 BARRACKS [idle, no add-on]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (57%), no add-on]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (85%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[585]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x2 (0/2 issued) [PENDING]\n  - TERRANBUILD_SUPPLYDEPOT [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (25%), no add-on]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (72%), no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (45%), no add-on]\n  - tag=881 BARRACKS [idle, no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (15%), no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (27%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[881]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - TERRANBUILD_SUPPLYDEPOT [PENDING]\n  - BARRACKSTRAIN_MARINE [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (55%), no add-on]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (27%), no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (42%), no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (72%), no add-on]\n  - tag=465 BARRACKS [idle, no add-on]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (52%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[465]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed] (none)\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n(none)\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (55%), no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (82%), no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (70%), no add-on]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (80%), no add-on]\n  - tag=865 BARRACKS [idle, no add-on]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (27%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[865]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x9 (0/9 issued) [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (45%), no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (87%), no add-on]\n  - tag=145 BARRACKS [idle, no add-on]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (72%), no add-on]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (97%), no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (17%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[145]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x8 (0/8 issued) [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=585 BARRACKS [idle, no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (30%), no add-on]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (57%), no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (12%), no add-on]\n  - tag=425 BARRACKS [idle, no add-on]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (85%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[585]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x7 (0/7 issued) [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (65%), no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (7%), no add-on]\n  - tag=425 BARRACKS [idle, no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (37%), no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (20%), no add-on]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (92%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[425]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x6 (0/6 issued) [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (55%), no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (25%), no add-on]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (82%), no add-on]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (17%), no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (37%), no add-on]\n  - tag=881 BARRACKS [idle, no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[881]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x5 (0/5 issued) [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=465 BARRACKS [idle, no add-on]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (35%), no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (72%), no add-on]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (17%), no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (55%), no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (42%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[465]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x4 (0/4 issued) [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (62%), no add-on]\n  - tag=865 BARRACKS [idle, no add-on]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (27%), no add-on]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (45%), no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (70%), no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (82%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[865]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x3 (0/3 issued) [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (87%), no add-on]\n  - tag=145 BARRACKS [idle, no add-on]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (62%), no add-on]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (80%), no add-on]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (45%), no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (17%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[145]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x2 (0/2 issued) [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=585 BARRACKS [idle, no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (30%), no add-on]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (75%), no add-on]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (92%), no add-on]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (57%), no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (12%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[585]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (7%), no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (37%), no add-on]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (65%), no add-on]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (82%), no add-on]\n  - tag=425 BARRACKS [idle, no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (20%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[425]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed] (none)\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n(none)\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (25%), no add-on]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (82%), no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (55%), no add-on]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (17%), no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (37%), no add-on]\n  - tag=881 BARRACKS [idle, no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[881]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x9 (0/9 issued) [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (72%), no add-on]\n  - tag=465 BARRACKS [idle, no add-on]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (17%), no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (55%), no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (42%), no add-on]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (35%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[465]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x8 (0/8 issued) [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (70%), no add-on]\n  - tag=865 BARRACKS [idle, no add-on]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (27%), no add-on]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (45%), no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (82%), no add-on]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (62%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[865]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x7 (0/7 issued) [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (80%), no add-on]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (45%), no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (17%), no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (87%), no add-on]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (62%), no add-on]\n  - tag=145 BARRACKS [idle, no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[145]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x6 (0/6 issued) [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (57%), no add-on]\n  - tag=585 BARRACKS [idle, no add-on]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (92%), no add-on]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (75%), no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (30%), no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (12%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[585]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x5 (0/5 issued) [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (7%), no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (37%), no add-on]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (65%), no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (20%), no add-on]\n  - tag=425 BARRACKS [idle, no add-on]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (82%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[425]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x4 (0/4 issued) [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (82%), no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (55%), no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (25%), no add-on]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (17%), no add-on]\n  - tag=881 BARRACKS [idle, no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (37%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[881]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x3 (0/3 issued) [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (17%), no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (55%), no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (72%), no add-on]\n  - tag=465 BARRACKS [idle, no add-on]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (35%), no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (42%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[465]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x2 (0/2 issued) [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (45%), no add-on]\n  - tag=865 BARRACKS [idle, no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (82%), no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (70%), no add-on]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (62%), no add-on]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (27%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[865]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (45%), no add-on]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (80%), no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (87%), no add-on]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (62%), no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (17%), no add-on]\n  - tag=145 BARRACKS [idle, no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[145]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed] (none)\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n(none)\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (12%), no add-on]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (75%), no add-on]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (92%), no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (30%), no add-on]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (57%), no add-on]\n  - tag=585 BARRACKS [idle, no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[585]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - TERRANBUILD_SUPPLYDEPOT x3 (0/3 issued) [PENDING]\n  - BARRACKSTRAIN_MARINE x5 (0/5 issued) [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (65%), no add-on]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (82%), no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (7%), no add-on]\n  - tag=425 BARRACKS [idle, no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (20%), no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (37%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[425]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - TERRANBUILD_SUPPLYDEPOT [PENDING]\n  - BARRACKSTRAIN_MARINE x4 (0/4 issued) [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (40%), no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (47%), no add-on]\n  - tag=881 BARRACKS [idle, no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (77%), no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (60%), no add-on]\n  - tag=465 BARRACKS [idle, no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[881]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x3 (0/3 issued) [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=465 BARRACKS [idle, no add-on]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (20%), no add-on]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (60%), no add-on]\n  - tag=865 BARRACKS [busy: BARRACKSTRAIN_MARINE (97%), no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (67%), no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (80%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[465]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE x2 (0/2 issued) [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (20%), no add-on]\n  - tag=145 BARRACKS [idle, no add-on]\n  - tag=585 BARRACKS [busy: BARRACKSTRAIN_MARINE (87%), no add-on]\n  - tag=865 BARRACKS [idle, no add-on]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (80%), no add-on]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (40%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[145]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed]   - BARRACKSTRAIN_MARINE [PENDING]\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n  - BARRACKSTRAIN_MARINE\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=425 BARRACKS [idle, no add-on]\n  - tag=865 BARRACKS [idle, no add-on]\n  - tag=585 BARRACKS [idle, no add-on]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (60%), no add-on]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (20%), no add-on]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (40%), no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[425]"
+      }
+    ]
+  },
+  {
+    "system": "You are a StarCraft II Terran executor selector. Pick the\nSINGLE BEST unit/structure to execute the given ability, choosing strictly from\nthe Candidate Executors list.\n\nSelection rules:\n* The candidates are already filtered to those that CAN execute this ability now.\n* Prefer an IDLE producer over a busy one.\n* DO NOT blindly chase short-term efficiency. Avoid picking a producer that an\n  upcoming pending/waiting action will conflict with, even if it looks free now.\n  Concrete example: do NOT pick a Barracks that has NO add-on to train a Marine if\n  a pending action needs that Barracks to build a Tech Lab / Reactor next - once it\n  starts the Marine it cannot start the add-on and the later action stalls. Prefer a\n  Barracks that already has the matching add-on (or a Reactor that can queue 2) for\n  training, and leave a bare Barracks free for the add-on action.\n* Consider add-on status (a Reactor lets a Barracks queue 2 units; a producer that\n  is building an add-on is unavailable).\n* Return EXACTLY ONE tag.\n\n[Ability to execute] BARRACKSTRAIN_MARINE\n[Pending actions not yet executed] (none)\n[Actions currently waiting] (none)\n[Possible conflicts in pending actions]\n(none)\n\nOutput ONLY a JSON list with exactly one tag, no prose, no markdown fences:\n[12345]",
+    "conversations": [
+      {
+        "from": "human",
+        "value": "[Candidate Executors]\n  - tag=145 BARRACKS [busy: BARRACKSTRAIN_MARINE (40%), no add-on]\n  - tag=585 BARRACKS [idle, no add-on]\n  - tag=425 BARRACKS [busy: BARRACKSTRAIN_MARINE (20%), no add-on]\n  - tag=881 BARRACKS [busy: BARRACKSTRAIN_MARINE (80%), no add-on]\n  - tag=465 BARRACKS [busy: BARRACKSTRAIN_MARINE (60%), no add-on]\n  - tag=865 BARRACKS [idle, no add-on]"
+      },
+      {
+        "from": "gpt",
+        "value": "[585]"
+      }
+    ]
+  }
+]

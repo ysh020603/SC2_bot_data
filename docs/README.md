@@ -43,6 +43,9 @@
 **[sft_data_format.md](sft_data_format.md)**  
 说明 Qwen3 thinking / nothink 训练样本格式。当前 pipeline 输出 ShareGPT 格式。
 
+**[cot_generation_validation_notes.md](cot_generation_validation_notes.md)**  
+说明 CoT 后处理模块 `inject_cot_sft` 的设计、整条轨迹测试结果与调参建议。
+
 ## 运行与环境文档
 
 **[linux_trajectory_collection.md](linux_trajectory_collection.md)**  
