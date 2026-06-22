@@ -117,5 +117,6 @@ bo_2_nlstep/api_call/config/provider_config.json
 sft_pipeline/API_config/config.json
 
 # Local run outputs (replays, logs, sequences, attribution reports)
+bo_collection_runs/
 attribution_reports/
 ability_sequences/
