@@ -4,9 +4,18 @@
 
 ## 必读顺序
 
+### Windows
+
 1. [windows_environment_setup.md](windows_environment_setup.md)：Windows 环境、conda、SC2PATH、地图安装。
 2. [windows_run_bots.md](windows_run_bots.md)：手动运行 bot 与调试。
-3. [collect_terran_bo.md](collect_terran_bo.md)：批量采集 Terran BO 轨迹。
+
+### Linux
+
+1. [linux_trajectory_collection.md](linux_trajectory_collection.md)：Linux 服务器环境、tmux 后台采集、并发与进度监控。
+
+### 通用（采集与 SFT）
+
+3. [collect_terran_bo.md](collect_terran_bo.md)：批量采集 Terran BO 轨迹（参数与输出格式）。
 4. [sft_pipeline_usage.md](sft_pipeline_usage.md)：采集轨迹 -> v6 step -> SFT 的完整流程。
 5. [sft_data_format.md](sft_data_format.md)：Qwen3 thinking/nothink 的 ShareGPT 数据格式。
 
@@ -35,6 +44,9 @@
 说明 Qwen3 thinking / nothink 训练样本格式。当前 pipeline 输出 ShareGPT 格式。
 
 ## 运行与环境文档
+
+**[linux_trajectory_collection.md](linux_trajectory_collection.md)**  
+Linux 服务器上的轨迹采集实践：`sharpy-sc2` conda 环境、`SC2PATH`/`PYTHONPATH`、tmux 后台运行、多地图批量脚本（`tools/run_terran_10bots_3maps_collect.sh`）、并发建议、进度监控与常见问题。
 
 **[windows_environment_setup.md](windows_environment_setup.md)**  
 配置 Windows 环境、conda 环境、依赖、SC2 安装路径和地图。

@@ -1,0 +1,56 @@
+{
+  "llm_agents_pool": {
+    "example-chat": {
+      "api_url": "https://api.example.com/v1",
+      "api_key": "YOUR_SECRET_API_KEY",
+      "model_name": "vendor-model-name",
+      "temperature": 0.7,
+      "top_p": null,
+      "max_tokens": null,
+      "is_reasoning": false,
+      "reasoning_extract_mode": "none",
+      "non_reasoning_extra_body": {},
+      "enable_identity": false,
+      "identity_prompt": ""
+    },
+    "example-separated-reasoning": {
+      "api_url": "https://api.example.com/v1",
+      "api_key": "YOUR_SECRET_API_KEY",
+      "model_name": "vendor-reasoning-model",
+      "temperature": 0.7,
+      "top_p": null,
+      "max_tokens": null,
+      "is_reasoning": true,
+      "reasoning_extract_mode": "field_reasoning_content",
+      "reasoning_extra_body": {
+        "thinking": {
+          "type": "enabled"
+        }
+      },
+      "enable_identity": false,
+      "identity_prompt": ""
+    },
+    "example-tagged-reasoning": {
+      "api_url": "http://127.0.0.1:8000/v1",
+      "api_key": "EMPTY",
+      "model_name": "local-model-id",
+      "temperature": 0.7,
+      "top_p": null,
+      "max_tokens": null,
+      "is_reasoning": true,
+      "reasoning_extract_mode": "content_think_tags",
+      "reasoning_extra_body": {
+        "chat_template_kwargs": {
+          "enable_thinking": true
+        }
+      },
+      "non_reasoning_extra_body": {
+        "chat_template_kwargs": {
+          "enable_thinking": false
+        }
+      },
+      "enable_identity": false,
+      "identity_prompt": ""
+    }
+  }
+}
