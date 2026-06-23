@@ -17,6 +17,7 @@ Usage:
 import json
 import os
 import random
+import re
 import sys
 import time
 import traceback
@@ -62,6 +63,167 @@ def _call_llm(
         messages=messages,
         model_key=model_key,
     )
+
+
+_LLM_MAX_RETRIES = 6
+_LLM_RETRY_BASE_SLEEP_SEC = 3
+_LLM_FAILED_MARK = "*(LLM call failed)*"
+
+
+def _call_llm_with_retry(
+    messages: List[Dict[str, str]],
+    *,
+    label: str = "",
+    model_key: str = "deepseek-v4-flash",
+) -> str:
+    """Call LLM with retries; returns non-empty text or raises on exhaustion."""
+    last_error = ""
+    for attempt in range(1, _LLM_MAX_RETRIES + 1):
+        output = (_call_llm(messages, model_key=model_key) or "").strip()
+        if output:
+            if attempt > 1:
+                print(f"    LLM recovered on attempt {attempt}/{_LLM_MAX_RETRIES} ({label})")
+            return output
+        last_error = "empty response"
+        if attempt < _LLM_MAX_RETRIES:
+            sleep_sec = _LLM_RETRY_BASE_SLEEP_SEC * attempt
+            print(
+                f"    LLM attempt {attempt}/{_LLM_MAX_RETRIES} failed ({label}); "
+                f"retrying in {sleep_sec}s..."
+            )
+            time.sleep(sleep_sec)
+    raise RuntimeError(f"LLM call failed after {_LLM_MAX_RETRIES} attempts ({label}): {last_error}")
+
+
+_FINAL_STEP_CLOSING = (
+    "Use this gameplan as your strategic baseline -- adapt your decisions based on what you scout and how the game unfolds."
+)
+
+
+def _is_closing_only_line(line: str) -> bool:
+    s = line.strip()
+    if not s:
+        return False
+    if s in {
+        _FINAL_STEP_CLOSING,
+        _FINAL_STEP_CLOSING.replace("gameplan", "gameplayplan"),
+    }:
+        return True
+    return s.startswith("Use this game") and "strategic baseline" in s
+
+
+def _normalize_final_step_output(text: str, step_num: int) -> str:
+    """Merge a standalone closing sentence back into the final [Step N] line."""
+    text = (text or "").strip()
+    if not text:
+        return f"[Step {step_num}] {_FINAL_STEP_CLOSING}"
+
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    if not lines:
+        return f"[Step {step_num}] {_FINAL_STEP_CLOSING}"
+
+    if len(lines) == 1:
+        line = lines[0]
+        if not line.startswith("[Step"):
+            line = f"[Step {step_num}] {line}"
+        if "strategic baseline" not in line:
+            return f"{line} {_FINAL_STEP_CLOSING}"
+        return line
+
+    if _is_closing_only_line(lines[-1]):
+        closing = lines[-1]
+        step_line = ""
+        extra: List[str] = []
+        for bl in lines[:-1]:
+            if bl.startswith("[Step"):
+                step_line = bl
+            else:
+                extra.append(bl)
+        if not step_line:
+            step_line = f"[Step {step_num}] {' '.join(extra)}" if extra else f"[Step {step_num}]"
+        elif extra:
+            step_line = f"{step_line} {' '.join(extra)}"
+        if "strategic baseline" not in step_line:
+            step_line = f"{step_line} {closing}"
+        return step_line
+
+    merged = " ".join(lines)
+    if not merged.startswith("[Step"):
+        merged = f"[Step {step_num}] {merged}"
+    if "strategic baseline" not in merged:
+        merged = f"{merged} {_FINAL_STEP_CLOSING}"
+    return merged
+
+
+def _fix_final_step_in_markdown(md_text: str) -> tuple[str, bool]:
+    """Fix standalone final-step closing paragraph in an existing v6 markdown file."""
+    marker = "\n# Details\n\n"
+    if marker not in md_text:
+        return md_text, False
+
+    head, details = md_text.split(marker, 1)
+    parts = [p.strip() for p in details.rstrip().split("\n\n") if p.strip()]
+    if not parts:
+        return md_text, False
+
+    if not _is_closing_only_line(parts[-1]):
+        return md_text, False
+
+    closing = parts[-1]
+    if len(parts) == 1:
+        fixed_last = f"[Step 1] {closing}"
+        return head + marker + fixed_last + "\n\n", True
+
+    prev = parts[-2]
+    if not prev.startswith("[Step "):
+        return md_text, False
+
+    m = re.match(r"^\[Step\s+(\d+)\]", prev)
+    step_num = int(m.group(1)) if m else 1
+    fixed_last = _normalize_final_step_output(f"{prev}\n\n{closing}", step_num)
+    if fixed_last == prev:
+        return md_text, False
+
+    parts = parts[:-2] + [fixed_last]
+    return head + marker + "\n\n".join(parts) + "\n\n", True
+
+
+_FINAL_STEP_CLOSINGS = (
+    "Use this gameplan as your strategic baseline -- adapt your decisions based on what you scout and how the game unfolds.",
+    "Use this gameplayplan as your strategic baseline -- adapt your decisions based on what you scout and how the game unfolds.",
+)
+
+
+def _normalize_final_step_output(text: str, step_num: int) -> str:
+    """Keep the v6 closing sentence on the same [Step N] line."""
+    text = (text or "").strip()
+    if not text:
+        return f"[Step {step_num}] {_FINAL_STEP_CLOSINGS[0]}"
+
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    if not lines:
+        return f"[Step {step_num}] {_FINAL_STEP_CLOSINGS[0]}"
+
+    closing_line = None
+    body_lines: List[str] = []
+    for line in lines:
+        if line in _FINAL_STEP_CLOSINGS:
+            closing_line = line
+            continue
+        if any(line.endswith(closing) for closing in _FINAL_STEP_CLOSINGS):
+            return line
+        body_lines.append(line)
+
+    closing = closing_line or _FINAL_STEP_CLOSINGS[0]
+    if not body_lines:
+        return f"[Step {step_num}] {closing}"
+
+    main = " ".join(body_lines)
+    if closing in main:
+        return main
+    if not main.startswith("[Step"):
+        main = f"[Step {step_num}] {main}"
+    return f"{main} {closing}"
 
 
 # ---------------------------------------------------------------------------
@@ -249,27 +411,19 @@ def process_trajectory(
         ]
 
         print(f"  [{bot_folder}] Step {step_num}/{total_steps} (actions {start}-{end}, {action_count} actions) -> LLM...")
-        llm_output = _call_llm(messages)
-
-        if not llm_output:
-            print(f"  [{bot_folder}] Step {step_num} LLM call FAILED (empty response)")
-            step_outputs.append(f"[Step {step_num}] *(LLM call failed)*")
-            step_index_entries.append({
-                "step": step_num,
-                "range": [start, end],
-                "action_count": action_count,
-                "llm_call_done": False,
-            })
-        else:
-            llm_output = llm_output.strip()
-            step_outputs.append(llm_output)
-            step_index_entries.append({
-                "step": step_num,
-                "range": [start, end],
-                "action_count": action_count,
-                "llm_call_done": True,
-            })
-            print(f"  [{bot_folder}] Step {step_num} done: {llm_output[:120]}...")
+        llm_output = _call_llm_with_retry(
+            messages,
+            label=f"{bot_folder} step {step_num}/{total_steps}",
+        )
+        llm_output = llm_output.strip()
+        step_outputs.append(llm_output)
+        step_index_entries.append({
+            "step": step_num,
+            "range": [start, end],
+            "action_count": action_count,
+            "llm_call_done": True,
+        })
+        print(f"  [{bot_folder}] Step {step_num} done: {llm_output[:120]}...")
 
     # -----------------------------------------------------------------------
     # Generate 3-sentence Balanced Summary (early/mid/late)
@@ -284,9 +438,10 @@ def process_trajectory(
             all_steps=all_steps_text,
         )},
     ]
-    summary = _call_llm(summary_messages)
-    if not summary:
-        summary = f"{bot_name} build order - {total_action_count} actions, {total_steps} steps."
+    summary = _call_llm_with_retry(
+        summary_messages,
+        label=f"{bot_folder} summary",
+    )
     summary = summary.strip()
 
     # -----------------------------------------------------------------------
@@ -304,10 +459,11 @@ def process_trajectory(
             step_num=final_step_num,
         )},
     ]
-    final_step_output = _call_llm(final_step_messages)
-    if not final_step_output:
-        final_step_output = f"[Step {final_step_num}] Use this gameplan as your strategic baseline -- adapt your decisions based on what you scout and how the game unfolds."
-    final_step_output = final_step_output.strip()
+    final_step_output = _call_llm_with_retry(
+        final_step_messages,
+        label=f"{bot_folder} final step",
+    )
+    final_step_output = _normalize_final_step_output(final_step_output.strip(), final_step_num)
 
     # Record final step in step index
     step_index_entries.append({
@@ -321,6 +477,9 @@ def process_trajectory(
     # -----------------------------------------------------------------------
     # Assemble markdown
     # -----------------------------------------------------------------------
+    if any(_LLM_FAILED_MARK in s for s in step_outputs):
+        raise RuntimeError(f"[{bot_folder}] refused to write markdown with failed step placeholders")
+
     md_content = f"# Summary\n\n{summary}\n\n# Details\n\n"
     for s_out in step_outputs:
         md_content += f"{s_out}\n\n"

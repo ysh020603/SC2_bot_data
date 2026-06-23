@@ -116,6 +116,9 @@ bo_2_nlstep/api_call/config/provider_config.json
 # sft_pipeline: local API credentials (example templates remain tracked)
 sft_pipeline/API_config/config.json
 
+# sft_pipeline: local run outputs (ignore subfolders, keep parent dir trackable)
+sft_pipeline_outputs/*/
+
 # Local run outputs (replays, logs, sequences, attribution reports)
 bo_collection_runs/
 attribution_reports/
