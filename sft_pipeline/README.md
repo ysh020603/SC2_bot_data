@@ -1,6 +1,6 @@
 # SC2 SFT Pipeline
 
-`sft_pipeline/` 是一个模块化训练数据平台，用来从本仓库的 SC2 bot 对局中采集轨迹、保存 obs、把 action order 标注成 v6 step，再构造用于替换 `SC2-Agent-260510` 中三个 LLM 位置的 SFT 数据。
+`sft_pipeline/` 是一个模块化训练数据平台，用来从本仓库的 SC2 bot 对局中采集轨迹、保存 obs、把 action order 标注成 v7 step，再构造用于替换 `SC2-Agent-260510` 中三个 LLM 位置的 SFT 数据。
 
 三个目标位置是：
 
@@ -18,8 +18,8 @@ sft_pipeline/
     run_collect.py          # 批量采集对局轨迹
     validate_obs.py         # 检查 obs/action 记录完整性
   label_steps/
-    build_v6_steps.py       # 调 bo_2_nlstep v6，把胜局轨迹转成 Markdown + JSONL
-    recover_v6_json_from_md.py
+    build_v7_steps.py       # 调 bo_2_nlstep v7，把胜局轨迹转成 Markdown + JSONL
+    recover_v7_json_from_md.py
   build_sft/
     build_all.py            # 生成 naming/ordering/executor 的 thinking/nothink SFT
     build_naming_sft.py
@@ -35,7 +35,7 @@ sft_pipeline/
 
 ```text
 bo_collection_runs/<run_id>/                 # 原始采集数据
-sft_pipeline_outputs/<run_id>/v6_steps/      # step Markdown + JSONL
+sft_pipeline_outputs/<run_id>/v7_steps/      # step Markdown + JSONL
 sft_pipeline_outputs/<run_id>/sft_agent_aligned/
 ```
 
@@ -106,26 +106,28 @@ bo_collection_runs/<run_id>/
   --output 'C:\code\SC2_bot_data\sft_pipeline_outputs\my_run\obs_qa.json'
 ```
 
-## 2. 转 v6 Step
+## 2. 转 v7 Step
 
 step 标注阶段复用：
 
 ```text
-bo_2_nlstep/Tools/bo_to_doc_v6.py
+bo_2_nlstep/Tools/bo_to_doc_v7.py
 ```
+
+以后进行 action list 到 NL step 标注时，默认使用 v7。v7 继承 v6 的 concise final step 和数量描述规则，但移除累计序数机制；`depot-first`、`rax-first`、`CC-first` 这类 SC2 开局术语允许保留。
 
 产物必须包含 Markdown，同时额外输出机器可读 JSONL。
 
 ```powershell
-& $py -m sft_pipeline.label_steps.build_v6_steps `
+& $py -m sft_pipeline.label_steps.build_v7_steps `
   --data-dir 'C:\code\SC2_bot_data\bo_collection_runs\my_run' `
-  --output 'C:\code\SC2_bot_data\sft_pipeline_outputs\my_run\v6_steps' `
+  --output 'C:\code\SC2_bot_data\sft_pipeline_outputs\my_run\v7_steps' `
   --model-key kimi-k2.5 `
   --no-thinking `
   --workers 4
 ```
 
-`--workers` 是转 step 的最大并发 trajectory 数。每个 trajectory 内部仍按 v6 标准逐 step 调 LLM；多个对局可以并发标注。API 限流比较紧时，把它设成 `1` 或 `2`。
+`--workers` 是转 step 的最大并发 trajectory 数。每个 trajectory 内部按 v7 标准逐 step 调 LLM；多个对局可以并发标注。API 限流比较紧时，把它设成 `1` 或 `2`。
 
 默认只保留胜局：
 
@@ -138,7 +140,7 @@ meta.result == "Victory"
 输出结构：
 
 ```text
-sft_pipeline_outputs/<run_id>/v6_steps/
+sft_pipeline_outputs/<run_id>/v7_steps/
   md/
     <sample>.md
   json/
@@ -158,21 +160,22 @@ sft_pipeline_outputs/<run_id>/v6_steps/
   "step_id": 3,
   "action_range": [20, 34],
   "ordered_actions": ["..."],
+  "step_text_v7": "[Step 3] ...",
   "step_text_v6": "[Step 3] ...",
   "obs_at_step_start": {},
   "obs_at_each_action": []
 }
 ```
 
-v6 Markdown 的最后一个 final step 是战略总结/风格描述，没有 action range，不进入 SFT 构造。
+v7 Markdown 的最后一个 final step 是战略总结/风格描述，没有 action range，不进入 SFT 构造。`step_text_v6` 是兼容字段，内容与 `step_text_v7` 相同，供现有 SFT 构建器读取。
 
 如果 LLM 标注过程中被中断，但 Markdown 已经落盘，可以用离线恢复工具重建 JSONL：
 
 ```powershell
-& $py -m sft_pipeline.label_steps.recover_v6_json_from_md `
+& $py -m sft_pipeline.label_steps.recover_v7_json_from_md `
   --data-dir 'C:\code\SC2_bot_data\bo_collection_runs\my_run' `
-  --md-dir 'C:\code\SC2_bot_data\sft_pipeline_outputs\my_run\v6_steps\md' `
-  --output 'C:\code\SC2_bot_data\sft_pipeline_outputs\my_run\v6_steps'
+  --md-dir 'C:\code\SC2_bot_data\sft_pipeline_outputs\my_run\v7_steps\md' `
+  --output 'C:\code\SC2_bot_data\sft_pipeline_outputs\my_run\v7_steps'
 ```
 
 这个恢复工具不调用 LLM，只用已有 Markdown + 原始胜局 sequence 恢复 `labeled_steps.jsonl`。
@@ -183,7 +186,7 @@ v6 Markdown 的最后一个 final step 是战略总结/风格描述，没有 act
 
 ```powershell
 & $py -m sft_pipeline.build_sft.build_all `
-  --labeled-steps 'C:\code\SC2_bot_data\sft_pipeline_outputs\my_run\v6_steps\json\labeled_steps.jsonl' `
+  --labeled-steps 'C:\code\SC2_bot_data\sft_pipeline_outputs\my_run\v7_steps\json\labeled_steps.jsonl' `
   --output 'C:\code\SC2_bot_data\sft_pipeline_outputs\my_run\sft_agent_aligned' `
   --shuffle-variants 1
 ```
@@ -192,16 +195,16 @@ v6 Markdown 的最后一个 final step 是战略总结/风格描述，没有 act
 
 ```powershell
 & $py -m sft_pipeline.build_sft.build_naming_sft `
-  --labeled-steps '...\v6_steps\json\labeled_steps.jsonl' `
+  --labeled-steps '...\v7_steps\json\labeled_steps.jsonl' `
   --output '...\sft_agent_aligned'
 
 & $py -m sft_pipeline.build_sft.build_ordering_sft `
-  --labeled-steps '...\v6_steps\json\labeled_steps.jsonl' `
+  --labeled-steps '...\v7_steps\json\labeled_steps.jsonl' `
   --output '...\sft_agent_aligned' `
   --shuffle-variants 3
 
 & $py -m sft_pipeline.build_sft.build_executor_sft `
-  --labeled-steps '...\v6_steps\json\labeled_steps.jsonl' `
+  --labeled-steps '...\v7_steps\json\labeled_steps.jsonl' `
   --output '...\sft_agent_aligned'
 ```
 
@@ -279,9 +282,9 @@ user:
 
 这些元素来源：
 
-- `Strategy Summary`：从 v6 Markdown 的 `# Summary` 读取。
+- `Strategy Summary`：从 v7 Markdown 的 `# Summary` 读取。
 - `Current Observation`：来自 `labeled_steps.jsonl.obs_at_step_start.text`。
-- `Strategy Step`：来自 `step_text_v6`。
+- `Strategy Step`：来自 `step_text_v7`（当前也同步写入兼容字段 `step_text_v6`）。
 - canonical names：来自 `SC2-Agent-260510/SC2_Agent/data_tools/terran_names.py`。
 
 Naming target 从该 step 的标准 `ordered_actions` 反推：
@@ -334,8 +337,8 @@ shuffled_input != answer
 
 - `actions`：打乱后的 expanded action list。
 - `obs_text`：当前 step 起点 obs text。
-- `strategy_step_text`：v6 step 文本。
-- `strategy_summary`：v6 Markdown summary。
+- `strategy_step_text`：v7 step 文本。
+- `strategy_summary`：v7 Markdown summary。
 - `prereq_hints`：复用 `SC2_Agent.data_tools.check_action_prereqs` 和 `tech_chain_relations`。
 - `conflict_hints`：复用 `SC2_Agent.data_tools.detect_action_conflicts`。
 - `cost_hints`：复用 `SC2_Agent.data_tools.action_cost.cost_for_action`。
@@ -395,9 +398,9 @@ bo_collection_runs/<run_id>/
 sft_pipeline_outputs/<run_id>/obs_qa.json
   obs 完整性检查报告
 
-sft_pipeline_outputs/<run_id>/v6_steps/
+sft_pipeline_outputs/<run_id>/v7_steps/
   md/
-    v6 Markdown step 文档
+    v7 Markdown step 文档
   json/
     labeled_steps.jsonl
     step_index.json
@@ -428,9 +431,9 @@ YYYY-MM-DD_<purpose>_<model_or_labeler>
 管理原则：
 
 - `bo_collection_runs/<run_id>` 是原始数据源，尽量不要手工修改。
-- `v6_steps/json/labeled_steps.jsonl` 是 SFT 构造的标准输入。
+- `v7_steps/json/labeled_steps.jsonl` 是 SFT 构造的标准输入。
 - `sft_agent_aligned/` 是最终训练数据目录，优先使用这个目录下的数据训练。
 - 地图相关字段和文件名统一使用英文 map id；不要混入中文地图名。
-- 如果同一批轨迹用不同模型重标 step，应新建新的 `<run_id>` 或新的 `v6_steps_<labeler>` 目录，避免覆盖。
+- 如果同一批轨迹用不同模型重标 step，应新建新的 `<run_id>` 或新的 `v7_steps_<labeler>` 目录，避免覆盖。
 - 如果只重建 SFT，不需要重新采集或重新标 step，直接复用同一个 `labeled_steps.jsonl` 即可。
 - 训练前检查 `qa_report.json` 和 `manifest.json`，确认 `require_victory == true`，并确认 executor prompt/answer 中没有真实长 tag。

@@ -172,7 +172,7 @@ prompt_tag = real_tag % 1000
 
 训练前检查：
 
-- `v6_steps/manifest.json` 中 `require_victory == true`
+- `v7_steps/manifest.json` 中 `require_victory == true`
 - `sft_agent_aligned/qa_report.json`
 - `labeled_steps.jsonl` 中 `result` 只有 `Victory`
 - executor prompt/answer 没有 7 位以上真实长 tag

@@ -1,0 +1,105 @@
+{
+  "total_trajectories": 1,
+  "success": 1,
+  "failed": 0,
+  "bo_data": {
+    "marine_rush": {
+      "bot_name": "Marine Rush",
+      "map": "KairosJunctionLE",
+      "sequence_file": "marine-ai.zerg.veryhard_KairosJunctionLE_2026-06-16 21_26_19_53554.json",
+      "total_actions": 93,
+      "total_steps": 9,
+      "steps": [
+        {
+          "step": 1,
+          "range": [
+            0,
+            10
+          ],
+          "action_count": 11,
+          "llm_call_done": true
+        },
+        {
+          "step": 2,
+          "range": [
+            11,
+            20
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 3,
+          "range": [
+            21,
+            30
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 4,
+          "range": [
+            31,
+            40
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 5,
+          "range": [
+            41,
+            50
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 6,
+          "range": [
+            51,
+            60
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 7,
+          "range": [
+            61,
+            70
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 8,
+          "range": [
+            71,
+            80
+          ],
+          "action_count": 10,
+          "llm_call_done": true
+        },
+        {
+          "step": 9,
+          "range": [
+            81,
+            92
+          ],
+          "action_count": 12,
+          "llm_call_done": true
+        },
+        {
+          "step": 10,
+          "range": null,
+          "action_count": null,
+          "llm_call_done": true,
+          "is_final_step": true
+        }
+      ],
+      "md_path": "Tools\\bo_docs_no_ordinals_kimi\\marine_rush.md"
+    }
+  }
+}

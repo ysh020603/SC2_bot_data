@@ -21,10 +21,10 @@ SC2-Agent-260510/
 | `dummies/` | 采集用 Terran bot |
 | `tools/` | 采集脚本 |
 | `sft_pipeline/` | 模块化 SFT 数据平台 |
-| `bo_2_nlstep/` | action order -> v6 step 的标注工具 |
+| `bo_2_nlstep/` | action order -> v7 step 的标注工具 |
 | `data_ref/` | ability/entity 图谱参考数据 |
 | `bo_collection_runs/` | 原始采集 run |
-| `sft_pipeline_outputs/` | obs QA、v6 steps、最终 SFT |
+| `sft_pipeline_outputs/` | obs QA、v7 steps、最终 SFT |
 | `docs/` | 文档 |
 | `SC2-Agent-260510/` | 参考 Agent prompt/context |
 
@@ -35,14 +35,14 @@ SC2-Agent-260510/
 ```text
 bo_collection_runs/<run_id>/
 sft_pipeline_outputs/<run_id>/obs_qa.json
-sft_pipeline_outputs/<run_id>/v6_steps/
+sft_pipeline_outputs/<run_id>/v7_steps/
 sft_pipeline_outputs/<run_id>/sft_agent_aligned/
 ```
 
 管理原则：
 
 - `bo_collection_runs/<run_id>` 是原始数据源，尽量不要手工改内容。
-- `v6_steps/json/labeled_steps.jsonl` 是 SFT 构造标准输入。
+- `v7_steps/json/labeled_steps.jsonl` 是 SFT 构造标准输入。
 - `sft_agent_aligned/` 是最终训练数据目录。
 - 同一批轨迹如果用不同模型重标 step，应使用新的 `<run_id>` 或新的 step 输出目录，避免覆盖。
 - 地图字段和文件名统一使用英文 map id。

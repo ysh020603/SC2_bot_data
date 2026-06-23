@@ -1,6 +1,6 @@
 # docs 目录索引
 
-本目录记录环境配置、bot 运行、轨迹采集、v6 step 标注、SFT 数据构造和仓库管理。当前主线目标是：用本仓库采集胜局轨迹，并构造与 `SC2-Agent-260510` 三个 LLM 位置对齐的训练数据。
+本目录记录环境配置、bot 运行、轨迹采集、v7 step 标注、SFT 数据构造和仓库管理。当前主线目标是：用本仓库采集胜局轨迹，并构造与 `SC2-Agent-260510` 三个 LLM 位置对齐的训练数据。
 
 ## 必读顺序
 
@@ -16,7 +16,7 @@
 ### 通用（采集与 SFT）
 
 3. [collect_terran_bo.md](collect_terran_bo.md)：批量采集 Terran BO 轨迹（参数与输出格式）。
-4. [sft_pipeline_usage.md](sft_pipeline_usage.md)：采集轨迹 -> v6 step -> SFT 的完整流程。
+4. [sft_pipeline_usage.md](sft_pipeline_usage.md)：采集轨迹 -> v7 step -> SFT 的完整流程。
 5. [sft_data_format.md](sft_data_format.md)：Qwen3 thinking/nothink 的 ShareGPT 数据格式。
 
 ## 当前统一要求
@@ -24,6 +24,7 @@
 - 对局采集使用本仓库的 bot 和 `tools/collect_terran_bo.py` / `sft_pipeline.collect.run_collect`。
 - `SC2-Agent-260510` 只作为 prompt/context 标准来源，不作为采集 bot。
 - step 与 SFT 数据默认只使用 `Victory` 对局。
+- action list 到 NL step 的标注统一使用 `bo_2_nlstep/Tools/bo_to_doc_v7.py` / `sft_pipeline.label_steps.build_v7_steps`。v7 在 v6 基础上移除累计序数机制，保留数量描述规则与 concise final step。
 - 地图名统一使用 SC2 引擎英文 map id，例如 `KairosJunctionLE`，不要使用客户端中文显示名。
 - 输出文件名、`meta.map`、step Markdown 文件名、SFT 元数据都使用英文 map id。
 - 中文本地化地图名如需保留，只能放到 `meta.map_localized`。
@@ -38,7 +39,7 @@
 说明 `AbilityRecorderManager` 为什么要在 action 被 SC2 接受后再写入 sequence，如何处理 TechLab/Reactor 命名，以及 train 多候选 executor context 的保存规则。
 
 **[sft_pipeline_usage.md](sft_pipeline_usage.md)**  
-说明模块化 SFT pipeline：采集、obs 校验、v6 step 标注、从 Markdown 恢复 JSONL、构造 Agent-aligned SFT。
+说明模块化 SFT pipeline：采集、obs 校验、v7 step 标注、从 Markdown 恢复 JSONL、构造 Agent-aligned SFT。
 
 **[sft_data_format.md](sft_data_format.md)**  
 说明 Qwen3 thinking / nothink 训练样本格式。当前 pipeline 输出 ShareGPT 格式。

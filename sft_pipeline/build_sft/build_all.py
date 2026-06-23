@@ -303,7 +303,7 @@ def build_all(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build naming, ordering, and executor ShareGPT SFT datasets.")
-    parser.add_argument("--labeled-steps", required=True, help="Path to v6_steps/json/labeled_steps.jsonl.")
+    parser.add_argument("--labeled-steps", required=True, help="Path to v7_steps/json/labeled_steps.jsonl.")
     parser.add_argument("--output", required=True, help="Output directory for SFT datasets.")
     parser.add_argument("--shuffle-variants", type=int, default=1, help="Ordering shuffled variants per step.")
     parser.add_argument("--task", choices=["all", "naming", "ordering", "executor"], default="all")

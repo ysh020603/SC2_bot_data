@@ -63,7 +63,7 @@ C:\code\SC2_bot_data\bo_collection_runs\2026-06-21_sft_10game_kimi\match_02_mari
 轨迹规模：
 
 ```text
-v6 steps: 9
+historical v6 steps: 9
 真实 actions: 92
 ```
 

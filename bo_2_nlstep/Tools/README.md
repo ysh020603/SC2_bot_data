@@ -1,3 +1,32 @@
+# Current Standard: v7 No Ordinals
+
+For future action list -> NL step labeling, use v7 by default:
+
+```bash
+python Tools/bo_to_doc_v7.py --model-key kimi-k2.5 --max-workers 2
+```
+
+v7 is based on v6 Concise Style Summary:
+
+- Normal steps still use SC2 Terran slang, natural coach-style wording, and merge repeated actions within each step.
+- Quantity rules stay unchanged: current-step cardinal quantities such as `3 rax` or `2 tanks` and fuzzy quantities such as `a few Marines` or `several SCVs` are allowed.
+- Counted ordinal wording is removed: do not use `first/second/third/fourth`, `the first one`, `third base`, `second Starport`, etc.
+- SC2 opening labels such as `depot-first`, `rax-first`, and `CC-first` are allowed because they describe opening style, not cumulative ordinal state.
+- Summary and final step also follow the no-ordinal rule; the final step remains the v6-style concise strategic style characterization.
+
+Recommended output directory:
+
+```text
+Tools/bo_docs_no_ordinals/
+```
+
+Full example test completed with `kimi-k2.5` non-thinking on all 10 BOs in `2026-06-16_terran_bo_commitfix_v5/`; output:
+
+```text
+Tools/bo_docs_no_ordinals_kimi_all/
+```
+
+---
 # SC2 Terran BO Collection �?Build Order �?Natural Language Documentation
 
 ## 1. 项目概述
