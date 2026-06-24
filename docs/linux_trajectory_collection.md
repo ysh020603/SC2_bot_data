@@ -242,14 +242,13 @@ python -m sft_pipeline.collect.validate_obs \
   --output sft_pipeline_outputs/<run_id>/obs_qa.json
 ```
 
-2. **v7 Step 标注**（单独阶段，不在采集脚本中执行）：
+2. **v8 Step 标注**（单独阶段，不在采集脚本中执行）：
 
 ```bash
-python -m sft_pipeline.label_steps.build_v7_steps \
+python -m sft_pipeline.label_steps.build_v8_steps \
   --data-dir bo_collection_runs/<run_id>/KairosJunctionLE \
-  --output sft_pipeline_outputs/<run_id>/v7_steps \
-  --model-key kimi-k2.5 \
-  --no-thinking \
+  --output sft_pipeline_outputs/<run_id>/v8_steps \
+  --model-key deepseek-v4-flash \
   --workers 4
 ```
 

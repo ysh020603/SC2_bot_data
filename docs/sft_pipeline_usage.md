@@ -15,7 +15,7 @@ sft_pipeline/README.md
   -> sequence JSON + obs
   -> train 多候选时保存 executor_context
 
-v7 Step 标注
+v8 Step 标注
   -> Markdown
   -> labeled_steps.jsonl / step_index.json
 
@@ -92,24 +92,23 @@ missing_obs_structured == 0
 order_mismatch == 0
 ```
 
-## 3. v7 Step 标注
+## 3. v8 Step 标注
 
 复用：
 
 ```text
-bo_2_nlstep/Tools/bo_to_doc_v7.py
+bo_2_nlstep/Tools/bo_to_doc_v8.py
 ```
 
-以后进行 action list 到 NL step 标注时，默认使用 v7。v7 基于 v6 的 concise final step，但去掉累计序数机制；数量描述规则保持不变，仍可使用 `3 rax`、`a few Marines`、`several SCVs` 这类当前 step 内数量表达。
+以后进行 action list 到 NL step 标注时，默认使用 v8。v8 继承 v7 的 no-ordinal、concise final step、summary 和数量描述规则；同时在 normal step 中加入宏观控制提示，让下游模型结合 obs 推理 worker saturation、supply headroom、gas/refinery capacity。Refinery/gas 不绑定具体任务，只表达 gas income / gas flexibility / tech capacity。normal step 不加入 enemy/scout/pressure/threat、active queues、idle production 或泛泛 tech readiness 分析。
 
 命令：
 
 ```powershell
-& $py -m sft_pipeline.label_steps.build_v7_steps `
+& $py -m sft_pipeline.label_steps.build_v8_steps `
   --data-dir 'C:\code\SC2_bot_data\bo_collection_runs\<run_id>' `
-  --output 'C:\code\SC2_bot_data\sft_pipeline_outputs\<run_id>\v7_steps' `
-  --model-key kimi-k2.5 `
-  --no-thinking `
+  --output 'C:\code\SC2_bot_data\sft_pipeline_outputs\<run_id>\v8_steps' `
+  --model-key deepseek-v4-flash `
   --workers 4
 ```
 
@@ -118,7 +117,7 @@ bo_2_nlstep/Tools/bo_to_doc_v7.py
 输出：
 
 ```text
-sft_pipeline_outputs/<run_id>/v7_steps/
+sft_pipeline_outputs/<run_id>/v8_steps/
   md/
     *.md
   json/
@@ -127,9 +126,9 @@ sft_pipeline_outputs/<run_id>/v7_steps/
   manifest.json
 ```
 
-`labeled_steps.jsonl` 只包含有真实 action range 的 step。v7 Markdown 的最后一个 final step 是战略总结，不进入 SFT。
+`labeled_steps.jsonl` 只包含有真实 action range 的 step。v8 Markdown 的最后一个 final step 是战略总结，不进入 SFT。JSONL 中 `step_text_v8` 是标准字段，`step_text_v7` / `step_text_v6` 作为兼容字段保留。
 
-如果 LLM 被中断但 Markdown 已落盘：
+如果需要从旧 v7 Markdown 离线恢复 JSONL，可以继续使用 legacy 恢复工具：
 
 ```powershell
 & $py -m sft_pipeline.label_steps.recover_v7_json_from_md `
@@ -142,7 +141,7 @@ sft_pipeline_outputs/<run_id>/v7_steps/
 
 ```powershell
 & $py -m sft_pipeline.build_sft.build_all `
-  --labeled-steps 'C:\code\SC2_bot_data\sft_pipeline_outputs\<run_id>\v7_steps\json\labeled_steps.jsonl' `
+  --labeled-steps 'C:\code\SC2_bot_data\sft_pipeline_outputs\<run_id>\v8_steps\json\labeled_steps.jsonl' `
   --output 'C:\code\SC2_bot_data\sft_pipeline_outputs\<run_id>\sft_agent_aligned' `
   --shuffle-variants 1
 ```
@@ -272,13 +271,13 @@ pending/conflict 上下文：
 ```text
 bo_collection_runs/<run_id>/
 sft_pipeline_outputs/<run_id>/obs_qa.json
-sft_pipeline_outputs/<run_id>/v7_steps/
+sft_pipeline_outputs/<run_id>/v8_steps/
 sft_pipeline_outputs/<run_id>/sft_agent_aligned/
 ```
 
 训练前检查：
 
-- `v7_steps/manifest.json` 中 `require_victory == true`
+- `v8_steps/manifest.json` 中 `require_victory == true`
 - `sft_agent_aligned/qa_report.json`
 - executor prompt/answer 中没有真实长 tag
 - 地图字段和文件名没有中文地图名

@@ -1,29 +1,34 @@
-# Current Standard: v7 No Ordinals
+# Current Standard: v8 Macro-Control Fuzzy
 
-For future action list -> NL step labeling, use v7 by default:
+For future action list -> NL step labeling, use v8 by default:
 
 ```bash
-python Tools/bo_to_doc_v7.py --model-key kimi-k2.5 --max-workers 2
+python Tools/bo_to_doc_v8.py --model-key deepseek-v4-flash --max-workers 2
 ```
 
-v7 is based on v6 Concise Style Summary:
+v8 is based on v7 No Ordinals and keeps the v7 summary/final-step contract:
 
 - Normal steps still use SC2 Terran slang, natural coach-style wording, and merge repeated actions within each step.
 - Quantity rules stay unchanged: current-step cardinal quantities such as `3 rax` or `2 tanks` and fuzzy quantities such as `a few Marines` or `several SCVs` are allowed.
 - Counted ordinal wording is removed: do not use `first/second/third/fourth`, `the first one`, `third base`, `second Starport`, etc.
 - SC2 opening labels such as `depot-first`, `rax-first`, and `CC-first` are allowed because they describe opening style, not cumulative ordinal state.
 - Summary and final step also follow the no-ordinal rule; the final step remains the v6-style concise strategic style characterization.
+- Each normal step receives action-derived macro-control cues for downstream obs-aware reasoning:
+  - Worker saturation: phrase SCV production so the executor can use obs worker current/ideal plus the current economy task.
+  - Supply buffer: phrase depot planning so the executor can use obs supply used/cap plus the current SCV, Marine, and production demand.
+  - Gas capacity: phrase Refinery/gas as economy capacity or flexibility for upcoming tech without binding it to exactly one unit, building, or upgrade.
+- Normal steps should not add enemy/scout/pressure/threat, active-queue, idle-production, or generic tech-readiness analysis. The point is macro execution under obs, not enemy-state branching.
 
 Recommended output directory:
 
 ```text
-Tools/bo_docs_no_ordinals/
+Tools/bo_docs_situation_aware/
 ```
 
-Full example test completed with `kimi-k2.5` non-thinking on all 10 BOs in `2026-06-16_terran_bo_commitfix_v5/`; output:
+Full example test completed with `deepseek-v4-flash` non-thinking on all 10 BOs in `2026-06-16_terran_bo_commitfix_v5/`; output:
 
 ```text
-Tools/bo_docs_no_ordinals_kimi_all/
+Tools/bo_docs_situation_aware_deepseek_flash_all/
 ```
 
 ---

@@ -2,6 +2,8 @@
 
 本目录为 2026-06-16 使用**落地确认记录逻辑**采集的正式数据集。
 
+后续 action list -> NL step 标注默认使用 `bo_2_nlstep/Tools/bo_to_doc_v8.py`。V8 继承 v7 的 no-ordinal、summary 和 final step 规则，并在 normal step 中加入 worker saturation、supply buffer、gas capacity 三类宏观控制提示，用于帮助下游模型结合 obs 进行执行推理。
+
 ## 采集概况
 
 | 项目 | 值 |

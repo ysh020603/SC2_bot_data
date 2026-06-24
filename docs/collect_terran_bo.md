@@ -1,6 +1,6 @@
 # Terran BO 轨迹批量采集
 
-本文说明如何使用本仓库的 Terran bot 采集 BO/action 轨迹。采集产物是后续 v7 step 标注和 SFT 构造的数据源。
+本文说明如何使用本仓库的 Terran bot 采集 BO/action 轨迹。采集产物是后续 v8 step 标注和 SFT 构造的数据源。
 
 ## 采集入口
 
@@ -173,14 +173,13 @@ python -m sft_pipeline.collect.validate_obs `
 
 ## 下一步
 
-转 v7 step：
+转 v8 step：
 
 ```powershell
-python -m sft_pipeline.label_steps.build_v7_steps `
+python -m sft_pipeline.label_steps.build_v8_steps `
   --data-dir bo_collection_runs/<run_id> `
-  --output sft_pipeline_outputs/<run_id>/v7_steps `
-  --model-key kimi-k2.5 `
-  --no-thinking `
+  --output sft_pipeline_outputs/<run_id>/v8_steps `
+  --model-key deepseek-v4-flash `
   --workers 4
 ```
 
@@ -188,7 +187,7 @@ python -m sft_pipeline.label_steps.build_v7_steps `
 
 ```powershell
 python -m sft_pipeline.build_sft.build_all `
-  --labeled-steps sft_pipeline_outputs/<run_id>/v7_steps/json/labeled_steps.jsonl `
+  --labeled-steps sft_pipeline_outputs/<run_id>/v8_steps/json/labeled_steps.jsonl `
   --output sft_pipeline_outputs/<run_id>/sft_agent_aligned `
   --shuffle-variants 1
 ```

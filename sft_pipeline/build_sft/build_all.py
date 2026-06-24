@@ -50,6 +50,10 @@ def _strategy_summary(row: dict[str, Any]) -> str:
     return row.get("strategy_summary") or strategy_summary_from_md(row.get("md_path"))
 
 
+def _step_text(row: dict[str, Any]) -> str:
+    return row.get("step_text_v8") or row.get("step_text_v7") or row.get("step_text_v6") or ""
+
+
 def _agent_pair(messages: list[dict[str, str]]) -> tuple[str, str]:
     return messages[0]["content"], messages[1]["content"]
 
@@ -68,7 +72,7 @@ def build_naming_samples(rows: list[dict[str, Any]], mode: str) -> tuple[list[di
         system, user = _agent_pair(
             build_naming_messages(
                 race="terran",
-                plan_text=row.get("step_text_v6") or "",
+                plan_text=_step_text(row),
                 terran_unit_names=units,
                 terran_upgrade_names=upgrades,
                 obs_text=_obs_text(row),
@@ -122,7 +126,7 @@ def build_ordering_samples(
                     prereq_hints=prereq,
                     conflict_hints=conflicts,
                     cost_hints=costs,
-                    strategy_step_text=row.get("step_text_v6") or "",
+                    strategy_step_text=_step_text(row),
                     strategy_summary=_strategy_summary(row),
                 )
             )
@@ -303,7 +307,7 @@ def build_all(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build naming, ordering, and executor ShareGPT SFT datasets.")
-    parser.add_argument("--labeled-steps", required=True, help="Path to v7_steps/json/labeled_steps.jsonl.")
+    parser.add_argument("--labeled-steps", required=True, help="Path to v8_steps/json/labeled_steps.jsonl.")
     parser.add_argument("--output", required=True, help="Output directory for SFT datasets.")
     parser.add_argument("--shuffle-variants", type=int, default=1, help="Ordering shuffled variants per step.")
     parser.add_argument("--task", choices=["all", "naming", "ordering", "executor"], default="all")
