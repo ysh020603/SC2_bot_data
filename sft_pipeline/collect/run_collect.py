@@ -21,6 +21,7 @@ def main() -> None:
     parser.add_argument("--difficulties", nargs="*", default=None)
     parser.add_argument("--workers", type=int, default=8)
     parser.add_argument("--port-offset", type=int, default=25000)
+    parser.add_argument("--enemy-build", default="random")
     args = parser.parse_args()
 
     output = Path(args.output or ROOT / "bo_collection_runs" / datetime.now().strftime("%Y-%m-%d_%H_%M_%S_sft"))
@@ -42,6 +43,8 @@ def main() -> None:
         cmd.extend(["--races", *args.races])
     if args.difficulties:
         cmd.extend(["--difficulties", *args.difficulties])
+    if args.enemy_build and args.enemy_build != "random":
+        cmd.extend(["--enemy-build", args.enemy_build])
 
     output.mkdir(parents=True, exist_ok=True)
     write_json(
@@ -55,6 +58,7 @@ def main() -> None:
             "difficulties": args.difficulties,
             "workers": args.workers,
             "port_offset": args.port_offset,
+            "enemy_build": args.enemy_build,
             "obs_schema_version": "v1-train-executor-context",
         },
     )

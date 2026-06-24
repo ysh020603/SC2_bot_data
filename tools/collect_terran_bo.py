@@ -55,7 +55,7 @@ TERRAN_BOTS: List[Tuple[str, str]] = [
 ]
 
 RACES = ("protoss", "zerg", "terran")
-DIFFICULTIES = ("medium", "mediumhard", "hard", "harder", "veryhard")
+DEFAULT_DIFFICULTIES = ("medium", "mediumhard", "hard", "harder", "veryhard")
 BASE_PORT = 25000
 PORT_STRIDE = 8
 
@@ -94,8 +94,12 @@ def run_match(task: Dict[str, Any]) -> Dict[str, Any]:
     for folder in (seq_dir, log_dir, replay_dir):
         os.makedirs(folder, exist_ok=True)
 
+    enemy_build: str = task.get("enemy_build", "random")
     player1_id = bot_key
-    player2_id = f"ai.{enemy_race}.{difficulty}"
+    if enemy_build and enemy_build != "random":
+        player2_id = f"ai.{enemy_race}.{difficulty}.{enemy_build}"
+    else:
+        player2_id = f"ai.{enemy_race}.{difficulty}"
     stamp = datetime.now().strftime("%Y-%m-%d %H_%M_%S")
     tag = random.randint(0, 999999)
     base_name = f"{bot_key}-{player2_id}_{map_name}_{stamp}_{tag}"
@@ -127,7 +131,10 @@ def run_match(task: Dict[str, Any]) -> Dict[str, Any]:
         LoggingUtility.set_logger_file(log_level=config["general"]["log_level"], path=log_path)
 
         player1_bot = playable[bot_key]([])
-        player2_bot = playable["ai"]([enemy_race, difficulty])
+        ai_params = [enemy_race, difficulty]
+        if enemy_build and enemy_build != "random":
+            ai_params.append(enemy_build)
+        player2_bot = playable["ai"](ai_params)
 
         GameStarter.setup_bot(player1_bot, player1_id, player2_id, argparse.Namespace(raw_selection=False, release=False))
         GameStarter.setup_bot(player2_bot, player2_id, player1_id, argparse.Namespace(raw_selection=False, release=False))
@@ -177,6 +184,8 @@ def build_tasks(
     bot_filter: Optional[List[str]],
     map_name: Optional[str],
     port_offset: int,
+    difficulties: Optional[List[str]] = None,
+    enemy_build: str = "random",
 ) -> Tuple[List[Dict[str, Any]], List[str]]:
     definitions = BotDefinitions()
     available_maps = GameStarter.installed_maps()
@@ -189,17 +198,20 @@ def build_tasks(
         allowed = set(bot_filter)
         bots = [(k, f) for k, f in TERRAN_BOTS if k in allowed or f in allowed]
 
+    diff_list = tuple(difficulties) if difficulties else DEFAULT_DIFFICULTIES
+
     tasks: List[Dict[str, Any]] = []
     port_idx = 0
     for bot_key, bot_folder in bots:
         for enemy_race in RACES:
-            for difficulty in DIFFICULTIES:
+            for difficulty in diff_list:
                 tasks.append(
                     {
                         "bot_key": bot_key,
                         "bot_folder": bot_folder,
                         "enemy_race": enemy_race,
                         "difficulty": difficulty,
+                        "enemy_build": enemy_build,
                         "map_name": chosen_map,
                         "port": port_offset + port_idx * PORT_STRIDE,
                         "output_root": output_root,
@@ -258,25 +270,37 @@ def main() -> None:
     parser.add_argument("--port-offset", type=int, default=BASE_PORT, help="Starting SC2 port base.")
     parser.add_argument("--workers", type=int, default=15, help="Parallel games per bot.")
     parser.add_argument("--races", nargs="*", default=None, help="Subset of races (protoss,zerg,terran). Default: all three.")
-    parser.add_argument("--difficulties", nargs="*", default=None, help="Subset of difficulties (medium,mediumhard,hard,harder,veryhard). Default: all five.")
+    parser.add_argument(
+        "--difficulties",
+        nargs="*",
+        default=None,
+        help="AI difficulties (e.g. veryeasy easy medium mediumhard hard). Default: medium..veryhard.",
+    )
+    parser.add_argument(
+        "--enemy-build",
+        default="random",
+        help="Ingame AI build style (random, macro, rush, timing, power, air). Default: random.",
+    )
     args = parser.parse_args()
 
     output_root = os.path.abspath(args.output)
     os.makedirs(output_root, exist_ok=True)
 
-    all_tasks, maps_used = build_tasks(output_root, args.bots, args.map, args.port_offset)
+    all_tasks, maps_used = build_tasks(
+        output_root,
+        args.bots,
+        args.map,
+        args.port_offset,
+        difficulties=args.difficulties,
+        enemy_build=args.enemy_build,
+    )
 
-    # Apply race/difficulty filters
+    # Apply race filter
     if args.races:
         allowed_races = set(args.races)
         before = len(all_tasks)
         all_tasks = [t for t in all_tasks if t["enemy_race"] in allowed_races]
         print(f"Race filter {sorted(allowed_races)}: {before} -> {len(all_tasks)} tasks")
-    if args.difficulties:
-        allowed_diffs = set(args.difficulties)
-        before = len(all_tasks)
-        all_tasks = [t for t in all_tasks if t["difficulty"] in allowed_diffs]
-        print(f"Difficulty filter {sorted(allowed_diffs)}: {before} -> {len(all_tasks)} tasks")
 
     bot_groups = group_tasks_by_bot(all_tasks)
 
