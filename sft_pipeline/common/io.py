@@ -27,6 +27,17 @@ def write_jsonl(path: str | os.PathLike[str], rows: Iterable[dict[str, Any]]) ->
     return count
 
 
+def reset_jsonl(path: str | os.PathLike[str]) -> None:
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_text("", encoding="utf-8")
+
+
+def append_jsonl(path: str | os.PathLike[str], row: dict[str, Any]) -> None:
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "a", encoding="utf-8") as handle:
+        handle.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+
 def read_jsonl(path: str | os.PathLike[str]) -> Iterator[dict[str, Any]]:
     with open(path, "r", encoding="utf-8-sig") as handle:
         for line in handle:

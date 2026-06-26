@@ -4,6 +4,7 @@ import argparse
 import json
 import re
 import sys
+import threading
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
@@ -13,7 +14,7 @@ from typing import Any, Literal
 
 from sft_pipeline.build_sft.templates import assistant_value
 from sft_pipeline.common.agent_reference import canonical_terran_names
-from sft_pipeline.common.io import read_json, write_json, write_jsonl
+from sft_pipeline.common.io import append_jsonl, read_json, read_jsonl, reset_jsonl, write_json
 
 PIPELINE_ROOT = Path(__file__).resolve().parents[1]
 if str(PIPELINE_ROOT) not in sys.path:
@@ -108,6 +109,7 @@ class ProcessedSample:
     rule_passed: bool = False
     sample: dict[str, Any] | None = None
     reject: dict[str, Any] | None = None
+    reject_detail: dict[str, Any] | None = None
     audit: dict[str, Any] | None = None
 
 
@@ -425,14 +427,79 @@ def _build_kept_sample(original: dict[str, Any], task: TaskName, cot: str, final
     return sample
 
 
-def _reject(index: int, task: TaskName, stage: str, reason: str, extra: dict[str, Any] | None = None) -> ProcessedSample:
+def _model_call_meta(call: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not call:
+        return None
+    return {
+        "model_key": call.get("model_key"),
+        "model": call.get("model"),
+        "reasoning_source": call.get("reasoning_source"),
+        "reasoning_extract_mode": call.get("reasoning_extract_mode"),
+    }
+
+
+def _build_reject_detail(
+    index: int,
+    task: TaskName,
+    stage: str,
+    reason: str,
+    *,
+    gold_answer: Any = None,
+    generated: GeneratedResult | None = None,
+    rule: RuleResult | None = None,
+    teacher: dict[str, Any] | None = None,
+    teacher_call: dict[str, Any] | None = None,
+    extra: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    detail: dict[str, Any] = {
+        "index": index,
+        "task": task,
+        "stage": stage,
+        "reason": reason,
+        "gold_answer": gold_answer,
+        "generated_cot": generated.cot if generated else None,
+        "generated_answer": generated.answer if generated else None,
+        "generated_answer_text": generated.answer_text if generated else None,
+        "rule": {"passed": rule.passed, "reasons": rule.reasons, "metrics": rule.metrics} if rule else None,
+        "teacher": teacher,
+        "generation": _model_call_meta(generated.call if generated else None),
+        "teacher_model": _model_call_meta(teacher_call),
+    }
+    if extra:
+        detail.update(extra)
+    return detail
+
+
+def _reject_summary(detail: dict[str, Any], *, generated: bool = False, rule_passed: bool = False) -> dict[str, Any]:
+    summary: dict[str, Any] = {
+        "index": detail["index"],
+        "task": detail["task"],
+        "stage": detail["stage"],
+        "reason": detail["reason"],
+        "generated": generated,
+        "rule_passed": rule_passed,
+    }
+    if detail.get("rule") is not None:
+        summary["rule"] = detail["rule"]
+    if detail.get("teacher") is not None:
+        summary["teacher"] = detail["teacher"]
+    return summary
+
+
+def _reject_from_detail(
+    detail: dict[str, Any],
+    *,
+    generated: bool = False,
+    rule_passed: bool = False,
+) -> ProcessedSample:
     return ProcessedSample(
-        index=index,
+        index=int(detail["index"]),
         kept=False,
         decision="drop",
-        generated=bool((extra or {}).get("generated")),
-        rule_passed=bool((extra or {}).get("rule_passed")),
-        reject={"index": index, "task": task, "stage": stage, "reason": reason, **(extra or {})},
+        generated=generated,
+        rule_passed=rule_passed,
+        reject=_reject_summary(detail, generated=generated, rule_passed=rule_passed),
+        reject_detail=detail,
     )
 
 
@@ -452,7 +519,8 @@ def process_one(
         system, user, gold_answer_text = _sample_parts(sample)
         gold_answer = _parse_answer(task, gold_answer_text)
     except Exception as exc:
-        return _reject(index, task, "gold_parse", str(exc))
+        detail = _build_reject_detail(index, task, "gold_parse", str(exc))
+        return _reject_from_detail(detail)
 
     last_error = ""
     generated: GeneratedResult | None = None
@@ -468,18 +536,35 @@ def process_one(
             last_error = str(call.get("error"))
             continue
         try:
-            generated = _extract_generated(task, call)
+            candidate = _extract_generated(task, call)
         except Exception as exc:
             last_error = str(exc)
             continue
-        rule = rule_check(task, user, gold_answer, generated.answer, generated.cot)
-        if rule.passed:
-            break
-        last_error = "; ".join(rule.reasons)
-        generated = None
+        rule = rule_check(task, user, gold_answer, candidate.answer, candidate.cot)
+        if not rule.passed:
+            detail = _build_reject_detail(
+                index,
+                task,
+                "rule_check",
+                "; ".join(rule.reasons),
+                gold_answer=gold_answer,
+                generated=candidate,
+                rule=rule,
+            )
+            return _reject_from_detail(detail, generated=True, rule_passed=False)
+        generated = candidate
+        break
 
     if generated is None:
-        return _reject(index, task, "rule_or_generation", last_error, {"generated": bool(rule.metrics), "rule": rule.__dict__})
+        detail = _build_reject_detail(
+            index,
+            task,
+            "generation",
+            last_error,
+            gold_answer=gold_answer,
+            rule=rule if rule.reasons else None,
+        )
+        return _reject_from_detail(detail, generated=False, rule_passed=False)
 
     teacher_call = call_openai_detailed(
         _teacher_messages(task, system, user, gold_answer, generated.answer, generated.cot, rule),
@@ -488,57 +573,63 @@ def process_one(
         temperature=teacher_temperature,
     )
     if teacher_call.get("error"):
-        return _reject(
+        detail = _build_reject_detail(
             index,
             task,
             "teacher_call",
             str(teacher_call.get("error")),
-            {"generated": True, "rule_passed": True},
+            gold_answer=gold_answer,
+            generated=generated,
+            rule=rule,
+            teacher_call=teacher_call,
         )
+        return _reject_from_detail(detail, generated=True, rule_passed=True)
     try:
         teacher = _parse_teacher_decision(teacher_call.get("content") or teacher_call.get("raw_content") or "")
     except Exception as exc:
-        return _reject(
+        detail = _build_reject_detail(
             index,
             task,
             "teacher_parse",
             str(exc),
-            {
-                "generated": True,
-                "rule_passed": True,
+            gold_answer=gold_answer,
+            generated=generated,
+            rule=rule,
+            teacher_call=teacher_call,
+            extra={
                 "teacher_content": teacher_call.get("content") or teacher_call.get("raw_content") or "",
             },
         )
+        return _reject_from_detail(detail, generated=True, rule_passed=True)
 
     decision = teacher["decision"]
     if decision == "drop":
-        return _reject(
+        detail = _build_reject_detail(
             index,
             task,
             "teacher_drop",
             teacher.get("reason", ""),
-            {"generated": True, "rule_passed": True, "teacher": teacher},
+            gold_answer=gold_answer,
+            generated=generated,
+            rule=rule,
+            teacher=teacher,
+            teacher_call=teacher_call,
         )
+        return _reject_from_detail(detail, generated=True, rule_passed=True)
     final_answer = gold_answer if decision == "use_gold_answer" else generated.answer
     kept = _build_kept_sample(sample, task, generated.cot, final_answer)
     audit = {
         "index": index,
         "task": task,
         "decision": decision,
+        "gold_answer": gold_answer,
+        "generated_cot": generated.cot,
+        "generated_answer": generated.answer,
+        "final_answer": final_answer,
         "rule": {"passed": rule.passed, "reasons": rule.reasons, "metrics": rule.metrics},
         "teacher": teacher,
-        "generation": {
-            "model_key": generated.call.get("model_key"),
-            "model": generated.call.get("model"),
-            "reasoning_source": generated.call.get("reasoning_source"),
-            "reasoning_extract_mode": generated.call.get("reasoning_extract_mode"),
-        },
-        "teacher_model": {
-            "model_key": teacher_call.get("model_key"),
-            "model": teacher_call.get("model"),
-            "reasoning_source": teacher_call.get("reasoning_source"),
-            "reasoning_extract_mode": teacher_call.get("reasoning_extract_mode"),
-        },
+        "generation": _model_call_meta(generated.call),
+        "teacher_model": _model_call_meta(teacher_call),
     }
     return ProcessedSample(
         index=index,
@@ -565,6 +656,202 @@ def _output_file_for(output_dir: Path, task: TaskName, gen_model: str, teacher_m
     )
 
 
+@dataclass
+class TaskOutputPaths:
+    task_dir: Path
+    output_file: Path
+    rejected_file: Path
+    rejected_detail_file: Path
+    audit_file: Path
+
+
+def _task_output_paths(
+    output_dir: Path,
+    task: TaskName,
+    gen_model_key: str,
+    teacher_model_key: str,
+) -> TaskOutputPaths:
+    task_dir = output_dir / task
+    return TaskOutputPaths(
+        task_dir=task_dir,
+        output_file=_output_file_for(output_dir, task, gen_model_key, teacher_model_key),
+        rejected_file=task_dir / "cot_rejected_samples.jsonl",
+        rejected_detail_file=task_dir / "cot_rejected_detail.jsonl",
+        audit_file=task_dir / "cot_audit.jsonl",
+    )
+
+
+def _prepare_task_output(paths: TaskOutputPaths) -> None:
+    paths.task_dir.mkdir(parents=True, exist_ok=True)
+    reset_jsonl(paths.rejected_file)
+    reset_jsonl(paths.rejected_detail_file)
+    reset_jsonl(paths.audit_file)
+
+
+def _load_processed_indices(paths: TaskOutputPaths) -> set[int]:
+    indices: set[int] = set()
+    for path in (paths.audit_file, paths.rejected_file):
+        if not path.exists():
+            continue
+        for row in read_jsonl(path):
+            if row.get("index") is not None:
+                indices.add(int(row["index"]))
+    return indices
+
+
+def _rebuild_kept_samples_from_audit(
+    audit_file: Path,
+    samples: list[dict[str, Any]],
+    task: TaskName,
+) -> list[dict[str, Any]]:
+    if not audit_file.exists():
+        return []
+    audits = sorted(read_jsonl(audit_file), key=lambda row: int(row["index"]))
+    kept: list[dict[str, Any]] = []
+    for row in audits:
+        idx = int(row["index"])
+        cot = str(row.get("generated_cot") or "")
+        final_answer = row.get("final_answer")
+        if final_answer is None or idx < 0 or idx >= len(samples):
+            continue
+        kept.append(_build_kept_sample(samples[idx], task, cot, final_answer))
+    return kept
+
+
+_PROGRESS_COUNT_KEYS = (
+    "processed",
+    "generated",
+    "rule_pass",
+    "rule_drop",
+    "teacher_use_gold",
+    "teacher_use_generated",
+    "teacher_drop",
+    "kept",
+)
+
+
+class CotProgressTracker:
+    def __init__(self, progress_file: Path) -> None:
+        self.progress_file = progress_file
+        self._lock = threading.Lock()
+        self._state: dict[str, Any] = {}
+
+    def init_run(self, report: dict[str, Any], tasks: list[TaskName]) -> None:
+        with self._lock:
+            self._state = {
+                **report,
+                "updated_at": datetime.now().isoformat(timespec="seconds"),
+                "tasks": {
+                    task: {
+                        "status": "pending",
+                        "total": 0,
+                        "processed": 0,
+                        "generated": 0,
+                        "rule_pass": 0,
+                        "rule_drop": 0,
+                        "teacher_use_gold": 0,
+                        "teacher_use_generated": 0,
+                        "teacher_drop": 0,
+                        "kept": 0,
+                    }
+                    for task in tasks
+                },
+            }
+            self._flush_locked()
+
+    def load_existing(self, progress_file: Path, report: dict[str, Any], tasks: list[TaskName]) -> None:
+        with self._lock:
+            self._state = read_json(progress_file)
+            self._state.update(
+                {
+                    "generation_model_key": report.get("generation_model_key"),
+                    "generation_model": report.get("generation_model"),
+                    "teacher_model_key": report.get("teacher_model_key"),
+                    "teacher_model": report.get("teacher_model"),
+                    "config_path": report.get("config_path"),
+                }
+            )
+            task_state = self._state.setdefault("tasks", {})
+            for task in tasks:
+                task_state.setdefault(
+                    task,
+                    {
+                        "status": "pending",
+                        "total": 0,
+                        "processed": 0,
+                        "generated": 0,
+                        "rule_pass": 0,
+                        "rule_drop": 0,
+                        "teacher_use_gold": 0,
+                        "teacher_use_generated": 0,
+                        "teacher_drop": 0,
+                        "kept": 0,
+                    },
+                )
+            self._flush_locked()
+
+    def begin_task(
+        self,
+        task: TaskName,
+        total: int,
+        task_report: dict[str, Any],
+        *,
+        resume: bool = False,
+    ) -> None:
+        with self._lock:
+            entry = self._state["tasks"][task]
+            preserved = {key: entry[key] for key in _PROGRESS_COUNT_KEYS if key in entry} if resume else {}
+            entry.update(task_report)
+            entry["status"] = "running"
+            entry["total"] = total
+            if resume:
+                entry.update(preserved)
+            else:
+                for key in _PROGRESS_COUNT_KEYS:
+                    entry[key] = 0
+            self._flush_locked()
+
+    def task_counts(self, task: TaskName) -> dict[str, Any]:
+        with self._lock:
+            return dict(self._state.get("tasks", {}).get(task, {}))
+
+    def record_result(self, task: TaskName, item: ProcessedSample) -> None:
+        with self._lock:
+            entry = self._state["tasks"][task]
+            entry["processed"] += 1
+            if item.generated:
+                entry["generated"] += 1
+            if item.rule_passed:
+                entry["rule_pass"] += 1
+            if item.kept:
+                entry["kept"] += 1
+                if item.decision == "use_gold_answer":
+                    entry["teacher_use_gold"] += 1
+                elif item.decision == "use_generated_answer":
+                    entry["teacher_use_generated"] += 1
+            elif item.reject:
+                stage = item.reject.get("stage")
+                if stage in {"rule_or_generation", "rule_check", "gold_parse"}:
+                    entry["rule_drop"] += 1
+                elif stage == "teacher_drop":
+                    entry["teacher_drop"] += 1
+            self._flush_locked()
+
+    def finish_task(self, task: TaskName, task_report: dict[str, Any]) -> None:
+        with self._lock:
+            entry = self._state["tasks"][task]
+            entry.update(task_report)
+            entry["status"] = "done"
+            self._flush_locked()
+
+    def _flush_locked(self) -> None:
+        self._state["updated_at"] = datetime.now().isoformat(timespec="seconds")
+        self.progress_file.parent.mkdir(parents=True, exist_ok=True)
+        tmp = self.progress_file.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(self._state, ensure_ascii=False, indent=2), encoding="utf-8")
+        tmp.replace(self.progress_file)
+
+
 def process_task(
     task: TaskName,
     *,
@@ -579,6 +866,8 @@ def process_task(
     gen_temperature: float | None,
     teacher_temperature: float | None,
     dry_run: bool,
+    progress: CotProgressTracker | None = None,
+    no_resume: bool = False,
 ) -> dict[str, Any]:
     source_file = _input_file_for(input_path, task)
     samples = read_json(source_file)
@@ -587,6 +876,7 @@ def process_task(
     if limit is not None:
         samples = samples[:limit]
 
+    paths = _task_output_paths(output_dir, task, gen_model_key, teacher_model_key)
     report: dict[str, Any] = {
         "task": task,
         "source_file": str(source_file.resolve()),
@@ -599,6 +889,10 @@ def process_task(
         "teacher_drop": 0,
         "kept": 0,
         "dry_run": dry_run,
+        "output_file": str(paths.output_file.resolve()),
+        "rejected_file": str(paths.rejected_file.resolve()),
+        "rejected_detail_file": str(paths.rejected_detail_file.resolve()),
+        "audit_file": str(paths.audit_file.resolve()),
     }
     if dry_run:
         for i, sample in enumerate(samples):
@@ -608,7 +902,33 @@ def process_task(
             report["kept"] += 1
         return report
 
+    processed_indices = set() if no_resume else _load_processed_indices(paths)
+    resuming = bool(processed_indices) and not no_resume
+    if resuming:
+        paths.task_dir.mkdir(parents=True, exist_ok=True)
+    else:
+        _prepare_task_output(paths)
+    report["resumed"] = resuming
+    report["skipped_existing"] = len(processed_indices)
+    report["pending"] = len(samples) - len(processed_indices)
+    if progress is not None:
+        progress.begin_task(task, len(samples), report, resume=resuming)
+
     results: list[ProcessedSample] = []
+    write_lock = threading.Lock()
+    pending_jobs = [(i, sample) for i, sample in enumerate(samples) if i not in processed_indices]
+
+    def _persist_result(item: ProcessedSample) -> None:
+        with write_lock:
+            if item.audit is not None:
+                append_jsonl(paths.audit_file, item.audit)
+            if item.reject is not None:
+                append_jsonl(paths.rejected_file, item.reject)
+            if item.reject_detail is not None:
+                append_jsonl(paths.rejected_detail_file, item.reject_detail)
+        if progress is not None:
+            progress.record_result(task, item)
+
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {
             executor.submit(
@@ -623,40 +943,23 @@ def process_task(
                 gen_temperature=gen_temperature,
                 teacher_temperature=teacher_temperature,
             ): i
-            for i, sample in enumerate(samples)
+            for i, sample in pending_jobs
         }
         for future in as_completed(futures):
-            results.append(future.result())
+            item = future.result()
+            results.append(item)
+            _persist_result(item)
 
     results.sort(key=lambda item: item.index)
-    kept_samples = [item.sample for item in results if item.kept and item.sample is not None]
-    rejects = [item.reject for item in results if item.reject is not None]
-    audits = [item.audit for item in results if item.audit is not None]
-    for item in results:
-        if item.generated:
-            report["generated"] += 1
-        if item.rule_passed:
-            report["rule_pass"] += 1
-        if item.kept:
-            report["kept"] += 1
-            if item.decision == "use_gold_answer":
-                report["teacher_use_gold"] += 1
-            elif item.decision == "use_generated_answer":
-                report["teacher_use_generated"] += 1
-        elif item.reject:
-            stage = item.reject.get("stage")
-            if stage in {"rule_or_generation", "gold_parse"}:
-                report["rule_drop"] += 1
-            elif stage == "teacher_drop":
-                report["teacher_drop"] += 1
+    if progress is not None:
+        counts = progress.task_counts(task)
+        for key in _PROGRESS_COUNT_KEYS:
+            if key in counts:
+                report[key] = counts[key]
 
-    output_file = _output_file_for(output_dir, task, gen_model_key, teacher_model_key)
-    write_json(output_file, kept_samples)
-    write_jsonl(output_dir / task / "cot_rejected_samples.jsonl", [row for row in rejects if row])
-    write_jsonl(output_dir / task / "cot_audit.jsonl", [row for row in audits if row])
-    report["output_file"] = str(output_file.resolve())
-    report["rejected_file"] = str((output_dir / task / "cot_rejected_samples.jsonl").resolve())
-    report["audit_file"] = str((output_dir / task / "cot_audit.jsonl").resolve())
+    write_json(paths.output_file, _rebuild_kept_samples_from_audit(paths.audit_file, samples, task))
+    if progress is not None:
+        progress.finish_task(task, report)
     return report
 
 
@@ -680,15 +983,21 @@ def main() -> None:
     parser.add_argument("--teacher-model-key", required=True, help="Teacher/judge model key from API_config/config.json.")
     parser.add_argument("--config-path", default=None, help="Optional API config path.")
     parser.add_argument("--max-workers", type=int, default=1)
-    parser.add_argument("--max-retries", type=int, default=2)
+    parser.add_argument("--max-retries", type=int, default=3, help="Retries for API/parse failures only; rule-check failures are not retried.")
     parser.add_argument("--limit", type=int, default=None, help="Optional per-task sample limit for smoke runs.")
     parser.add_argument("--gen-temperature", type=float, default=None)
     parser.add_argument("--teacher-temperature", type=float, default=0.0)
     parser.add_argument("--dry-run", action="store_true", help="Only parse source files and gold answers; do not call LLMs.")
+    parser.add_argument(
+        "--no-resume",
+        action="store_true",
+        help="Ignore existing cot_audit/cot_rejected jsonl and restart the task outputs from scratch.",
+    )
     args = parser.parse_args()
 
     input_path = Path(args.input)
     output_dir = Path(args.output)
+    output_dir.mkdir(parents=True, exist_ok=True)
     tasks = _parse_tasks(args.tasks)
     report = {
         "created_at": datetime.now().isoformat(timespec="seconds"),
@@ -699,6 +1008,13 @@ def main() -> None:
         "config_path": args.config_path,
         "tasks": {},
     }
+    progress = None if args.dry_run else CotProgressTracker(output_dir / "cot_progress.json")
+    progress_file = output_dir / "cot_progress.json"
+    if progress is not None:
+        if not args.no_resume and progress_file.exists():
+            progress.load_existing(progress_file, report, tasks)
+        else:
+            progress.init_run(report, tasks)
     for task in tasks:
         report["tasks"][task] = process_task(
             task,
@@ -713,7 +1029,10 @@ def main() -> None:
             gen_temperature=args.gen_temperature,
             teacher_temperature=args.teacher_temperature,
             dry_run=args.dry_run,
+            progress=progress,
+            no_resume=args.no_resume,
         )
+    report["progress_file"] = str((output_dir / "cot_progress.json").resolve())
     write_json(output_dir / "cot_injection_report.json", report)
     print(json.dumps(report, ensure_ascii=False, indent=2))
 

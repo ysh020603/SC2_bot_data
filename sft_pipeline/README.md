@@ -255,12 +255,63 @@ thinking SFT 文件，让 thinking 模型重新答题，再用规则和 teacher 
 流程为：
 
 - 生成模型只接收原始 `system` 和 `human prompt`，重新生成 CoT 与 answer。
-- 程序先做硬规则检查；明显不合法的样本直接丢弃。
+- 程序先做硬规则检查；明显不合法的样本直接丢弃（**硬规则失败不重试**，仅 API/解析失败会重试）。
 - teacher 模型再三选一：`drop`、`use_gold_answer`、`use_generated_answer`。
 - 通过样本会写成 `<think>\n生成 CoT\n</think>\n\n最终 answer`。
 
-输出会包含 CoT 版训练文件、`cot_injection_report.json`、每个任务目录下的
-`cot_audit.jsonl` 和 `cot_rejected_samples.jsonl`。
+运行时会**立即创建输出目录**，并边处理边落盘，便于长任务监控进度：
+
+- 任务一开始就创建 `output_dir/` 与各 `output_dir/<task>/`。
+- 每处理完一条样本，立即 append 到 `cot_audit.jsonl`（通过 teacher 的样本）或 `cot_rejected_samples.jsonl` / `cot_rejected_detail.jsonl`（被规则/teacher 拒绝的样本）。
+- 根目录持续更新 `cot_progress.json`，包含每个 task 的 `processed/total/kept/rule_drop/teacher_drop` 等计数。
+- 单个 task 全部完成后，再写出该 task 的最终 CoT 训练 JSON；全部 task 结束后写出 `cot_injection_report.json`。
+
+输出结构：
+
+```text
+sft_agent_aligned_cot/
+  cot_progress.json              # 运行中持续更新
+  cot_injection_report.json      # 全部完成后写入
+  naming/
+    sc2_naming_qwen3_thinking_cot_<gen>_checked_by_<teacher>_sft.json
+    cot_audit.jsonl              # 边跑边 append（含 gold/generated CoT/answer）
+    cot_rejected_samples.jsonl   # 边跑边 append（拒绝摘要）
+    cot_rejected_detail.jsonl    # 边跑边 append（拒绝完整 CoT + 金标 + 生成答案 + teacher 标注）
+  ordering/
+    ...
+  executor/
+    ...
+```
+
+监控进度示例：
+
+```powershell
+# 查看总体进度
+Get-Content '...\sft_agent_aligned_cot\cot_progress.json'
+
+# 统计已通过 teacher 的样本数
+(Get-Content '...\naming\cot_audit.jsonl' | Measure-Object -Line).Lines
+
+# 统计被拒绝的样本数
+(Get-Content '...\naming\cot_rejected_samples.jsonl' | Measure-Object -Line).Lines
+
+# 查看被拒绝样本的完整 CoT 与标注
+Get-Content '...\naming\cot_rejected_detail.jsonl' -TotalCount 1
+```
+
+Linux / bash：
+
+```bash
+cat .../sft_agent_aligned_cot/cot_progress.json
+wc -l .../naming/cot_audit.jsonl .../naming/cot_rejected_samples.jsonl .../naming/cot_rejected_detail.jsonl
+```
+
+注意：
+
+- `cot_audit.jsonl` 记录通过 teacher 并保留的样本，含 `gold_answer`、`generated_cot`、`generated_answer`、`final_answer`、`teacher` 决策。
+- `cot_rejected_samples.jsonl` 是拒绝摘要（index/stage/reason/规则与 teacher 结论）。
+- `cot_rejected_detail.jsonl` 保存被拒绝样本的完整 `generated_cot`、金标 `gold_answer`、模型 `generated_answer` 及 teacher 标注，便于后续调规则或人工复查。
+- 最终训练 JSON 仍在 task 结束时一次性写出。
 
 ## 4. Agent-aligned Prompt 来源
 
@@ -420,6 +471,19 @@ sft_pipeline_outputs/<run_id>/sft_agent_aligned/
   executor/
   dataset_info.fragment.json
   qa_report.json
+
+sft_pipeline_outputs/<run_id>/sft_agent_aligned_cot_<gen_model>/
+  cot_progress.json              # CoT 注入运行中持续更新
+  cot_injection_report.json      # CoT 注入完成后写入
+  naming/
+    sc2_naming_qwen3_thinking_cot_<gen>_checked_by_<teacher>_sft.json
+    cot_audit.jsonl
+    cot_rejected_samples.jsonl
+    cot_rejected_detail.jsonl
+  ordering/
+    ...
+  executor/
+    ...
 ```
 
 推荐的 `run_id` 命名：
@@ -440,7 +504,8 @@ YYYY-MM-DD_<purpose>_<model_or_labeler>
 
 - `bo_collection_runs/<run_id>` 是原始数据源，尽量不要手工修改。
 - `v8_steps/json/labeled_steps.jsonl` 是 SFT 构造的标准输入。
-- `sft_agent_aligned/` 是最终训练数据目录，优先使用这个目录下的数据训练。
+- `sft_agent_aligned/` 是基础 SFT 目录；thinking 版 CoT 为空时，需再跑 `inject_cot_sft` 得到 `sft_agent_aligned_cot_<gen_model>/`。
+- CoT 长任务可通过 `cot_progress.json` 与 `cot_*/*.jsonl` 行数监控进度，不必等全部结束。
 - 地图相关字段和文件名统一使用英文 map id；不要混入中文地图名。
 - 如果同一批轨迹用不同模型重标 step，应新建新的 `<run_id>` 或新的 `v8_steps_<labeler>` 目录，避免覆盖。
 - 如果只重建 SFT，不需要重新采集或重新标 step，直接复用同一个 `labeled_steps.jsonl` 即可。
