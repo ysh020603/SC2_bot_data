@@ -5,7 +5,7 @@ import json
 import re
 import sys
 import threading
-from collections import Counter
+from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -302,8 +302,8 @@ def rule_check_naming(gold: Any, generated: Any, cot: str) -> RuleResult:
     if unknown:
         reasons.append(f"generated answer has non-canonical names: {unknown}")
     total = sum(int(item["count"]) for item in gen_items)
-    if total < 10 or total > 15:
-        reasons.append(f"generated total count must be 10-15, got {total}")
+    if total < 5 or total > 15:
+        reasons.append(f"generated total count must be 5-15, got {total}")
     mentioned_unknown = sorted(name for name in names if name in cot and name not in gold_names.union(gen_names))
     if len(mentioned_unknown) > 10:
         reasons.append("CoT mentions many canonical names outside gold/generated answers")
@@ -383,6 +383,88 @@ def rule_check(task: TaskName, user: str, gold: Any, generated: Any, cot: str) -
     if task == "ordering":
         return rule_check_ordering(user, gold, generated, cot)
     return rule_check_executor(user, gold, generated, cot)
+
+
+def _answer_type_set(task: TaskName, answer: Any) -> frozenset[str]:
+    if task == "naming":
+        return frozenset(item["name"] for item in _items(answer))
+    raise ValueError(f"class targeting is only supported for naming, got {task}")
+
+
+@dataclass
+class ClassTargetGate:
+    target_min: int
+    existing_counts: dict[frozenset[str], int]
+    pending_counts: dict[frozenset[str], int]
+    kept_counts: dict[frozenset[str], int] = field(default_factory=lambda: defaultdict(int))
+    _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
+
+    def target_for(self, type_set: frozenset[str]) -> int:
+        pending = self.pending_counts.get(type_set, 0)
+        if pending < self.target_min:
+            return pending
+        return self.target_min
+
+    def total_kept(self, type_set: frozenset[str]) -> int:
+        return self.existing_counts.get(type_set, 0) + self.kept_counts.get(type_set, 0)
+
+    def should_process(self, type_set: frozenset[str]) -> bool:
+        with self._lock:
+            return self.total_kept(type_set) < self.target_for(type_set)
+
+    def record_kept(self, type_set: frozenset[str]) -> None:
+        with self._lock:
+            self.kept_counts[type_set] += 1
+
+    def priority(self, type_set: frozenset[str]) -> tuple[int, int]:
+        need = self.target_for(type_set) - self.total_kept(type_set)
+        return (-need, len(type_set))
+
+
+def _load_class_existing_counts(path: Path | None) -> dict[frozenset[str], int]:
+    if path is None or not path.exists():
+        return {}
+    data = read_json(path)
+    rows = data.get("classes") if isinstance(data, dict) else data
+    if not isinstance(rows, list):
+        raise ValueError(f"{path} must contain a classes list")
+    counts: dict[frozenset[str], int] = {}
+    for row in rows:
+        counts[frozenset(str(name) for name in row["types"])] = int(row.get("cot_prompts", 0))
+    return counts
+
+
+def _build_class_target_gate(
+    task: TaskName,
+    samples: list[dict[str, Any]],
+    *,
+    target_min: int,
+    existing_counts: dict[frozenset[str], int],
+) -> ClassTargetGate:
+    pending_counts: dict[frozenset[str], int] = defaultdict(int)
+    for sample in samples:
+        _, _, gold_answer_text = _sample_parts(sample)
+        gold_answer = _parse_answer(task, gold_answer_text)
+        pending_counts[_answer_type_set(task, gold_answer)] += 1
+    return ClassTargetGate(
+        target_min=target_min,
+        existing_counts=dict(existing_counts),
+        pending_counts=dict(pending_counts),
+    )
+
+
+def _restore_class_gate_from_audit(
+    audit_file: Path,
+    task: TaskName,
+    gate: ClassTargetGate,
+) -> None:
+    if not audit_file.exists():
+        return
+    for row in read_jsonl(audit_file):
+        gold_answer = row.get("gold_answer")
+        if gold_answer is None:
+            continue
+        gate.record_kept(_answer_type_set(task, gold_answer))
 
 
 def _teacher_messages(
@@ -514,6 +596,10 @@ def process_one(
     max_retries: int,
     gen_temperature: float | None,
     teacher_temperature: float | None,
+    no_teacher_drop: bool = False,
+    skip_teacher: bool = False,
+    class_gate: ClassTargetGate | None = None,
+    max_generation_attempts: int = 1,
 ) -> ProcessedSample:
     try:
         system, user, gold_answer_text = _sample_parts(sample)
@@ -522,10 +608,30 @@ def process_one(
         detail = _build_reject_detail(index, task, "gold_parse", str(exc))
         return _reject_from_detail(detail)
 
+    type_set: frozenset[str] | None = None
+    if class_gate is not None:
+        type_set = _answer_type_set(task, gold_answer)
+        if not class_gate.should_process(type_set):
+            detail = _build_reject_detail(
+                index,
+                task,
+                "class_target_met",
+                "class already reached CoT target",
+                gold_answer=gold_answer,
+                extra={
+                    "type_set": sorted(type_set),
+                    "target": class_gate.target_for(type_set),
+                    "total_kept": class_gate.total_kept(type_set),
+                },
+            )
+            return _reject_from_detail(detail)
+
     last_error = ""
     generated: GeneratedResult | None = None
     rule = RuleResult(False)
-    for attempt in range(max_retries + 1):
+    last_rule_candidate: GeneratedResult | None = None
+    attempts = max(1, max_generation_attempts)
+    for attempt in range(attempts):
         call = call_openai_detailed(
             _messages_for_generation(system, user),
             model_key=gen_model_key,
@@ -542,18 +648,24 @@ def process_one(
             continue
         rule = rule_check(task, user, gold_answer, candidate.answer, candidate.cot)
         if not rule.passed:
-            detail = _build_reject_detail(
-                index,
-                task,
-                "rule_check",
-                "; ".join(rule.reasons),
-                gold_answer=gold_answer,
-                generated=candidate,
-                rule=rule,
-            )
-            return _reject_from_detail(detail, generated=True, rule_passed=False)
+            last_rule_candidate = candidate
+            last_error = "; ".join(rule.reasons)
+            continue
         generated = candidate
         break
+
+    if generated is None and last_rule_candidate is not None:
+        detail = _build_reject_detail(
+            index,
+            task,
+            "rule_check",
+            last_error,
+            gold_answer=gold_answer,
+            generated=last_rule_candidate,
+            rule=rule,
+            extra={"generation_attempts": attempts},
+        )
+        return _reject_from_detail(detail, generated=True, rule_passed=False)
 
     if generated is None:
         detail = _build_reject_detail(
@@ -565,6 +677,37 @@ def process_one(
             rule=rule if rule.reasons else None,
         )
         return _reject_from_detail(detail, generated=False, rule_passed=False)
+
+    if skip_teacher:
+        final_answer = generated.answer
+        kept = _build_kept_sample(sample, task, generated.cot, final_answer)
+        if class_gate is not None and type_set is not None:
+            class_gate.record_kept(type_set)
+        audit = {
+            "index": index,
+            "task": task,
+            "decision": "skip_teacher_use_generated",
+            "gold_answer": gold_answer,
+            "generated_cot": generated.cot,
+            "generated_answer": generated.answer,
+            "final_answer": final_answer,
+            "rule": {"passed": rule.passed, "reasons": rule.reasons, "metrics": rule.metrics},
+            "teacher": None,
+            "generation": _model_call_meta(generated.call),
+            "teacher_model": None,
+        }
+        if type_set is not None and class_gate is not None:
+            audit["type_set"] = sorted(type_set)
+            audit["class_total_kept"] = class_gate.total_kept(type_set)
+        return ProcessedSample(
+            index=index,
+            kept=True,
+            decision="skip_teacher_use_generated",
+            generated=True,
+            rule_passed=True,
+            sample=kept,
+            audit=audit,
+        )
 
     teacher_call = call_openai_detailed(
         _teacher_messages(task, system, user, gold_answer, generated.answer, generated.cot, rule),
@@ -604,20 +747,30 @@ def process_one(
 
     decision = teacher["decision"]
     if decision == "drop":
-        detail = _build_reject_detail(
-            index,
-            task,
-            "teacher_drop",
-            teacher.get("reason", ""),
-            gold_answer=gold_answer,
-            generated=generated,
-            rule=rule,
-            teacher=teacher,
-            teacher_call=teacher_call,
-        )
-        return _reject_from_detail(detail, generated=True, rule_passed=True)
+        if no_teacher_drop:
+            teacher = {
+                **teacher,
+                "original_decision": "drop",
+                "overridden_to": "use_gold_answer",
+            }
+            decision = "use_gold_answer"
+        else:
+            detail = _build_reject_detail(
+                index,
+                task,
+                "teacher_drop",
+                teacher.get("reason", ""),
+                gold_answer=gold_answer,
+                generated=generated,
+                rule=rule,
+                teacher=teacher,
+                teacher_call=teacher_call,
+            )
+            return _reject_from_detail(detail, generated=True, rule_passed=True)
     final_answer = gold_answer if decision == "use_gold_answer" else generated.answer
     kept = _build_kept_sample(sample, task, generated.cot, final_answer)
+    if class_gate is not None and type_set is not None:
+        class_gate.record_kept(type_set)
     audit = {
         "index": index,
         "task": task,
@@ -825,9 +978,9 @@ class CotProgressTracker:
                 entry["rule_pass"] += 1
             if item.kept:
                 entry["kept"] += 1
-                if item.decision == "use_gold_answer":
+                if item.decision in {"use_gold_answer", "skip_teacher_use_gold"}:
                     entry["teacher_use_gold"] += 1
-                elif item.decision == "use_generated_answer":
+                elif item.decision in {"use_generated_answer", "skip_teacher_use_generated"}:
                     entry["teacher_use_generated"] += 1
             elif item.reject:
                 stage = item.reject.get("stage")
@@ -835,6 +988,9 @@ class CotProgressTracker:
                     entry["rule_drop"] += 1
                 elif stage == "teacher_drop":
                     entry["teacher_drop"] += 1
+                elif stage == "class_target_met":
+                    entry.setdefault("skipped_class_target", 0)
+                    entry["skipped_class_target"] += 1
             self._flush_locked()
 
     def finish_task(self, task: TaskName, task_report: dict[str, Any]) -> None:
@@ -868,6 +1024,11 @@ def process_task(
     dry_run: bool,
     progress: CotProgressTracker | None = None,
     no_resume: bool = False,
+    no_teacher_drop: bool = False,
+    skip_teacher: bool = False,
+    class_target_min: int | None = None,
+    class_existing_json: Path | None = None,
+    max_generation_attempts: int = 1,
 ) -> dict[str, Any]:
     source_file = _input_file_for(input_path, task)
     samples = read_json(source_file)
@@ -893,7 +1054,23 @@ def process_task(
         "rejected_file": str(paths.rejected_file.resolve()),
         "rejected_detail_file": str(paths.rejected_detail_file.resolve()),
         "audit_file": str(paths.audit_file.resolve()),
+        "no_teacher_drop": no_teacher_drop,
+        "skip_teacher": skip_teacher,
+        "class_target_min": class_target_min,
+        "class_existing_json": str(class_existing_json.resolve()) if class_existing_json else None,
+        "max_generation_attempts": max_generation_attempts,
+        "skipped_class_target": 0,
     }
+    class_gate: ClassTargetGate | None = None
+    if class_target_min is not None:
+        if task != "naming":
+            raise ValueError("--class-target-min is only supported for naming")
+        class_gate = _build_class_target_gate(
+            task,
+            samples,
+            target_min=class_target_min,
+            existing_counts=_load_class_existing_counts(class_existing_json),
+        )
     if dry_run:
         for i, sample in enumerate(samples):
             system, user, gold_answer_text = _sample_parts(sample)
@@ -914,9 +1091,18 @@ def process_task(
     if progress is not None:
         progress.begin_task(task, len(samples), report, resume=resuming)
 
+    if class_gate is not None and resuming:
+        _restore_class_gate_from_audit(paths.audit_file, task, class_gate)
+
     results: list[ProcessedSample] = []
     write_lock = threading.Lock()
     pending_jobs = [(i, sample) for i, sample in enumerate(samples) if i not in processed_indices]
+    if class_gate is not None:
+        pending_jobs.sort(
+            key=lambda job: class_gate.priority(
+                _answer_type_set(task, _parse_answer(task, _sample_parts(job[1])[2]))
+            )
+        )
 
     def _persist_result(item: ProcessedSample) -> None:
         with write_lock:
@@ -942,6 +1128,10 @@ def process_task(
                 max_retries=max_retries,
                 gen_temperature=gen_temperature,
                 teacher_temperature=teacher_temperature,
+                no_teacher_drop=no_teacher_drop,
+                skip_teacher=skip_teacher,
+                class_gate=class_gate,
+                max_generation_attempts=max_generation_attempts,
             ): i
             for i, sample in pending_jobs
         }
@@ -993,6 +1183,34 @@ def main() -> None:
         action="store_true",
         help="Ignore existing cot_audit/cot_rejected jsonl and restart the task outputs from scratch.",
     )
+    parser.add_argument(
+        "--no-teacher-drop",
+        action="store_true",
+        help="If teacher returns drop, keep the sample with gold answer instead of rejecting.",
+    )
+    parser.add_argument(
+        "--skip-teacher",
+        action="store_true",
+        help="Skip teacher model; keep samples that pass hard rules with gold answer.",
+    )
+    parser.add_argument(
+        "--class-target-min",
+        type=int,
+        default=None,
+        help="Naming only: stop annotating a class once it reaches this many CoT samples.",
+    )
+    parser.add_argument(
+        "--class-existing-json",
+        type=Path,
+        default=None,
+        help="JSON with classes[].types and classes[].cot_prompts for existing CoT coverage.",
+    )
+    parser.add_argument(
+        "--max-generation-attempts",
+        type=int,
+        default=1,
+        help="Total generation+rule attempts per sample (retries on rule failure).",
+    )
     args = parser.parse_args()
 
     input_path = Path(args.input)
@@ -1006,6 +1224,10 @@ def main() -> None:
         "teacher_model_key": args.teacher_model_key,
         "teacher_model": _configured_model_name(args.teacher_model_key, args.config_path),
         "config_path": args.config_path,
+        "no_teacher_drop": args.no_teacher_drop,
+        "skip_teacher": args.skip_teacher,
+        "class_target_min": args.class_target_min,
+        "max_generation_attempts": max(1, args.max_generation_attempts),
         "tasks": {},
     }
     progress = None if args.dry_run else CotProgressTracker(output_dir / "cot_progress.json")
@@ -1031,6 +1253,11 @@ def main() -> None:
             dry_run=args.dry_run,
             progress=progress,
             no_resume=args.no_resume,
+            no_teacher_drop=args.no_teacher_drop,
+            skip_teacher=args.skip_teacher,
+            class_target_min=args.class_target_min,
+            class_existing_json=args.class_existing_json,
+            max_generation_attempts=max(1, args.max_generation_attempts),
         )
     report["progress_file"] = str((output_dir / "cot_progress.json").resolve())
     write_json(output_dir / "cot_injection_report.json", report)

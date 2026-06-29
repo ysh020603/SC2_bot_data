@@ -13,6 +13,8 @@ DIFFICULTY_RANK = {
     "hard": 2,
     "mediumhard": 3,
     "medium": 4,
+    "easy": 5,
+    "veryeasy": 6,
 }
 
 ENEMY_RACES = frozenset({"zerg", "protoss", "terran"})
@@ -39,10 +41,10 @@ def difficulty_from_meta(meta: dict[str, Any], seq_path: Path) -> str:
         return difficulty
     opponent_id = str(meta.get("opponent_id") or seq_path.stem)
     parts = opponent_id.split(".")
-    if parts:
-        tail = parts[-1].lower()
-        if tail in DIFFICULTY_RANK:
-            return tail
+    for part in reversed(parts):
+        token = part.lower()
+        if token in DIFFICULTY_RANK:
+            return token
     for token in reversed(seq_path.stem.replace(" ", "_").split("_")):
         if token.lower() in DIFFICULTY_RANK:
             return token.lower()

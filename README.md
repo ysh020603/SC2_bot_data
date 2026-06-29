@@ -43,6 +43,57 @@ meta.result == "Victory"
 - Ordering prompt 不包含 executor candidate/tag 上下文；Executor 是独立模型位置。
 - SFT prompt 必须与 `SC2-Agent-260510` 中三个 Agent 的线上上下文对齐。
 
+## 安装 StarCraft II 与配置地图
+
+运行本仓库的 bot 与采集脚本前，需要本地安装 StarCraft II 并配置地图。免费 Starter Edition 即可满足 headless 采集需求。
+
+### 安装游戏
+
+**Windows / macOS**
+
+1. 从 [StarCraft II 官网](https://starcraft2.blizzard.com/) 下载并安装游戏。
+2. （推荐）在 Battle.net 启动器设置中将游戏语言改为 English，便于与引擎 map id 对齐。
+
+**Linux**
+
+1. 从 [s2client-proto 仓库](https://github.com/Blizzard/s2client-proto?tab=readme-ov-file#linux-packages) 下载 Linux 游戏包。
+2. 设置 `SC2PATH` 指向安装根目录（目录下应包含 `Maps/`、`Versions/`）：
+
+```bash
+export SC2PATH="/path/to/StarCraftII"
+```
+
+### 配置地图
+
+1. 从 [s2client-proto 地图包](https://github.com/Blizzard/s2client-proto?tab=readme-ov-file#map-packs) 下载 `Melee.zip`。
+2. 在 StarCraft II 安装目录下创建 `Maps` 文件夹（若尚不存在）。
+3. 将 `Melee.zip` 解压到 `Maps/` 目录。
+
+本仓库采集与测试常用天梯地图英文 map id，例如 `KairosJunctionLE`、`AcropolisLE`、`ThunderbirdLE`。对应 `.SC2Map` 文件也需放入 `$SC2PATH/Maps/`（可放在子目录中）。运行前可用以下命令检查地图是否已被引擎识别：
+
+```bash
+python -c "
+from bot_loader.game_starter import GameStarter
+maps = GameStarter.installed_maps()
+for m in ['KairosJunctionLE', 'AcropolisLE', 'ThunderbirdLE']:
+    print(m, 'OK' if m in maps else 'MISSING')
+"
+```
+
+若显示 `MISSING`，请补全地图文件后再开始采集。
+
+### 环境变量
+
+无论平台，运行前至少设置：
+
+```text
+SC2PATH          # StarCraft II 安装根目录
+PYTHONUTF8=1     # 避免中文环境下日志/JSON 编码问题
+PYTHONIOENCODING=utf-8
+```
+
+Linux 服务器还需将仓库内 `python-sc2` 加入 `PYTHONPATH`；Windows 下 `SC2PATH` 示例见下方「快速开始」。
+
 ## 快速开始
 
 Windows PowerShell 示例：
@@ -124,9 +175,30 @@ tools/                       # 采集脚本
 
 ## 文档入口
 
-- [docs/README.md](docs/README.md)：文档索引。
-- [docs/collect_terran_bo.md](docs/collect_terran_bo.md)：批量采集说明。
-- [docs/ability_recorder_commit_and_addon.md](docs/ability_recorder_commit_and_addon.md)：AbilityRecorder 设计。
-- [docs/sft_pipeline_usage.md](docs/sft_pipeline_usage.md)：SFT 数据流程。
-- [sft_pipeline/README.md](sft_pipeline/README.md)：SFT pipeline 主说明。
-- [docs/sft_data_format.md](docs/sft_data_format.md)：Qwen3 thinking/nothink SFT 格式。
+[`docs/`](docs/) 目录收录了本仓库相关工作的完整操作与设计指南，建议按平台与任务按需阅读。入口索引见 [docs/README.md](docs/README.md)。
+
+**环境与运行**
+
+| 文档 | 说明 |
+|------|------|
+| [docs/windows_environment_setup.md](docs/windows_environment_setup.md) | Windows conda 环境、依赖、`SC2PATH`、地图检查 |
+| [docs/windows_run_bots.md](docs/windows_run_bots.md) | 手动运行 bot、查看可用 bot/地图/AI 参数 |
+| [docs/linux_trajectory_collection.md](docs/linux_trajectory_collection.md) | Linux 服务器环境、tmux 后台采集、并发与进度监控 |
+
+**采集与 SFT 数据**
+
+| 文档 | 说明 |
+|------|------|
+| [docs/collect_terran_bo.md](docs/collect_terran_bo.md) | 批量采集 Terran BO 轨迹（参数与输出格式） |
+| [docs/sft_pipeline_usage.md](docs/sft_pipeline_usage.md) | 采集 → v6/v8 step → SFT 完整流程 |
+| [docs/sft_data_format.md](docs/sft_data_format.md) | Qwen3 thinking/nothink ShareGPT 格式 |
+| [sft_pipeline/README.md](sft_pipeline/README.md) | SFT pipeline 模块说明 |
+
+**设计与参考**
+
+| 文档 | 说明 |
+|------|------|
+| [docs/ability_recorder_commit_and_addon.md](docs/ability_recorder_commit_and_addon.md) | AbilityRecorder 设计 |
+| [docs/cot_generation_validation_notes.md](docs/cot_generation_validation_notes.md) | CoT 后处理与调参 |
+| [docs/agent_bot_test_and_trajectory_review.md](docs/agent_bot_test_and_trajectory_review.md) | 单局轨迹与日志审查 |
+| [docs/git_repo_management.md](docs/git_repo_management.md) | 仓库结构与子模块管理 |

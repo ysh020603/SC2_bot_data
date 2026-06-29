@@ -6,7 +6,6 @@ import sys
 import threading
 import time
 from collections import deque
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -15,7 +14,12 @@ from sft_pipeline.common.io import iter_sequence_files, read_json, safe_stem, wr
 from sft_pipeline.label_steps.sequence_order import (
     LLM_FAILED_MARK,
     bot_folder_for_sequence,
+    difficulty_from_meta,
+    enemy_race_from_meta,
     md_is_valid,
+    order_sequences,
+    run_ordered_pool,
+    victory_sequence_files,
 )
 
 
@@ -194,6 +198,88 @@ def _rows_from_existing_md(
     return sample_key, index_entry, rows
 
 
+def _write_sequence_order_preview(
+    output_dir: Path,
+    data_dir: Path,
+    md_dir: Path,
+    seq_files: list[Path],
+    sequence_order: str,
+    skip_existing: bool,
+) -> None:
+    preview = []
+    for seq_path in seq_files[:20]:
+        meta = read_json(seq_path).get("meta", {})
+        preview.append(
+            {
+                "sequence_file": str(seq_path),
+                "bot": bot_folder_for_sequence(data_dir, seq_path),
+                "difficulty": difficulty_from_meta(meta, seq_path),
+                "enemy_race": enemy_race_from_meta(meta, seq_path),
+                "map": meta.get("map"),
+                "skip_existing": skip_existing and md_is_valid(_expected_md_path(md_dir, data_dir, seq_path)),
+            }
+        )
+    write_json(
+        output_dir / "sequence_order_preview.json",
+        {
+            "mode": sequence_order,
+            "total": len(seq_files),
+            "first_20": preview,
+        },
+    )
+    print(f"Sequence order: {sequence_order} ({len(seq_files)} trajectories)")
+    for i, item in enumerate(preview[:10], start=1):
+        print(
+            f"  {i:02d}. {item['bot']} | {item['difficulty']} | "
+            f"{item['enemy_race']} | {item['map']}"
+            + (" | skip" if item["skip_existing"] else "")
+        )
+
+
+def _filter_by_map(seq_files: list[Path], map_name: str | None) -> list[Path]:
+    if not map_name:
+        return seq_files
+    target = map_name.strip()
+    filtered: list[Path] = []
+    for seq_path in seq_files:
+        meta = read_json(seq_path).get("meta", {})
+        seq_map = str(meta.get("map") or meta.get("map_engine") or "")
+        if seq_map == target or target in seq_path.parts:
+            filtered.append(seq_path)
+    return filtered
+
+
+def _merge_existing_outputs(
+    json_dir: Path,
+    step_index: dict[str, Any],
+    labeled_rows: list[dict[str, Any]],
+    processed_seq_paths: set[str],
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    index_path = json_dir / "step_index.json"
+    labeled_path = json_dir / "labeled_steps.jsonl"
+    if not index_path.exists() and not labeled_path.exists():
+        return step_index, labeled_rows
+
+    merged_index = dict(read_json(index_path).get("items") or {}) if index_path.exists() else {}
+    for sample_key in list(merged_index):
+        entry = merged_index[sample_key]
+        source = str(entry.get("source_sequence_file") or "")
+        if source in processed_seq_paths:
+            del merged_index[sample_key]
+    merged_index.update(step_index)
+
+    merged_rows: list[dict[str, Any]] = []
+    if labeled_path.exists():
+        from sft_pipeline.common.io import read_jsonl
+
+        for row in read_jsonl(labeled_path):
+            source = str(row.get("source_sequence_file") or "")
+            if source not in processed_seq_paths:
+                merged_rows.append(row)
+    merged_rows.extend(labeled_rows)
+    return merged_index, merged_rows
+
+
 def build_v8_steps(
     data_dir: Path,
     output_dir: Path,
@@ -203,6 +289,9 @@ def build_v8_steps(
     workers: int = 1,
     max_calls_per_minute: int | None = None,
     skip_existing: bool = False,
+    sequence_order: str = "default",
+    map_name: str | None = None,
+    merge_existing: bool = False,
 ) -> dict[str, Any]:
     md_dir = output_dir / "md"
     json_dir = output_dir / "json"
@@ -238,10 +327,18 @@ def build_v8_steps(
 
     bo_to_doc_v8._call_llm = _call_with_model
 
+    seq_files: list[Path] = []
+    processed_seq_paths: set[str] = set()
     try:
-        seq_files = list(iter_sequence_files(data_dir))
+        seq_files = victory_sequence_files(list(iter_sequence_files(data_dir)), require_victory)
+        seq_files = _filter_by_map(seq_files, map_name)
+        seq_files = order_sequences(seq_files, data_dir, sequence_order)
         if limit is not None:
             seq_files = seq_files[:limit]
+        processed_seq_paths = {str(path.resolve()) for path in seq_files}
+
+        if sequence_order != "default":
+            _write_sequence_order_preview(output_dir, data_dir, md_dir, seq_files, sequence_order, skip_existing)
 
         def _process_sequence(seq_path: Path) -> tuple[str, dict[str, Any], list[dict[str, Any]]] | None:
             nonlocal skipped_count, relabeled_count
@@ -350,19 +447,17 @@ def build_v8_steps(
                 step_index[sample_key] = index_entry
                 labeled_rows.extend(rows)
         else:
-            with ThreadPoolExecutor(max_workers=max(1, workers)) as executor:
-                futures = {executor.submit(_process_sequence, seq_path): seq_path for seq_path in seq_files}
-                results: list[tuple[str, dict[str, Any], list[dict[str, Any]]]] = []
-                for future in as_completed(futures):
-                    item = future.result()
-                    if item is not None:
-                        results.append(item)
-                for sample_key, index_entry, rows in sorted(results, key=lambda item: item[0]):
-                    step_index[sample_key] = index_entry
-                    labeled_rows.extend(rows)
+            results = run_ordered_pool(seq_files, workers, _process_sequence)
+            for sample_key, index_entry, rows in sorted(results, key=lambda item: item[0]):
+                step_index[sample_key] = index_entry
+                labeled_rows.extend(rows)
     finally:
         bo_to_doc_v8._call_llm = original_call_llm
 
+    if merge_existing and processed_seq_paths:
+        step_index, labeled_rows = _merge_existing_outputs(
+            json_dir, step_index, labeled_rows, processed_seq_paths
+        )
     labeled_path = json_dir / "labeled_steps.jsonl"
     write_jsonl(labeled_path, labeled_rows)
     index_path = json_dir / "step_index.json"
@@ -375,6 +470,9 @@ def build_v8_steps(
         "workers": workers,
         "max_calls_per_minute": max_calls_per_minute,
         "skip_existing": skip_existing,
+        "sequence_order": sequence_order,
+        "map_name": map_name,
+        "merge_existing": merge_existing,
         "skipped_existing_count": skipped_count,
         "relabeled_invalid_count": relabeled_count,
         "data_dir": str(data_dir.resolve()),
@@ -413,6 +511,22 @@ def main() -> None:
         action="store_true",
         help="Include non-Victory trajectories. Default is to keep only wins.",
     )
+    parser.add_argument(
+        "--sequence-order",
+        default="default",
+        choices=["default", "diverse-hard-first"],
+        help="Trajectory processing order. diverse-hard-first round-robins bots, prefers harder wins, and balances enemy races.",
+    )
+    parser.add_argument(
+        "--map",
+        default=None,
+        help="Optional map filter (English map id), e.g. KairosJunctionLE.",
+    )
+    parser.add_argument(
+        "--merge-existing",
+        action="store_true",
+        help="Merge with existing labeled_steps.jsonl / step_index.json for other maps or trajectories.",
+    )
     args = parser.parse_args()
 
     manifest = build_v8_steps(
@@ -424,6 +538,9 @@ def main() -> None:
         workers=args.workers,
         max_calls_per_minute=args.max_calls_per_minute,
         skip_existing=args.skip_existing,
+        sequence_order=args.sequence_order,
+        map_name=args.map,
+        merge_existing=args.merge_existing,
     )
     print(f"Wrote {manifest['labeled_step_count']} labeled steps")
     print(f"Markdown: {manifest['md_dir']}")
