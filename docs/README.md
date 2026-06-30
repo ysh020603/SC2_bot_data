@@ -47,6 +47,12 @@
 **[cot_generation_validation_notes.md](cot_generation_validation_notes.md)**  
 说明 CoT 后处理模块 `inject_cot_sft` 的设计、整条轨迹测试结果与调参建议。
 
+**[../sft_pipeline/build_sft/naming_data_and_training_notes.md](../sft_pipeline/build_sft/naming_data_and_training_notes.md)**  
+Naming CoT 精选、重采样、last-step 补充与训练划分经验。
+
+**[../sft_pipeline/build_sft/executor_golden_rank.md](../sft_pipeline/build_sft/executor_golden_rank.md)**  
+Executor 规则黄金标签（`build_executor_golden_rank`）的排序规则与用法。
+
 ## 运行与环境文档
 
 **[linux_trajectory_collection.md](linux_trajectory_collection.md)**  

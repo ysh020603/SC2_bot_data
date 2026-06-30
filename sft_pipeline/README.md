@@ -32,6 +32,14 @@ sft_pipeline/
     build_executor_sft.py
     build_executor_golden_rank.py   # Executor 规则黄金标签
     executor_golden_rank.md         # 黄金排序规则说明
+    inject_cot_sft.py               # thinking SFT CoT 后处理
+    naming_data_and_training_notes.md  # Naming CoT 精选与训练划分
+    build_naming_cot_curated_sft.py
+    build_naming_prompt_answer_dataset.py
+    extract_priority_naming_classes.py
+    resample_naming_sft.py
+    recover_naming_cot_from_rejects.py
+    rematch_priority_cot_subset.py
   common/
     agent_reference.py      # 复用 SC2-Agent-260510 的 prompt 与数据工具
     executor_golden_rank.py # Executor 解析与打分

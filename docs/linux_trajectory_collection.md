@@ -156,9 +156,17 @@ tmux ls                                  # 列出所有会话
 tmux kill-session -t sc2_terran_bo_collect  # 终止会话
 ```
 
-### 4.2 多地图批量采集（10 bot × 3 图）
+### 4.2 多地图批量采集
 
-仓库提供 `tools/run_terran_10bots_3maps_collect.sh`，按地图顺序依次采集：
+仓库提供多个 tmux 批量脚本，按 bot 数量与地图选择：
+
+| 脚本 | 说明 |
+|------|------|
+| `tools/run_terran_10bots_3maps_collect.sh` | 10 策略 × 3 图（默认 450 局） |
+| `tools/run_terran_4bots_3maps_macro_collect.sh` | 4 策略 macro 采集 × 3 图 |
+| `tools/run_terran_bo_collect.sh` | 单图/自定义 bot 列表采集 |
+
+**10 bot × 3 图** 示例：
 
 ```bash
 RUN_ID=2026-06-22_terran_10bots_3maps \
@@ -167,7 +175,15 @@ TMUX_SESSION=sc2_terran_bo_collect_20260622 \
 bash tools/run_terran_10bots_3maps_collect.sh
 ```
 
-默认配置：
+**4 bot macro × 3 图** 示例：
+
+```bash
+RUN_ID=2026-06-27_terran_4bots_3maps_macro \
+WORKERS=20 \
+bash tools/run_terran_4bots_3maps_macro_collect.sh
+```
+
+默认配置（10 bot 脚本）：
 
 - 10 个 Terran 策略
 - 3 张地图：`KairosJunctionLE`、`AutomatonLE`、`AbyssalReefLE`

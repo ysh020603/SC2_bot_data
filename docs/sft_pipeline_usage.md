@@ -300,3 +300,35 @@ sft_pipeline_outputs/<run_id>/sft_agent_aligned/
 - `sft_agent_aligned/qa_report.json`
 - executor prompt/answer 中没有真实长 tag
 - 地图字段和文件名没有中文地图名
+
+## 10. 可选进阶步骤
+
+基础 `build_all` 产出 thinking/nothink SFT 后，可按任务需要继续：
+
+### CoT 注入（thinking 训练）
+
+为 `*_thinking_sft.json` 注入经规则与 teacher 筛选的 CoT。详见 [cot_generation_validation_notes.md](cot_generation_validation_notes.md) 与 `sft_pipeline/README.md` §3。
+
+```powershell
+& $py -m sft_pipeline.build_sft.inject_cot_sft `
+  --input 'C:\code\SC2_bot_data\sft_pipeline_outputs\<run_id>\sft_agent_aligned' `
+  --output 'C:\code\SC2_bot_data\sft_pipeline_outputs\<run_id>\sft_agent_aligned_cot' `
+  --tasks all `
+  --gen-model-key qwen3-think `
+  --teacher-model-key kimi-k2.5 `
+  --max-workers 4
+```
+
+### Executor 规则黄金标签
+
+从 Agent 对局 `executor_qa.json` 生成规则排序的 `golden_tags`。详见 [../sft_pipeline/build_sft/executor_golden_rank.md](../sft_pipeline/build_sft/executor_golden_rank.md)。
+
+```bash
+python3 -m sft_pipeline.build_sft.build_executor_golden_rank \
+  --input <executor_qa.json> \
+  --output-dir sft_pipeline_outputs/<run_id>/executor_golden
+```
+
+### Naming CoT 精选与重采样
+
+多模型 CoT 合并、类别重采样、last-step 补充等。详见 [../sft_pipeline/build_sft/naming_data_and_training_notes.md](../sft_pipeline/build_sft/naming_data_and_training_notes.md)。

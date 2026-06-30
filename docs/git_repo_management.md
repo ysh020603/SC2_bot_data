@@ -37,6 +37,8 @@ bo_collection_runs/<run_id>/
 sft_pipeline_outputs/<run_id>/obs_qa.json
 sft_pipeline_outputs/<run_id>/v8_steps/
 sft_pipeline_outputs/<run_id>/sft_agent_aligned/
+sft_pipeline_outputs/<run_id>/sft_agent_aligned_cot_*/   # CoT 注入输出（可选）
+sft_pipeline_outputs/executor_golden_rank/<run_id>/    # Executor 规则金标（可选）
 ```
 
 管理原则：
@@ -44,6 +46,7 @@ sft_pipeline_outputs/<run_id>/sft_agent_aligned/
 - `bo_collection_runs/<run_id>` 是原始数据源，尽量不要手工改内容。
 - `v8_steps/json/labeled_steps.jsonl` 是 SFT 构造标准输入。
 - `sft_agent_aligned/` 是最终训练数据目录。
+- `sft_agent_aligned_cot_*/` 与 `executor_golden_rank/` 为可选进阶产物，见 `sft_pipeline/README.md` 与 `docs/sft_pipeline_usage.md` §10。
 - 同一批轨迹如果用不同模型重标 step，应使用新的 `<run_id>` 或新的 step 输出目录，避免覆盖。
 - 地图字段和文件名统一使用英文 map id。
 

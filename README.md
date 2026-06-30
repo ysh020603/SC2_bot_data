@@ -24,7 +24,15 @@
 
 4. 构造 Agent-aligned SFT
    sft_pipeline.build_sft.build_all
+
+5. （可选）CoT 注入
+   sft_pipeline.build_sft.inject_cot_sft
+
+6. （可选）Executor 规则黄金标签 / Naming 精选流水线
+   见 sft_pipeline/README.md 与 build_sft/*.md
 ```
+
+进阶步骤（CoT、Executor 金标、Naming 重采样）详见 [`sft_pipeline/README.md`](sft_pipeline/README.md)。
 
 默认要求 step 数据与最终 SFT 数据都来自胜局：
 
