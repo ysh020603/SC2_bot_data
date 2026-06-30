@@ -26,8 +26,11 @@ sft_pipeline/
     build_naming_sft.py
     build_ordering_sft.py
     build_executor_sft.py
+    build_executor_golden_rank.py   # Executor 规则黄金标签
+    executor_golden_rank.md         # 黄金排序规则说明
   common/
     agent_reference.py      # 复用 SC2-Agent-260510 的 prompt 与数据工具
+    executor_golden_rank.py # Executor 解析与打分
     io.py
     sc2_graph.py
 ```
@@ -364,6 +367,10 @@ RESEARCH_COMBATSHIELD   -> ShieldWall
 
 Naming 不学习 action 顺序。当前 target item 顺序是稳定排序，不代表执行顺序。
 
+更完整的数据构造、CoT 筛选、重采样、last-step 补充与训练划分经验见：
+
+[`build_sft/naming_data_and_training_notes.md`](build_sft/naming_data_and_training_notes.md)
+
 ## 6. Ordering 数据规则
 
 Ordering 的标准答案是同一个 step 的真实胜局 action 顺序：
@@ -445,6 +452,19 @@ Executor system prompt 中的元素：
   - 如果为空，则用候选执行单位类型 + 剩余 pending actions，复用参考 Agent 的 executor index 机制重建。
 
 离线重建的 pending summary 中 `issued` 通常是 `0/N issued`。这是因为离线 sequence 只能知道当前 action 后还有多少同类 action，不知道线上 scheduler 当时真实的 `issued_count`。如果要完全复现真实运行 prompt，后续采集侧需要保存 scheduler 的真实 pending/waiting snapshot。
+
+### 7.1 Executor 规则黄金标签
+
+除 LLM 原始选择外，可用纯规则为 executor prompt 生成 `golden_tags`（不保留 LLM `answer`）。排序逻辑见：
+
+[`build_sft/executor_golden_rank.md`](build_sft/executor_golden_rank.md)
+
+```bash
+python3 -m sft_pipeline.build_sft.build_executor_golden_rank \
+  --input <executor_qa.json> \
+  --output-dir sft_pipeline_outputs/<run_id>/executor_golden
+```
+
 
 ## 8. 数据存放与管理
 
