@@ -35,12 +35,12 @@ Tools/bo_docs_situation_aware_deepseek_flash_all/
 
 | Version | Script | Status |
 |---------|--------|--------|
-| **v8** | `bo_to_doc_v8.py` + `prompt_template_v8.py` | **Current default** ? macro-control fuzzy cues (worker saturation, supply buffer, gas capacity) |
-| v7 | `bo_to_doc_v7.py` + `prompt_template_v7.py` | Legacy ? no-ordinal, concise final step |
-| v6 | `bo_to_doc_v6.py` + `prompt_template_v6.py` | Legacy ? concise style summary |
-| v1?v5 | `bo_to_doc.py` ? `bo_to_doc_v5.py` | Legacy ? historical experiments only |
+| **v8** | `bo_to_doc_v8.py` + `prompt_template_v8.py` | **Current default** - macro-control fuzzy cues (worker saturation, supply buffer, gas capacity) |
+| v7 | `bo_to_doc_v7.py` + `prompt_template_v7.py` | Legacy - no-ordinal, concise final step |
+| v6 | `bo_to_doc_v6.py` + `prompt_template_v6.py` | Legacy - concise style summary |
+| v1-v5 | `bo_to_doc.py` ... `bo_to_doc_v5.py` | Legacy - historical experiments only |
 
-Production pipeline: `sft_pipeline.label_steps.build_v8_steps` (wraps `bo_to_doc_v8.py`). Do not use v1?v6 entry points for new labeling runs.
+Production pipeline: `sft_pipeline.label_steps.build_v8_steps` (wraps `bo_to_doc_v8.py`). Do not use v1-v6 entry points for new labeling runs.
 
 ---
 # SC2 Terran BO Collection ? Build Order ? Natural Language Documentation
