@@ -183,6 +183,15 @@ python -m sft_pipeline.label_steps.build_v8_steps `
   --workers 4
 ```
 
+校验 v8 标注产物：
+
+```powershell
+python -m sft_pipeline.label_steps.validate_v8_steps `
+  --data-dir bo_collection_runs/<run_id> `
+  --output sft_pipeline_outputs/<run_id>/v8_steps `
+  --report sft_pipeline_outputs/<run_id>/v8_steps/v8_qa.json
+```
+
 构造 SFT：
 
 ```powershell

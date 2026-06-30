@@ -18,9 +18,9 @@
 2. 校验 obs
    sft_pipeline.collect.validate_obs
 
-3. 转 v6 step
-   sft_pipeline.label_steps.build_v6_steps
-   复用 bo_2_nlstep/Tools/bo_to_doc_v6.py
+3. 转 v8 step
+   sft_pipeline.label_steps.build_v8_steps
+   复用 bo_2_nlstep/Tools/bo_to_doc_v8.py
 
 4. 构造 Agent-aligned SFT
    sft_pipeline.build_sft.build_all
@@ -125,22 +125,30 @@ $py = 'C:\Users\Descfly\.conda\envs\SC2_0615\python.exe'
   --output 'C:\code\SC2_bot_data\sft_pipeline_outputs\my_run\obs_qa.json'
 ```
 
-转 v6 step，可以并发标注多个 trajectory：
+转 v8 step，可以并发标注多个 trajectory：
 
 ```powershell
-& $py -m sft_pipeline.label_steps.build_v6_steps `
+& $py -m sft_pipeline.label_steps.build_v8_steps `
   --data-dir 'C:\code\SC2_bot_data\bo_collection_runs\my_run' `
-  --output 'C:\code\SC2_bot_data\sft_pipeline_outputs\my_run\v6_steps' `
-  --model-key kimi-k2.5 `
-  --no-thinking `
+  --output 'C:\code\SC2_bot_data\sft_pipeline_outputs\my_run\v8_steps' `
+  --model-key deepseek-v4-flash `
   --workers 4
+```
+
+标注完成后建议跑 v8 QA：
+
+```powershell
+& $py -m sft_pipeline.label_steps.validate_v8_steps `
+  --data-dir 'C:\code\SC2_bot_data\bo_collection_runs\my_run' `
+  --output 'C:\code\SC2_bot_data\sft_pipeline_outputs\my_run\v8_steps' `
+  --report 'C:\code\SC2_bot_data\sft_pipeline_outputs\my_run\v8_steps\v8_qa.json'
 ```
 
 构造 SFT：
 
 ```powershell
 & $py -m sft_pipeline.build_sft.build_all `
-  --labeled-steps 'C:\code\SC2_bot_data\sft_pipeline_outputs\my_run\v6_steps\json\labeled_steps.jsonl' `
+  --labeled-steps 'C:\code\SC2_bot_data\sft_pipeline_outputs\my_run\v8_steps\json\labeled_steps.jsonl' `
   --output 'C:\code\SC2_bot_data\sft_pipeline_outputs\my_run\sft_agent_aligned' `
   --shuffle-variants 1
 ```
@@ -152,16 +160,16 @@ $py = 'C:\Users\Descfly\.conda\envs\SC2_0615\python.exe'
 ```text
 bo_collection_runs/<run_id>/                 # 原始对局轨迹、obs、replay、log
 sft_pipeline_outputs/<run_id>/obs_qa.json    # obs QA
-sft_pipeline_outputs/<run_id>/v6_steps/      # Markdown + labeled_steps.jsonl
+sft_pipeline_outputs/<run_id>/v8_steps/      # Markdown + labeled_steps.jsonl
 sft_pipeline_outputs/<run_id>/sft_agent_aligned/
 ```
 
-`v6_steps/json/labeled_steps.jsonl` 是 SFT 构造的标准输入。`sft_agent_aligned/` 是最终训练数据目录。
+`v8_steps/json/labeled_steps.jsonl` 是 SFT 构造的标准输入。`sft_agent_aligned/` 是最终训练数据目录。
 
 ## 主要目录
 
 ```text
-bo_2_nlstep/                 # action order -> v6 natural-language step 工具
+bo_2_nlstep/                 # action order -> v8 natural-language step 工具
 bo_collection_runs/          # 原始采集数据
 data_ref/                    # ability/entity 图谱参考数据
 docs/                        # 操作与设计文档
@@ -190,7 +198,7 @@ tools/                       # 采集脚本
 | 文档 | 说明 |
 |------|------|
 | [docs/collect_terran_bo.md](docs/collect_terran_bo.md) | 批量采集 Terran BO 轨迹（参数与输出格式） |
-| [docs/sft_pipeline_usage.md](docs/sft_pipeline_usage.md) | 采集 → v6/v8 step → SFT 完整流程 |
+| [docs/sft_pipeline_usage.md](docs/sft_pipeline_usage.md) | 采集 → v8 step → SFT 完整流程 |
 | [docs/sft_data_format.md](docs/sft_data_format.md) | Qwen3 thinking/nothink ShareGPT 格式 |
 | [sft_pipeline/README.md](sft_pipeline/README.md) | SFT pipeline 模块说明 |
 

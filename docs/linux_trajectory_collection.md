@@ -252,7 +252,7 @@ python -m sft_pipeline.label_steps.build_v8_steps \
   --workers 4
 ```
 
-多地图采集时，可对每个地图子目录分别跑 QA 和 step 标注，或合并后再处理。
+多地图采集时，可对每个地图子目录分别跑 QA 和 step 标注，或合并后再处理。推荐用根目录 `tools/run_v8_label_pipeline.sh` 在 tmux 中串联 Obs QA、按地图 v8 标注、失败重试与 `validate_v8_steps` QA。
 
 ## 7. 常见问题
 

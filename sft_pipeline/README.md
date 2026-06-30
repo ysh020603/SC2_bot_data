@@ -18,9 +18,13 @@ sft_pipeline/
     run_collect.py          # 批量采集对局轨迹
     validate_obs.py         # 检查 obs/action 记录完整性
   label_steps/
-    build_v8_steps.py       # 调 bo_2_nlstep v8，把胜局轨迹转成 Markdown + JSONL
+    build_v8_steps.py       # 默认：调 bo_2_nlstep v8，把胜局轨迹转成 Markdown + JSONL
+    validate_v8_steps.py    # 校验 v8 标注产物完整性
+    sequence_order.py       # 轨迹排序（diverse-hard-first 等）
     build_v7_steps.py       # legacy：旧 v7 标注
+    build_v6_steps.py       # legacy：旧 v6 标注
     recover_v7_json_from_md.py
+    recover_v6_json_from_md.py
   build_sft/
     build_all.py            # 生成 naming/ordering/executor 的 thinking/nothink SFT
     build_naming_sft.py
@@ -33,6 +37,8 @@ sft_pipeline/
     executor_golden_rank.py # Executor 解析与打分
     io.py
     sc2_graph.py
+  tests/
+    test_executor_golden_rank.py
 ```
 
 标准输出目录建议放在：
@@ -190,6 +196,27 @@ v8 Markdown 的最后一个 final step 是战略总结/风格描述，没有 act
 ```
 
 这个恢复工具不调用 LLM，只用已有 Markdown + 原始胜局 sequence 恢复 `labeled_steps.jsonl`；新默认流程直接生成 v8 Markdown + JSONL。
+
+标注完成后建议跑 v8 QA，确认 Markdown、JSONL 与原始 sequence 对齐：
+
+```powershell
+& $py -m sft_pipeline.label_steps.validate_v8_steps `
+  --data-dir 'C:\code\SC2_bot_data\bo_collection_runs\my_run' `
+  --output 'C:\code\SC2_bot_data\sft_pipeline_outputs\my_run\v8_steps' `
+  --report 'C:\code\SC2_bot_data\sft_pipeline_outputs\my_run\v8_steps\v8_qa.json'
+```
+
+Linux 服务器上多地图批量标注（Obs QA → 按地图 v8 标注 → 失败重试 → v8 QA）可用仓库根目录脚本：
+
+```bash
+DATA_DIR=bo_collection_runs/<run_id> \
+OUTPUT=sft_pipeline_outputs/<run_id>/v8_steps \
+MODEL_KEY=kimi-k2.5 \
+WORKERS=8 \
+bash tools/run_v8_label_pipeline.sh
+```
+
+脚本会在 tmux 后台运行，日志写到 `sft_pipeline_outputs/<run_id>/v8_steps/pipeline_run.log`。
 
 ## 3. 构造 SFT
 
@@ -524,6 +551,7 @@ YYYY-MM-DD_<purpose>_<model_or_labeler>
 
 - `bo_collection_runs/<run_id>` 是原始数据源，尽量不要手工修改。
 - `v8_steps/json/labeled_steps.jsonl` 是 SFT 构造的标准输入。
+- `v8_steps/v8_qa.json` 记录 v8 标注 QA 结果；训练前建议确认无 blocking issue。
 - `sft_agent_aligned/` 是基础 SFT 目录；thinking 版 CoT 为空时，需再跑 `inject_cot_sft` 得到 `sft_agent_aligned_cot_<gen_model>/`。
 - CoT 长任务可通过 `cot_progress.json` 与 `cot_*/*.jsonl` 行数监控进度，不必等全部结束。
 - 地图相关字段和文件名统一使用英文 map id；不要混入中文地图名。

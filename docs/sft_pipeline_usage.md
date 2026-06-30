@@ -137,6 +137,25 @@ sft_pipeline_outputs/<run_id>/v8_steps/
   --output 'C:\code\SC2_bot_data\sft_pipeline_outputs\<run_id>\v7_steps'
 ```
 
+### v8 QA
+
+标注完成后建议校验产物完整性：
+
+```powershell
+& $py -m sft_pipeline.label_steps.validate_v8_steps `
+  --data-dir 'C:\code\SC2_bot_data\bo_collection_runs\<run_id>' `
+  --output 'C:\code\SC2_bot_data\sft_pipeline_outputs\<run_id>\v8_steps' `
+  --report 'C:\code\SC2_bot_data\sft_pipeline_outputs\<run_id>\v8_steps\v8_qa.json'
+```
+
+Linux 多地图批量标注（Obs QA → 按地图标注 → 失败重试 → v8 QA）：
+
+```bash
+DATA_DIR=bo_collection_runs/<run_id> \
+OUTPUT=sft_pipeline_outputs/<run_id>/v8_steps \
+bash tools/run_v8_label_pipeline.sh
+```
+
 ## 4. SFT 构造
 
 ```powershell
