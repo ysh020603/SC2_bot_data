@@ -4,6 +4,8 @@
 **Scope:** Terran BO-list strategies populated from `2026-06-24_terran_6bots_3maps_macro`  
 **Status:** Open (bot build-plan design; collection faithfully records bot behavior)
 
+**Archived evidence:** 本文引用的 sequence / log / replay / BO.json / bot 源码快照已归档至 [`bo_collection_supply_depot_over_recording/`](bo_collection_supply_depot_over_recording/)（与本文档同名子目录），便于脱离 `bo_collection_runs/` 本地数据独立查阅。
+
 ---
 
 ## Summary

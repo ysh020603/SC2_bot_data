@@ -1,0 +1,124 @@
+{
+  "selections": [
+    {
+      "strategy": "banshees",
+      "bot_key": "banshee",
+      "opponent": "ai.terran.hard.macro",
+      "difficulty": "hard",
+      "map": "KairosJunctionLE",
+      "sequence_file": "/data2/SC2_2606/sharpy-sc2/bo_collection_runs/2026-06-27_terran_4bots_3maps_macro/KairosJunctionLE/banshees/sequences/banshee-ai.terran.hard.macro_KairosJunctionLE_2026-06-27 21_07_24_591620.json",
+      "order_list_len": 178,
+      "meta_result": "Victory",
+      "collection_run": "2026-06-27_terran_4bots_3maps_macro",
+      "selection_rule": "KairosJunctionLE + highest-difficulty Terran opponent victory (macro runs only)"
+    },
+    {
+      "strategy": "battle_cruisers",
+      "bot_key": "bc",
+      "opponent": "ai.terran.hard.macro",
+      "difficulty": "hard",
+      "map": "KairosJunctionLE",
+      "sequence_file": "/data2/SC2_2606/sharpy-sc2/bo_collection_runs/2026-06-24_terran_6bots_3maps_macro/KairosJunctionLE/battle_cruisers/sequences/bc-ai.terran.hard.macro_KairosJunctionLE_2026-06-24 11_05_52_367768.json",
+      "order_list_len": 206,
+      "meta_result": "Victory",
+      "collection_run": "2026-06-24_terran_6bots_3maps_macro",
+      "selection_rule": "KairosJunctionLE + highest-difficulty Terran opponent victory (macro runs only)"
+    },
+    {
+      "strategy": "bio",
+      "bot_key": "bio",
+      "opponent": "ai.terran.hard.macro",
+      "difficulty": "hard",
+      "map": "KairosJunctionLE",
+      "sequence_file": "/data2/SC2_2606/sharpy-sc2/bo_collection_runs/2026-06-24_terran_6bots_3maps_macro/KairosJunctionLE/bio/sequences/bio-ai.terran.hard.macro_KairosJunctionLE_2026-06-24 11_11_30_299251.json",
+      "order_list_len": 436,
+      "meta_result": "Victory",
+      "collection_run": "2026-06-24_terran_6bots_3maps_macro",
+      "selection_rule": "KairosJunctionLE + highest-difficulty Terran opponent victory (macro runs only)"
+    },
+    {
+      "strategy": "marine_rush",
+      "bot_key": "marine",
+      "opponent": "ai.terran.hard.macro",
+      "difficulty": "hard",
+      "map": "KairosJunctionLE",
+      "sequence_file": "/data2/SC2_2606/sharpy-sc2/bo_collection_runs/2026-06-27_terran_4bots_3maps_macro/KairosJunctionLE/marine_rush/sequences/marine-ai.terran.hard.macro_KairosJunctionLE_2026-06-27 21_08_53_490989.json",
+      "order_list_len": 108,
+      "meta_result": "Victory",
+      "collection_run": "2026-06-27_terran_4bots_3maps_macro",
+      "selection_rule": "KairosJunctionLE + highest-difficulty Terran opponent victory (macro runs only)"
+    },
+    {
+      "strategy": "raven_liberator_tank",
+      "bot_key": "ravlibtank",
+      "opponent": "ai.terran.hard.macro",
+      "difficulty": "hard",
+      "map": "KairosJunctionLE",
+      "sequence_file": "/data2/SC2_2606/sharpy-sc2/bo_collection_runs/2026-06-27_terran_4bots_3maps_macro/KairosJunctionLE/raven_liberator_tank/sequences/ravlibtank-ai.terran.hard.macro_KairosJunctionLE_2026-06-27 21_15_54_273369.json",
+      "order_list_len": 206,
+      "meta_result": "Victory",
+      "collection_run": "2026-06-27_terran_4bots_3maps_macro",
+      "selection_rule": "KairosJunctionLE + highest-difficulty Terran opponent victory (macro runs only)"
+    },
+    {
+      "strategy": "rusty",
+      "bot_key": "oldrusty",
+      "opponent": "ai.terran.hard.macro",
+      "difficulty": "hard",
+      "map": "KairosJunctionLE",
+      "sequence_file": "/data2/SC2_2606/sharpy-sc2/bo_collection_runs/2026-06-27_terran_4bots_3maps_macro/KairosJunctionLE/rusty/sequences/oldrusty-ai.terran.hard.macro_KairosJunctionLE_2026-06-27 21_11_04_643172.json",
+      "order_list_len": 215,
+      "meta_result": "Victory",
+      "collection_run": "2026-06-27_terran_4bots_3maps_macro",
+      "selection_rule": "KairosJunctionLE + highest-difficulty Terran opponent victory (macro runs only)"
+    },
+    {
+      "strategy": "safe_tvt_raven",
+      "bot_key": "saferaven",
+      "opponent": "ai.terran.hard.macro",
+      "difficulty": "hard",
+      "map": "KairosJunctionLE",
+      "sequence_file": "/data2/SC2_2606/sharpy-sc2/bo_collection_runs/2026-06-24_terran_6bots_3maps_macro/KairosJunctionLE/safe_tvt_raven/sequences/saferaven-ai.terran.hard.macro_KairosJunctionLE_2026-06-24 11_14_26_764245.json",
+      "order_list_len": 237,
+      "meta_result": "Victory",
+      "collection_run": "2026-06-24_terran_6bots_3maps_macro",
+      "selection_rule": "KairosJunctionLE + highest-difficulty Terran opponent victory (macro runs only)"
+    },
+    {
+      "strategy": "tank_thor_mech",
+      "bot_key": "mechthor",
+      "opponent": "ai.terran.hard.macro",
+      "difficulty": "hard",
+      "map": "KairosJunctionLE",
+      "sequence_file": "/data2/SC2_2606/sharpy-sc2/bo_collection_runs/2026-06-24_terran_6bots_3maps_macro/KairosJunctionLE/tank_thor_mech/sequences/mechthor-ai.terran.hard.macro_KairosJunctionLE_2026-06-24 11_21_08_815141.json",
+      "order_list_len": 200,
+      "meta_result": "Victory",
+      "collection_run": "2026-06-24_terran_6bots_3maps_macro",
+      "selection_rule": "KairosJunctionLE + highest-difficulty Terran opponent victory (macro runs only)"
+    },
+    {
+      "strategy": "three_rax_stim",
+      "bot_key": "threerax",
+      "opponent": "ai.terran.hard.macro",
+      "difficulty": "hard",
+      "map": "KairosJunctionLE",
+      "sequence_file": "/data2/SC2_2606/sharpy-sc2/bo_collection_runs/2026-06-24_terran_6bots_3maps_macro/KairosJunctionLE/three_rax_stim/sequences/threerax-ai.terran.hard.macro_KairosJunctionLE_2026-06-24 11_17_58_32521.json",
+      "order_list_len": 120,
+      "meta_result": "Victory",
+      "collection_run": "2026-06-24_terran_6bots_3maps_macro",
+      "selection_rule": "KairosJunctionLE + highest-difficulty Terran opponent victory (macro runs only)"
+    },
+    {
+      "strategy": "two_base_tanks",
+      "bot_key": "tank",
+      "opponent": "ai.terran.hard.macro",
+      "difficulty": "hard",
+      "map": "KairosJunctionLE",
+      "sequence_file": "/data2/SC2_2606/sharpy-sc2/bo_collection_runs/2026-06-24_terran_6bots_3maps_macro/KairosJunctionLE/two_base_tanks/sequences/tank-ai.terran.hard.macro_KairosJunctionLE_2026-06-24 11_16_40_138706.json",
+      "order_list_len": 211,
+      "meta_result": "Victory",
+      "collection_run": "2026-06-24_terran_6bots_3maps_macro",
+      "selection_rule": "KairosJunctionLE + highest-difficulty Terran opponent victory (macro runs only)"
+    }
+  ]
+}
