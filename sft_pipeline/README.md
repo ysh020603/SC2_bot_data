@@ -32,6 +32,7 @@ sft_pipeline/
     build_executor_sft.py
     build_executor_golden_rank.py   # Executor 规则黄金标签
     executor_golden_rank.md         # 黄金排序规则说明
+    executor_golden_rank_rule_layers.md  # L0–L4 rule layers (English)
     inject_cot_sft.py               # thinking SFT CoT 后处理
     naming_data_and_training_notes.md  # Naming CoT 精选与训练划分
     build_naming_cot_curated_sft.py

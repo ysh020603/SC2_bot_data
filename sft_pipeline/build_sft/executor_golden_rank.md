@@ -65,6 +65,8 @@ Executor 只在「多个建筑/基地都能执行同一 train ability」时被�
 
 采用多级字典序；先过滤，再比速度，再比附属/基地 tier。`rank_key = (eligible, ready_score, addon_tier, base_tier)`。
 
+规则分层（L0–L4）的英文说明见 [`executor_golden_rank_rule_layers.md`](executor_golden_rank_rule_layers.md)。
+
 ### 1. 硬过滤：为 pending 预留生产者
 
 **触发条件**：`[Possible conflicts in pending actions]` 中出现：
@@ -153,3 +155,16 @@ result = rank_executor_prompt(system_text, user_text)
 print(result.golden_tags)
 print(result.to_dict())
 ```
+
+## 重采样（L0–L4 均衡）
+
+对 golden 标注结果按规则层与层内 action 分层重采样：
+
+```bash
+python3 -m sft_pipeline.build_sft.resample_executor_golden \
+  --input  sft_pipeline_outputs/<run_id>/executor_qa_golden.jsonl \
+  --output-dir sft_pipeline_outputs/executor_golden_rank/<run_id>/resampled \
+  --layer-target 200
+```
+
+默认 `layer_target=200`，五层共 1000 条；稀缺格过采样封顶后，余量在同层内再分配（如 L0 的 Viking 封顶后余量给 Marine）。

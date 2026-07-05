@@ -300,6 +300,36 @@ def rank_executor_prompt(system: str, user: str) -> GoldenRankResult:
     return rank_executor_candidates(parse_executor_prompt(system, user))
 
 
+RuleLayer = Literal["L0", "L1", "L2", "L3", "L4"]
+
+
+def classify_executor_rule_layer(result: GoldenRankResult, *, candidate_count: int) -> RuleLayer:
+    """Assign the primary decisive golden-rank layer (L0–L4). See executor_golden_rank_rule_layers.md."""
+    eligible = [r for r in result.rankings if r.eligible]
+    if result.fallback_no_eligible or len(eligible) <= 1:
+        return "L0"
+    best_key = max(r.rank_key for r in eligible)
+    winners = [r for r in eligible if r.rank_key == best_key]
+    losers = [r for r in eligible if r.rank_key != best_key]
+    if len(winners) > 1:
+        return "L4"
+    winner = winners[0]
+    best_loser = max(losers, key=lambda r: r.rank_key)
+    if winner.ready_score > best_loser.ready_score:
+        return "L1"
+    if winner.addon_tier > best_loser.addon_tier:
+        return "L2"
+    if winner.base_tier > best_loser.base_tier:
+        return "L3"
+    return "L4"
+
+
+def classify_executor_rule_layer_from_prompt(system: str, user: str) -> tuple[str, RuleLayer]:
+    ctx = parse_executor_prompt(system, user)
+    result = rank_executor_candidates(ctx)
+    return ctx.ability, classify_executor_rule_layer(result, candidate_count=len(ctx.candidates))
+
+
 def parse_llm_answer_tag(answer: str) -> int | None:
     if not answer:
         return None
