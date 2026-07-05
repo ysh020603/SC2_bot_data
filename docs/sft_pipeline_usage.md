@@ -12,7 +12,9 @@ sft_pipeline/README.md
 
 ```text
 采集对局
-  -> sequence JSON + obs
+  -> pending action + 下令时 obs
+  -> SC2 结果事件确认
+  -> 只输出已落实的 sequence JSON
   -> train 多候选时保存 executor_context
 
 v8 Step 标注
@@ -55,6 +57,7 @@ $py = 'C:\Users\Descfly\.conda\envs\SC2_0615\python.exe'
 - 使用本仓库 bot 采集，不使用 `SC2-Agent-260510` 的 bot。
 - `--map` 使用 SC2 引擎英文 map id，不使用中文地图名。
 - `--workers` 是采集对局的最大并发数，Windows 建议先从 `1` 开始。
+- Bot 下达命令只创建 pending；只有 SC2 的建筑开工、单位生成、形态变化或科技完成事件才能把 Action 写入 sequence。
 
 输出：
 
@@ -73,8 +76,12 @@ sequence 中：
 
 - `meta.map` 是英文 map id。
 - `meta.map_localized` 可选，仅作为中文本地化参考。
-- `obs.text` / `obs.structured` 是 Naming/Ordering 的输入来源。
+- `meta.confirmation_schema == "sc2-outcome-v2"`。
+- 每条 Action 都包含与其语义类型匹配的 `confirmation`。
+- `issued_time` / `game_time` 是下令时间，`confirmed_time` 是引擎结果时间。
+- `obs.text` / `obs.structured` 是下令时快照，也是 Naming/Ordering 的输入来源。
 - `executor_context` 只保存 train 多候选样本。
+- 未确认、过期或被同一结果替代的命令只进入 meta 计数，不进入训练序列。
 
 ## 2. Obs QA
 

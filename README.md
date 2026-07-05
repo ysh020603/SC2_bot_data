@@ -32,6 +32,24 @@
    见 sft_pipeline/README.md 与 build_sft/*.md
 ```
 
+### 当前 Action 采集口径
+
+采集器采用 `sc2-outcome-v2` 结果确认协议。`bot.do(action)` 只会创建 pending
+候选，不会直接写入训练序列；只有收到 SC2 引擎结果事件后才会正式记录：
+
+- Build / BuildOnUnit / BuildInstant：建筑开工（漏过开工回调时以完工事件兜底）。
+- Train：目标单位触发 `on_unit_created`。
+- Morph：原单位触发 `on_unit_type_changed`。
+- Research：目标科技触发 `on_upgrade_complete`。
+
+最终 sequence 按下令顺序排列，但只包含已被引擎结果确认的 Action。`obs` 和
+`local_obs` 固定为下令时快照；`confirmed_time` 记录结果发生时间。过期、被同一结果
+取代或游戏结束时仍未确认的命令只进入 meta 审计计数，不进入 `sequence` / `order_list`。
+
+并行采集时，每局预先分配唯一 `match_id` 和 sequence 文件，写入后再校验身份，保证
+`results.json`、log、replay 与 sequence 一一对应。完整设计和字段说明见
+[AbilityRecorder 设计说明](docs/ability_recorder_commit_and_addon.md)。
+
 进阶步骤（CoT、Executor 金标、Naming 重采样）详见 [`sft_pipeline/README.md`](sft_pipeline/README.md)。
 
 默认要求 step 数据与最终 SFT 数据都来自胜局：
@@ -42,6 +60,7 @@ meta.result == "Victory"
 
 ## 关键约束
 
+- `sequence` 只允许包含带 SC2 结果回执的 Action；不能把 bot 尝试下发或仅进入订单队列的命令当作金标。
 - 地图名必须使用传给 SC2 引擎的英文 map id，例如 `KairosJunctionLE`、`AcropolisLE`、`ThunderbirdLE`。
 - 不要在采集参数、文件名、`meta.map`、step Markdown 文件名或 SFT 元数据里使用客户端中文地图名。
 - 如果游戏接口返回中文地图名，只能作为 `meta.map_localized` 参考字段保存。
@@ -214,7 +233,7 @@ tools/                       # 采集脚本
 
 | 文档 | 说明 |
 |------|------|
-| [docs/ability_recorder_commit_and_addon.md](docs/ability_recorder_commit_and_addon.md) | AbilityRecorder 设计 |
+| [docs/ability_recorder_commit_and_addon.md](docs/ability_recorder_commit_and_addon.md) | `sc2-outcome-v2` 引擎结果确认、pending 过滤与 observation 时序设计 |
 | [docs/cot_generation_validation_notes.md](docs/cot_generation_validation_notes.md) | CoT 后处理与调参 |
 | [docs/agent_bot_test_and_trajectory_review.md](docs/agent_bot_test_and_trajectory_review.md) | 单局轨迹与日志审查 |
 | [docs/git_repo_management.md](docs/git_repo_management.md) | 仓库结构与子模块管理 |

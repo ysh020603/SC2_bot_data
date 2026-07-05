@@ -174,6 +174,10 @@ other_abilities
 
 Use `order_list` for macro action order checks. Use `sequence` when you need timestamps, observations, local state, or structured economy/combat snapshots. Use `other_abilities` for tactical abilities such as attacks, scans, MULEs, Raven spells, or siege mode.
 
+Current trajectories use the `sc2-outcome-v2` confirmation contract. Issuing a bot command only creates a pending candidate. A sequence entry is emitted only after an SC2 engine event confirms the outcome: `structure_started` / `structure_completed` for builds, `unit_created` for training, `unit_type_changed` for morphs, and `upgrade_completed` for research. `obs` is captured at `issued_time`; `confirmed_time` is audit metadata and must not replace the decision-time observation.
+
+For parallel runs, verify that every result has a unique existing `sequence_file` and that its `match_id` equals `sequence.meta.match_id`. Do not infer result files from before/after directory listings.
+
 ## 7. Basic Trajectory Audit
 
 Scan latest trajectory files for suspicious lift or land actions:

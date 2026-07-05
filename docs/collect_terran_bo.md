@@ -24,6 +24,24 @@ python tools/collect_terran_bo.py ...
 
 `run_collect.py` 会记录 `run_manifest.json`，更适合作为标准流程入口。
 
+## Action 采集语义
+
+当前采集协议为 `sc2-outcome-v2`。Bot 下达命令时，Recorder 只保存 pending
+候选和下令时 observation；命令本身、短暂出现的 `unit.orders` 或生产队列都不构成金标。
+只有对应的 SC2 引擎结果事件出现后，Action 才进入 sequence：
+
+| 语义类型 | SC2 结果回执 |
+| --- | --- |
+| Build / BuildOnUnit / BuildInstant | `structure_started`；漏过开工事件时用 `structure_completed` 兜底 |
+| Train | `unit_created` |
+| Morph | `unit_type_changed` |
+| Research | `upgrade_completed` |
+
+最终 sequence 按 `issued_time` 的下令顺序排列，但只保留已有结果回执的 Action。
+`obs` / `local_obs` 是下令时快照，`confirmed_time` 是结果发生时间。未落实命令不会
+进入 `sequence` 或 `order_list`，只会计入 meta 的 `expired_unconfirmed_action_count`、
+`superseded_unconfirmed_action_count` 或 `pending_unconfirmed_action_count`。
+
 ## 地图命名要求
 
 所有命令行参数中的地图都必须使用 SC2 引擎英文 map id：
@@ -78,9 +96,15 @@ python -m sft_pipeline.collect.run_collect `
 | `--races` | 内置 AI 种族：`protoss zerg terran` |
 | `--difficulties` | 内置 AI 难度：`medium mediumhard hard harder veryhard` |
 | `--workers` | 最大并发对局数 |
+| `--repeats` | 每个 race / difficulty 组合重复采集次数，默认 1 |
 | `--port-offset` | 起始端口偏移 |
 
 可用 bot key 在 `tools/collect_terran_bo.py` 的 `TERRAN_BOTS` 中维护。
+
+并行采集时，每局在启动前就分配唯一的 `match_id` 和固定 sequence 文件路径。Recorder
+使用临时文件原子写入，worker 在返回成功前会校验文件存在且 `meta.match_id` 一致。因此
+`results.json` 的 `sequence_file` 可以直接用于 log / replay / sequence 一一配对，不再通过
+共享目录的前后文件差推断结果。
 
 ## 输出目录
 
@@ -111,12 +135,26 @@ sequence JSON 的核心字段：
     "enemy_race": "Zerg",
     "result": "Victory",
     "sequence_count": 165,
-    "order_list_count": 165
+    "order_list_count": 165,
+    "confirmation_schema": "sc2-outcome-v2",
+    "match_id": "bio-ai.zerg.hard_KairosJunctionLE_...",
+    "expired_unconfirmed_action_count": 12,
+    "superseded_unconfirmed_action_count": 3,
+    "pending_unconfirmed_action_count": 1
   },
   "sequence": [
     {
       "seq": 0,
       "ability": "COMMANDCENTERTRAIN_SCV",
+      "issued_time": 0.0,
+      "confirmed_time": 12.2,
+      "confirmation": {
+        "kind": "unit_created",
+        "game_time": 12.2,
+        "entity_tag": 4355260999,
+        "entity_type": "SCV",
+        "actor_tag": 4355260417
+      },
       "obs": {
         "text": "...",
         "structured": {}
@@ -170,6 +208,9 @@ python -m sft_pipeline.collect.validate_obs `
 - `missing_obs_structured == 0`
 - `order_mismatch == 0`
 - `executor_context_train_multi` 是否合理
+- 每条 `sequence[]` 都存在 `confirmation`，且回执类型与 `semantic_target.type` 一致
+- `game_time == issued_time`，并且 `confirmed_time >= issued_time`
+- `results.json` 中所有 `sequence_file` 唯一、存在，并且其 `meta.match_id` 与该局一致
 
 ## 下一步
 

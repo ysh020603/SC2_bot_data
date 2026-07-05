@@ -1,6 +1,7 @@
 import json
 import os
 import random
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, Union
@@ -9,6 +10,7 @@ from sc2.data import Result
 from sc2.constants import abilityid_to_unittypeid
 from sc2.ids.ability_id import AbilityId
 from sc2.ids.unit_typeid import UnitTypeId
+from sc2.ids.upgrade_id import UpgradeId
 from sc2.position import Point2
 from sc2.unit import Unit
 from sc2.unit_command import UnitCommand
@@ -23,6 +25,12 @@ if TYPE_CHECKING:
 
 DEFAULT_OUTPUT_DIR = "ability_sequences"
 PENDING_EXPIRE_SECONDS = 8.0
+BUILD_PENDING_EXPIRE_SECONDS = 90.0
+TRAIN_PENDING_EXPIRE_SECONDS = 180.0
+MORPH_PENDING_EXPIRE_SECONDS = 120.0
+RESEARCH_PENDING_EXPIRE_SECONDS = 300.0
+BUILD_CONFIRM_DISTANCE = 1.5
+TRAIN_PRODUCER_DISTANCE = 8.0
 
 MORPH_RESULT_TYPES = {
     AbilityId.UPGRADETOORBITAL_ORBITALCOMMAND: UnitTypeId.ORBITALCOMMAND,
@@ -32,13 +40,22 @@ MORPH_RESULT_TYPES = {
 
 @dataclass
 class PendingAction:
+    attempt_id: int
+    issued_index: int
     action: UnitCommand
     resolved_ability: str
     unit_tag: int
-    target_key: Optional[int]
+    unit_type: UnitTypeId
+    unit_position: Point2
+    target_key: Optional[Union[int, Tuple[float, float]]]
+    expected_position: Optional[Point2]
     issued_iteration: int
     issued_time: float
+    baseline_effect_tags: Set[int]
+    obs: Dict[str, Any]
+    local_obs: Dict[str, Any]
     executor_context: Optional[Dict[str, Any]] = None
+    confirmation: Optional[Dict[str, Any]] = None
 
 
 class AbilityRecorderManager(ManagerBase):
@@ -49,18 +66,34 @@ class AbilityRecorderManager(ManagerBase):
         config = get_config()
         self.enabled = config["general"].getboolean("write_ability_sequence", fallback=True)
         self.output_dir = config["general"].get("ability_sequence_dir", DEFAULT_OUTPUT_DIR)
+        self.output_path = config["general"].get("ability_sequence_path", fallback=None)
+        self.match_id = config["general"].get("ability_sequence_match_id", fallback=None)
         self.data_ref_path = config["general"].get(
             "data_ref_path", os.path.join("data_ref", "data_base_add_graph.json")
         )
         self.sequence: List[Dict[str, Any]] = []
         self._other_abilities: Set[str] = set()
-        self._pending: Dict[Tuple[int, str, Optional[int]], PendingAction] = {}
+        self._pending: Dict[int, PendingAction] = {}
+        self._claimed_effect_tags: Set[int] = set()
+        self._expired_unconfirmed_count = 0
+        self._superseded_unconfirmed_count = 0
+        self._next_attempt_id = 0
+        self._next_issued_index = 0
+        self._snapshot_game_loop: Optional[int] = None
+        self._snapshot_obs: Dict[str, Any] = {"structured": {}, "text": ""}
+        self._snapshot_local_obs: Dict[str, Any] = {}
         self._seq = 0
 
     async def start(self, knowledge: "Knowledge"):
         await super().start(knowledge)
         self.enabled = self.knowledge.config["general"].getboolean("write_ability_sequence", fallback=True)
         self.output_dir = self.knowledge.config["general"].get("ability_sequence_dir", DEFAULT_OUTPUT_DIR)
+        self.output_path = self.knowledge.config["general"].get(
+            "ability_sequence_path", fallback=None
+        )
+        self.match_id = self.knowledge.config["general"].get(
+            "ability_sequence_match_id", fallback=None
+        )
         self.data_ref_path = self.knowledge.config["general"].get(
             "data_ref_path", os.path.join("data_ref", "data_base_add_graph.json")
         )
@@ -69,25 +102,39 @@ class AbilityRecorderManager(ManagerBase):
         else:
             self._other_abilities = set()
             self._pending = {}
+            self._claimed_effect_tags = set()
+            self._expired_unconfirmed_count = 0
+            self._superseded_unconfirmed_count = 0
+            self._next_attempt_id = 0
+            self._next_issued_index = 0
+            self._snapshot_game_loop = None
             self._seq = 0
 
     async def update(self):
         pass
 
     async def post_update(self):
+        self._resolve_pending()
+
+    def _resolve_pending(self) -> None:
         if not self.enabled or not self._pending:
             return
 
-        resolved: List[Tuple[Tuple[int, str, Optional[int]], PendingAction]] = []
-        for key, pending in self._pending.items():
-            if self._is_committed(pending):
-                self._commit(pending)
-                resolved.append((key, pending))
-            elif self._is_expired(pending):
-                resolved.append((key, pending))
+        resolved: List[int] = []
+        for attempt_id, pending in list(self._pending.items()):
+            semantic_type = self._semantic_type(pending)
+            if semantic_type in ("Build", "BuildOnUnit", "BuildInstant"):
+                effect = self._find_build_effect(pending)
+                if effect is not None:
+                    self._confirm_structure(pending, effect)
+                    resolved.append(attempt_id)
+                    continue
+            if self._is_expired(pending):
+                self._expired_unconfirmed_count += 1
+                resolved.append(attempt_id)
 
-        for key, _ in resolved:
-            self._pending.pop(key, None)
+        for attempt_id in resolved:
+            self._pending.pop(attempt_id, None)
 
     def record(self, action: UnitCommand) -> None:
         if not self.enabled:
@@ -96,16 +143,6 @@ class AbilityRecorderManager(ManagerBase):
         bot = self.ai if hasattr(self, "ai") else action.unit._bot_object
         ability_name = action.ability.name
         loader = get_data_ref_loader(self.data_ref_path)
-
-        # 对于“升级/变形”类全局能力（例如 CC -> OC / OC -> PF），bot 可能会在
-        # 动作已经处于执行中时反复下发同一条命令。
-        # 如果 actor.orders 已经包含该 ability，就直接跳过 pending 创建，避免重复记录。
-        if (
-            action.unit is not None
-            and action.ability in MORPH_RESULT_TYPES
-            and self._unit_has_ability_order(action.unit, action.ability)
-        ):
-            return
 
         target_for_resolve: Optional[object] = action.target
         if ability_name in ("BUILD_TECHLAB", "BUILD_REACTOR") and (
@@ -127,17 +164,28 @@ class AbilityRecorderManager(ManagerBase):
             self._other_abilities.add(ability_name)
             return
 
-        key = (action.unit.tag, resolved_ability, self._target_key(action.target))
-        if key in self._pending:
-            return
+        obs, local_obs = self._capture_issue_snapshot(bot)
+        attempt_id = self._next_attempt_id
+        self._next_attempt_id += 1
+        issued_index = self._next_issued_index
+        self._next_issued_index += 1
+        expected_position = self._expected_effect_position(action, semantic_target)
 
-        self._pending[key] = PendingAction(
+        self._pending[attempt_id] = PendingAction(
+            attempt_id=attempt_id,
+            issued_index=issued_index,
             action=action,
             resolved_ability=resolved_ability,
             unit_tag=action.unit.tag,
+            unit_type=action.unit.type_id,
+            unit_position=action.unit.position,
             target_key=self._target_key(action.target),
+            expected_position=expected_position,
             issued_iteration=getattr(getattr(self, "knowledge", None), "iteration", 0),
             issued_time=bot.time,
+            baseline_effect_tags=self._effect_tags_for(semantic_target),
+            obs=obs,
+            local_obs=local_obs,
             executor_context=self._capture_train_executor_context(
                 bot,
                 action,
@@ -146,73 +194,329 @@ class AbilityRecorderManager(ManagerBase):
             ),
         )
 
-    def _target_key(self, target: Optional[Union[Unit, Point2]]) -> Optional[int]:
+    def _capture_issue_snapshot(self, bot: Any) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        game_loop = int(getattr(getattr(bot, "state", None), "game_loop", -1))
+        if self._snapshot_game_loop != game_loop:
+            self._snapshot_game_loop = game_loop
+            self._snapshot_obs = self._capture_obs(bot)
+            try:
+                self._snapshot_local_obs = collect_entities(bot, self.data_ref_path)
+            except Exception:
+                self._snapshot_local_obs = {}
+        return self._snapshot_obs, self._snapshot_local_obs
+
+    def _expected_effect_position(
+        self, action: UnitCommand, semantic_target: Dict[str, Any]
+    ) -> Optional[Point2]:
+        target = action.target
+        if isinstance(target, Point2):
+            return target
+        if isinstance(target, Unit):
+            return target.position
+        if semantic_target.get("type") == "BuildInstant":
+            return action.unit.position.offset(Point2((2.5, -0.5)))
+        return None
+
+    def _target_key(
+        self, target: Optional[Union[Unit, Point2]]
+    ) -> Optional[Union[int, Tuple[float, float]]]:
         if isinstance(target, Unit):
             return target.tag
+        if isinstance(target, Point2):
+            return (round(float(target.x), 2), round(float(target.y), 2))
         return None
 
     def _find_unit(self, tag: int) -> Optional[Unit]:
-        unit = self.ai.unit_cache.by_tag(tag)
-        if unit is not None:
-            return unit
-        return self.ai.units.find_by_tag(tag)
+        cache = getattr(self.ai, "unit_cache", None)
+        if cache is not None:
+            unit = cache.by_tag(tag)
+            if unit is not None:
+                return unit
+        for collection_name in ("all_own_units", "units", "structures"):
+            collection = getattr(self.ai, collection_name, None)
+            if collection is None:
+                continue
+            finder = getattr(collection, "find_by_tag", None)
+            if finder is not None:
+                unit = finder(tag)
+                if unit is not None:
+                    return unit
+            else:
+                for unit in collection:
+                    if getattr(unit, "tag", None) == tag:
+                        return unit
+        return None
 
-    def _unit_has_ability_order(self, unit: Unit, ability_id: AbilityId) -> bool:
-        for order in unit.orders:
-            if order.ability.id == ability_id:
-                return True
+    def _semantic_target(self, pending: PendingAction) -> Dict[str, Any]:
+        loader = get_data_ref_loader(self.data_ref_path)
+        return loader.get_semantic_target(pending.resolved_ability) or {}
+
+    def _semantic_type(self, pending: PendingAction) -> Optional[str]:
+        return self._semantic_target(pending).get("type")
+
+    def _produced_unit_type(self, semantic_target: Dict[str, Any]) -> Optional[UnitTypeId]:
+        produces_name = semantic_target.get("produces_name")
+        if not produces_name:
+            return None
+        return getattr(UnitTypeId, str(produces_name).upper(), None)
+
+    def _effect_tags_for(self, semantic_target: Dict[str, Any]) -> Set[int]:
+        if semantic_target.get("type") not in ("Build", "BuildOnUnit", "BuildInstant"):
+            return set()
+
+        produced_type = self._produced_unit_type(semantic_target)
+        if produced_type is None:
+            return set()
+        return {
+            unit.tag
+            for unit in getattr(self.ai, "structures", [])
+            if self._matches_produced_type(unit.type_id, produced_type)
+        }
+
+    def _matches_produced_type(
+        self, actual_type: UnitTypeId, produced_type: UnitTypeId
+    ) -> bool:
+        if actual_type == produced_type:
+            return True
+        # The data graph remaps host-specific addons such as BARRACKSTECHLAB
+        # to the generic TECHLAB / REACTOR result type.
+        if produced_type in (UnitTypeId.TECHLAB, UnitTypeId.REACTOR):
+            return actual_type.name.endswith(produced_type.name)
         return False
 
     def _is_expired(self, pending: PendingAction) -> bool:
-        return self.ai.time - pending.issued_time > PENDING_EXPIRE_SECONDS
-
-    def _is_committed(self, pending: PendingAction) -> bool:
-        actor = self._find_unit(pending.unit_tag)
-        if actor is None:
-            return False
-
-        ability_id = pending.action.ability
-        if self._unit_has_ability_order(actor, ability_id):
-            return True
-
-        morph_result = MORPH_RESULT_TYPES.get(ability_id)
-        if morph_result is not None and actor.type_id == morph_result:
-            return True
-
-        target = pending.action.target
-        if isinstance(target, Unit):
-            host = self._find_unit(target.tag)
-        elif pending.resolved_ability.startswith(("BUILD_TECHLAB", "BUILD_REACTOR")):
-            host = actor
+        semantic_type = self._semantic_type(pending)
+        if semantic_type in ("Build", "BuildOnUnit", "BuildInstant"):
+            timeout = BUILD_PENDING_EXPIRE_SECONDS
+        elif semantic_type == "Train":
+            timeout = TRAIN_PENDING_EXPIRE_SECONDS
+        elif semantic_type == "Morph":
+            timeout = MORPH_PENDING_EXPIRE_SECONDS
+        elif semantic_type == "Research":
+            timeout = RESEARCH_PENDING_EXPIRE_SECONDS
         else:
-            host = None
+            timeout = PENDING_EXPIRE_SECONDS
+        return self.ai.time - pending.issued_time > timeout
 
-        if host is not None:
-            if self._unit_has_ability_order(host, ability_id):
-                return True
-            if pending.resolved_ability.startswith(("BUILD_TECHLAB", "BUILD_REACTOR")):
-                if host.add_on_tag:
-                    addon = self._find_unit(host.add_on_tag)
-                    if addon is not None and not addon.is_ready:
-                        return True
+    def _find_build_effect(self, pending: PendingAction) -> Optional[Unit]:
+        semantic_target = self._semantic_target(pending)
+        produced_type = self._produced_unit_type(semantic_target)
+        if produced_type is None:
+            return None
 
-        return False
+        candidates = [
+            unit
+            for unit in getattr(self.ai, "structures", [])
+            if self._matches_produced_type(unit.type_id, produced_type)
+            and unit.tag not in pending.baseline_effect_tags
+            and unit.tag not in self._claimed_effect_tags
+        ]
+        if not candidates:
+            return None
 
-    def _commit(self, pending: PendingAction) -> None:
+        actor = self._find_unit(pending.unit_tag)
+        if semantic_target.get("type") == "BuildInstant" and actor is not None:
+            add_on_tag = int(getattr(actor, "add_on_tag", 0) or 0)
+            for candidate in candidates:
+                if candidate.tag == add_on_tag:
+                    return candidate
+
+        if pending.expected_position is None:
+            return None
+
+        close_candidates = [
+            unit
+            for unit in candidates
+            if unit.position.distance_to(pending.expected_position) <= BUILD_CONFIRM_DISTANCE
+        ]
+        if not close_candidates:
+            return None
+        return min(
+            close_candidates,
+            key=lambda unit: unit.position.distance_to(pending.expected_position),
+        )
+
+    def _build_pending_matches(self, pending: PendingAction, unit: Unit) -> bool:
+        semantic_target = self._semantic_target(pending)
+        if semantic_target.get("type") not in ("Build", "BuildOnUnit", "BuildInstant"):
+            return False
+        produced_type = self._produced_unit_type(semantic_target)
+        if produced_type is None or not self._matches_produced_type(unit.type_id, produced_type):
+            return False
+        if unit.tag in pending.baseline_effect_tags:
+            return False
+        if pending.expected_position is None:
+            return False
+        return unit.position.distance_to(pending.expected_position) <= BUILD_CONFIRM_DISTANCE
+
+    def on_building_construction_started(self, unit: Unit) -> None:
+        self._confirm_build_event(unit, "structure_started")
+
+    def on_building_construction_complete(self, unit: Unit) -> None:
+        # Construction-start is the primary receipt. Completion is a safe fallback
+        # for addons and rare engine frames where start was not surfaced.
+        self._confirm_build_event(unit, "structure_completed")
+
+    def _confirm_build_event(self, unit: Unit, kind: str) -> None:
+        if not self.enabled or unit.tag in self._claimed_effect_tags:
+            return
+        candidates = [
+            pending
+            for pending in self._pending.values()
+            if self._build_pending_matches(pending, unit)
+        ]
+        if not candidates:
+            return
+        # Retried placement commands share the same effect. The latest issued
+        # candidate is the one closest to the engine accepting that placement.
+        pending = max(candidates, key=lambda item: item.issued_index)
+        self._confirm_structure(pending, unit, kind)
+
+    def _confirm_structure(
+        self, pending: PendingAction, unit: Unit, kind: str = "structure_started"
+    ) -> None:
+        self._claimed_effect_tags.add(unit.tag)
+        confirmation = {
+            "kind": kind,
+            "game_time": round(self.ai.time, 2),
+            "entity_tag": unit.tag,
+            "entity_type": unit.type_id.name,
+            "actor_tag": pending.unit_tag,
+        }
+        self._materialize(pending, confirmation)
+
+        # One SC2 structure can satisfy only one attempt. Remove placement retries
+        # aimed at this exact result so they cannot be matched to a later building.
+        produced_type = self._produced_unit_type(self._semantic_target(pending))
+        for other_id, other in list(self._pending.items()):
+            if other_id == pending.attempt_id:
+                continue
+            other_type = self._produced_unit_type(self._semantic_target(other))
+            if other_type != produced_type:
+                continue
+            if other.expected_position is None or pending.expected_position is None:
+                continue
+            if other.expected_position.distance_to(pending.expected_position) <= BUILD_CONFIRM_DISTANCE:
+                self._pending.pop(other_id, None)
+                self._superseded_unconfirmed_count += 1
+
+    def on_unit_created(self, unit: Unit) -> None:
+        if not self.enabled:
+            return
+        candidates: List[Tuple[Tuple[float, float, int], PendingAction, float]] = []
+        for pending in self._pending.values():
+            semantic_target = self._semantic_target(pending)
+            if semantic_target.get("type") != "Train":
+                continue
+            produced_type = self._produced_unit_type(semantic_target)
+            if produced_type is None or not self._matches_produced_type(unit.type_id, produced_type):
+                continue
+            actor = self._find_unit(pending.unit_tag)
+            actor_position = getattr(actor, "position", pending.unit_position)
+            distance = float(actor_position.distance_to(unit.position))
+            age = max(0.0, float(self.ai.time - pending.issued_time))
+            expected = self._unit_build_time_seconds(produced_type)
+            candidates.append(((distance, abs(age - expected), pending.issued_index), pending, distance))
+        if not candidates:
+            return
+
+        _, pending, distance = min(candidates, key=lambda item: item[0])
+        confidence = "high" if distance <= TRAIN_PRODUCER_DISTANCE else "low"
+        if confidence != "high":
+            # A remote match proves that the action happened, but cannot safely
+            # teach which one of several producers was selected.
+            pending.executor_context = None
+        self._materialize(
+            pending,
+            {
+                "kind": "unit_created",
+                "game_time": round(self.ai.time, 2),
+                "entity_tag": unit.tag,
+                "entity_type": unit.type_id.name,
+                "actor_tag": pending.unit_tag,
+                "producer_distance": round(distance, 2),
+                "producer_match_confidence": confidence,
+            },
+        )
+
+    def _unit_build_time_seconds(self, unit_type: UnitTypeId) -> float:
+        try:
+            proto = self.ai._game_data.units[unit_type.value]._proto
+            return float(proto.build_time) / 22.4
+        except Exception:
+            return 0.0
+
+    def on_unit_type_changed(self, unit: Unit, previous_type: UnitTypeId) -> None:
+        if not self.enabled:
+            return
+        candidates = []
+        for pending in self._pending.values():
+            if self._semantic_type(pending) != "Morph" or pending.unit_tag != unit.tag:
+                continue
+            produced_type = self._produced_unit_type(self._semantic_target(pending))
+            if produced_type is not None and self._matches_produced_type(unit.type_id, produced_type):
+                candidates.append(pending)
+        if not candidates:
+            return
+        pending = min(candidates, key=lambda item: item.issued_index)
+        self._materialize(
+            pending,
+            {
+                "kind": "unit_type_changed",
+                "game_time": round(self.ai.time, 2),
+                "entity_tag": unit.tag,
+                "entity_type_before": previous_type.name,
+                "entity_type": unit.type_id.name,
+                "actor_tag": pending.unit_tag,
+            },
+        )
+
+    @staticmethod
+    def _normalized_name(value: Any) -> str:
+        name = getattr(value, "name", str(value))
+        return re.sub(r"[^A-Z0-9]", "", name.upper())
+
+    def on_upgrade_complete(self, upgrade: UpgradeId) -> None:
+        if not self.enabled:
+            return
+        upgrade_name = self._normalized_name(upgrade)
+        candidates = []
+        for pending in self._pending.values():
+            semantic_target = self._semantic_target(pending)
+            if semantic_target.get("type") != "Research":
+                continue
+            if self._normalized_name(semantic_target.get("upgrade_name", "")) == upgrade_name:
+                candidates.append(pending)
+        if not candidates:
+            return
+        pending = min(candidates, key=lambda item: item.issued_index)
+        self._materialize(
+            pending,
+            {
+                "kind": "upgrade_completed",
+                "game_time": round(self.ai.time, 2),
+                "upgrade": upgrade.name,
+                "actor_tag": pending.unit_tag,
+            },
+        )
+
+    def _materialize(self, pending: PendingAction, confirmation: Dict[str, Any]) -> None:
         action = pending.action
-        bot = self.ai
         loader = get_data_ref_loader(self.data_ref_path)
         semantic_target = loader.get_semantic_target(pending.resolved_ability)
         if semantic_target is None:
             return
 
         entry: Dict[str, Any] = {
-            "seq": self._seq,
-            "game_time": round(bot.time, 2),
+            "_issued_index": pending.issued_index,
+            "game_time": round(pending.issued_time, 2),
+            "issued_time": round(pending.issued_time, 2),
+            "confirmed_time": round(self.ai.time, 2),
             "ability": pending.resolved_ability,
             "semantic_target": semantic_target,
-            "obs": self._capture_obs(bot),
-            "local_obs": collect_entities(bot, self.data_ref_path),
+            "obs": pending.obs,
+            "local_obs": pending.local_obs,
+            "confirmation": confirmation,
         }
         if pending.executor_context is not None:
             entry["executor_context"] = pending.executor_context
@@ -220,7 +524,7 @@ class AbilityRecorderManager(ManagerBase):
         if place is not None:
             entry["place"] = place
         self.sequence.append(entry)
-        self._seq += 1
+        self._pending.pop(pending.attempt_id, None)
 
     def _capture_train_executor_context(
         self,
@@ -364,8 +668,15 @@ class AbilityRecorderManager(ManagerBase):
     async def on_end(self, game_result: Result):
         if not self.enabled:
             return
+        self._resolve_pending()
         if not self.sequence and not self._other_abilities:
             return
+
+        self.sequence.sort(key=lambda entry: entry.get("_issued_index", 0))
+        for seq, entry in enumerate(self.sequence):
+            entry["seq"] = seq
+            entry.pop("_issued_index", None)
+        self._seq = len(self.sequence)
 
         if not os.path.isdir(self.output_dir):
             os.makedirs(self.output_dir)
@@ -384,7 +695,9 @@ class AbilityRecorderManager(ManagerBase):
         timestamp = datetime.now().strftime("%Y-%m-%d %H_%M_%S")
         randomizer = random.randint(0, 999999)
         file_name = f"{opponent_id}_{map_name}_{timestamp}_{randomizer}.json"
-        path = os.path.join(self.output_dir, file_name)
+        path = self.output_path or os.path.join(self.output_dir, file_name)
+        parent_dir = os.path.dirname(os.path.abspath(path))
+        os.makedirs(parent_dir, exist_ok=True)
 
         order_list = [entry["ability"] for entry in self.sequence]
 
@@ -401,6 +714,11 @@ class AbilityRecorderManager(ManagerBase):
                 "sequence_count": len(self.sequence),
                 "order_list_count": len(order_list),
                 "other_abilities_count": len(self._other_abilities),
+                "confirmation_schema": "sc2-outcome-v2",
+                "match_id": self.match_id,
+                "expired_unconfirmed_action_count": self._expired_unconfirmed_count,
+                "superseded_unconfirmed_action_count": self._superseded_unconfirmed_count,
+                "pending_unconfirmed_action_count": len(self._pending),
                 "recorded_at": datetime.now().isoformat(),
             },
             "sequence": self.sequence,
@@ -408,8 +726,12 @@ class AbilityRecorderManager(ManagerBase):
             "order_list": order_list,
         }
 
-        with open(path, "w", encoding="utf-8") as handle:
+        temp_path = f"{path}.tmp.{os.getpid()}"
+        with open(temp_path, "w", encoding="utf-8") as handle:
             json.dump(payload, handle, ensure_ascii=False, indent=2)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp_path, path)
 
         self.print(
             f"Saved {len(self.sequence)} macro actions and {len(self._other_abilities)} other abilities to {path}",

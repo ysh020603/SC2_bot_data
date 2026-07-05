@@ -144,6 +144,12 @@ Get-ChildItem .\ability_sequences -Recurse -Filter *.json |
   Select-Object -First 5 FullName,LastWriteTime
 ```
 
+当前 sequence 使用 `sc2-outcome-v2`：`bot.do(action)` 不会直接产生记录，只有
+SC2 引擎回调建筑开工、单位生成、形态变化或科技完成后才会写入。每条记录应包含
+`issued_time`、`confirmed_time` 和 `confirmation`；游戏结束仍未确认的命令不会进入
+`sequence` / `order_list`。详细字段见
+[ability_recorder_commit_and_addon.md](ability_recorder_commit_and_addon.md)。
+
 ## 5. 批量采集 Terran BO 序列
 
 批量采集脚本：
@@ -185,6 +191,9 @@ bo_collection_runs/<run_name>/
     replays/
     results.json
 ```
+
+并发采集时，每局有唯一 `match_id` 和固定 `sequence_file`。`results.json` 中的路径
+已经过存在性与身份校验，可以直接与同局 log、replay 配对。
 
 查看最新采集结果：
 

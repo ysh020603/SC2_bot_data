@@ -10,23 +10,30 @@ sharpy/managers/extensions/ability_recorder.py
 
 ## 核心原则
 
-Recorder 不在 bot 尝试下发命令时立即写入 sequence，而是在动作被 SC2 接受并开始执行后再 commit。
+Recorder 不在 bot 尝试下发命令时立即写入 sequence，而是在动作已经造成可验证的
+SC2 引擎状态变化后再 commit。仅仅在 worker 的 `unit.orders` 中短暂看到 Build
+命令不算落地，因为多个 worker 可能同时前往同一个位置，最终只有一个建筑会开始建造。
 
 这样可以避免：
 
 - 资源不足、队列满等未执行动作污染数据。
 - 同一个 morph/research/build 被多帧重复尝试而重复记录。
-- `order_list` 与真实落地顺序不一致。
+- 未落地 Action 混入 `order_list`，成为错误训练金标。
 
 简化流程：
 
 ```text
 bot.do(action)
   -> recorder.record(action) 写入 pending
-  -> SC2 接受命令并进入 unit.orders / morph / addon building 状态
-  -> recorder.post_update() 检测已落地
-  -> _commit() 写入 sequence
+  -> Build/Addon: SC2 回调建筑开工或完工事件
+  -> Train: SC2 回调对应单位的 on_unit_created 事件
+  -> Morph: SC2 回调 actor 的 on_unit_type_changed 事件
+  -> Research: SC2 回调 on_upgrade_complete 事件
+  -> recorder 将带回执的 action 写入 sequence
 ```
+
+每个新建筑实体 tag 最多只能确认一个 pending Build。这样即使四个 SCV 对同一落点
+下达命令，sequence 也只会记录真正产生建筑实体的一个 Action。
 
 ## sequence 记录内容
 
@@ -36,9 +43,15 @@ bot.do(action)
 {
   "seq": 12,
   "ability": "BARRACKSTRAIN_MARINE",
-  "unit_tag": 4355260417,
-  "unit_type": "BARRACKS",
   "issued_time": 123.4,
+  "confirmed_time": 141.2,
+  "confirmation": {
+    "kind": "unit_created",
+    "game_time": 141.2,
+    "actor_tag": 4355260417,
+    "entity_tag": 4355260999,
+    "entity_type": "MARINE"
+  },
   "obs": {
     "text": "...",
     "structured": {}
@@ -47,7 +60,12 @@ bot.do(action)
 }
 ```
 
-`obs` 来自 LLM observation recorder，供 Naming/Ordering 的 prompt 使用。`local_obs` 是机器可读局部实体快照。
+`obs` 和 `local_obs` 都在 `issued_time` 捕获，而不是在结果确认时捕获。这样训练样本看到的是 bot
+作出决策时的环境；`confirmed_time` 仅用于审计该动作何时真正在引擎中落实。
+
+游戏结束写文件时，已确认 Action 按原始下令顺序排列并重新生成连续 `seq`。
+因此 sequence 表达“按决策顺序排列、且最终确实产生引擎结果的 Action”，而不是按单位
+生产完成时间重新排序。Meta 中的 `confirmation_schema` 固定为 `sc2-outcome-v2`。
 
 ## 地图名
 
@@ -135,7 +153,17 @@ Train action 且候选执行单位数量 > 1
 
 ## Pending 超时
 
-未在限定时间内检测到落地的 pending action 会被丢弃，不进入 `sequence` 和 `order_list`。这保证 `order_list` 更接近真实执行顺序。
+未在限定时间内检测到落地的 pending action 会被丢弃，不进入 `sequence` 和 `order_list`。
+不同结果使用与其耗时匹配的窗口：Build 90 秒、Train 180 秒、Morph 120 秒、Research
+300 秒。超时或游戏结束时仍未收到引擎结果事件的动作不会进入 sequence。输出 meta 会记录：
+
+```text
+expired_unconfirmed_action_count
+superseded_unconfirmed_action_count
+pending_unconfirmed_action_count
+```
+
+这三个字段用于审计 bot 尝试过、但没有在引擎中产生对应效果的宏观动作。
 
 ## 快速验证
 
@@ -154,5 +182,10 @@ python -m sft_pipeline.collect.run_collect `
 - `sequence_count > 0`
 - `order_list_count == len(order_list)`
 - `meta.map` 是英文 map id
+- 每个 Build / BuildOnUnit / BuildInstant 都有 `structure_started`（极少数漏过开工回调时为 `structure_completed`）回执
+- 每个 Train 都有 `confirmation.kind == "unit_created"`
+- 每个 Morph 都有 `confirmation.kind == "unit_type_changed"`
+- 每个 Research 都有 `confirmation.kind == "upgrade_completed"`
+- 同一引擎结果（`confirmation.kind + entity_tag`）在同一局中只能被消费一次；同一建筑后续 Morph 可以合法复用其 tag
 - addon action 带 host 后缀
 - train 多候选样本有 `executor_context`

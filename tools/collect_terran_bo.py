@@ -2,7 +2,8 @@
 """Batch-collect ability-sequence BO data for Terran dummy bots.
 
 Runs each bot against all three races at medium/mediumhard/hard/harder/veryhard AI difficulty.
-Within each bot, all matchups are launched in parallel; bots are processed sequentially.
+Within each bot, all matchups are launched in parallel; bots are processed sequentially unless
+--parallel-bots is set, in which case all tasks across bots run in one shared pool.
 """
 
 from __future__ import annotations
@@ -52,6 +53,13 @@ TERRAN_BOTS: List[Tuple[str, str]] = [
     ("biomine", "bio_mine_macro"),
     ("ravlibtank", "raven_liberator_tank"),
     ("mechthor", "tank_thor_mech"),
+    ("ravenscreams", "raven_screams"),
+    ("yamatofleet", "yamato_rust_fleet"),
+    ("biominesv2", "rusty_bio_mines"),
+    ("blueflame", "blueflame_locks"),
+    ("stimrush", "stim_rush_relay"),
+    ("rustyanvil", "old_rusty_anvil"),
+    ("matrixtank", "two_base_matrix_tanks"),
 ]
 
 RACES = ("protoss", "zerg", "terran")
@@ -60,13 +68,23 @@ BASE_PORT = 25000
 PORT_STRIDE = 8
 
 
-def _make_config(sequence_dir: str, log_file: bool, map_name: str | None = None) -> ConfigParser:
+def _make_config(
+    sequence_dir: str,
+    log_file: bool,
+    map_name: str | None = None,
+    sequence_path: str | None = None,
+    match_id: str | None = None,
+) -> ConfigParser:
     config = deepcopy(get_config())
     config["general"]["write_ability_sequence"] = "yes"
     config["general"]["ability_sequence_dir"] = sequence_dir
     config["general"]["log_file"] = "yes" if log_file else "no"
     if map_name:
         config["general"]["ability_sequence_map_name"] = map_name
+    if sequence_path:
+        config["general"]["ability_sequence_path"] = sequence_path
+    if match_id:
+        config["general"]["ability_sequence_match_id"] = match_id
     return config
 
 
@@ -86,6 +104,7 @@ def run_match(task: Dict[str, Any]) -> Dict[str, Any]:
     map_name: str = task["map_name"]
     port: int = task["port"]
     output_root: str = task["output_root"]
+    repeat_index: int = task.get("repeat_index", 1)
 
     bot_dir = os.path.join(output_root, bot_folder)
     seq_dir = os.path.join(bot_dir, "sequences")
@@ -105,6 +124,7 @@ def run_match(task: Dict[str, Any]) -> Dict[str, Any]:
     base_name = f"{bot_key}-{player2_id}_{map_name}_{stamp}_{tag}"
     log_path = os.path.join(log_dir, f"{base_name}.log")
     replay_path = os.path.join(replay_dir, f"{base_name}.SC2Replay")
+    sequence_path = os.path.join(seq_dir, f"{base_name}.json")
 
     result_record: Dict[str, Any] = {
         "bot_key": bot_key,
@@ -113,6 +133,7 @@ def run_match(task: Dict[str, Any]) -> Dict[str, Any]:
         "enemy_race": enemy_race,
         "difficulty": difficulty,
         "map": map_name,
+        "repeat_index": repeat_index,
         "port": port,
         "log_path": log_path,
         "replay_path": replay_path,
@@ -120,14 +141,21 @@ def run_match(task: Dict[str, Any]) -> Dict[str, Any]:
         "status": "error",
         "result": None,
         "error": None,
-        "sequence_file": None,
+        "match_id": base_name,
+        "sequence_file": sequence_path,
     }
 
     try:
         definitions = BotDefinitions()
         playable = definitions.playable
 
-        config = _make_config(seq_dir, log_file=True, map_name=map_name)
+        config = _make_config(
+            seq_dir,
+            log_file=True,
+            map_name=map_name,
+            sequence_path=sequence_path,
+            match_id=base_name,
+        )
         LoggingUtility.set_logger_file(log_level=config["general"]["log_level"], path=log_path)
 
         player1_bot = playable[bot_key]([])
@@ -144,8 +172,6 @@ def run_match(task: Dict[str, Any]) -> Dict[str, Any]:
             my_bot.config = config
             setattr(my_bot, "ability_sequence_map_name", map_name)
 
-        seq_before = set(os.listdir(seq_dir)) if os.path.isdir(seq_dir) else set()
-
         runner = MatchRunner()
         game_result = runner.run_game(
             maps.get(map_name),
@@ -157,10 +183,15 @@ def run_match(task: Dict[str, Any]) -> Dict[str, Any]:
             start_port=str(port),
         )
 
-        seq_after = set(os.listdir(seq_dir)) if os.path.isdir(seq_dir) else set()
-        new_files = sorted(seq_after - seq_before)
-        if new_files:
-            result_record["sequence_file"] = os.path.join(seq_dir, new_files[-1])
+        if not os.path.isfile(sequence_path):
+            raise RuntimeError(f"Recorder did not create expected sequence file: {sequence_path}")
+        with open(sequence_path, "r", encoding="utf-8") as handle:
+            sequence_payload = json.load(handle)
+        recorded_match_id = sequence_payload.get("meta", {}).get("match_id")
+        if recorded_match_id != base_name:
+            raise RuntimeError(
+                f"Sequence identity mismatch: expected {base_name!r}, got {recorded_match_id!r}"
+            )
 
         result_record["status"] = "ok"
         result_record["result"] = game_result.name if isinstance(game_result, Result) else str(game_result)
@@ -186,6 +217,7 @@ def build_tasks(
     port_offset: int,
     difficulties: Optional[List[str]] = None,
     enemy_build: str = "random",
+    repeats: int = 1,
 ) -> Tuple[List[Dict[str, Any]], List[str]]:
     definitions = BotDefinitions()
     available_maps = GameStarter.installed_maps()
@@ -199,25 +231,29 @@ def build_tasks(
         bots = [(k, f) for k, f in TERRAN_BOTS if k in allowed or f in allowed]
 
     diff_list = tuple(difficulties) if difficulties else DEFAULT_DIFFICULTIES
+    if repeats < 1:
+        raise ValueError("repeats must be at least 1")
 
     tasks: List[Dict[str, Any]] = []
     port_idx = 0
     for bot_key, bot_folder in bots:
         for enemy_race in RACES:
             for difficulty in diff_list:
-                tasks.append(
-                    {
-                        "bot_key": bot_key,
-                        "bot_folder": bot_folder,
-                        "enemy_race": enemy_race,
-                        "difficulty": difficulty,
-                        "enemy_build": enemy_build,
-                        "map_name": chosen_map,
-                        "port": port_offset + port_idx * PORT_STRIDE,
-                        "output_root": output_root,
-                    }
-                )
-                port_idx += 1
+                for repeat_index in range(1, repeats + 1):
+                    tasks.append(
+                        {
+                            "bot_key": bot_key,
+                            "bot_folder": bot_folder,
+                            "enemy_race": enemy_race,
+                            "difficulty": difficulty,
+                            "enemy_build": enemy_build,
+                            "repeat_index": repeat_index,
+                            "map_name": chosen_map,
+                            "port": port_offset + port_idx * PORT_STRIDE,
+                            "output_root": output_root,
+                        }
+                    )
+                    port_idx += 1
 
     return tasks, [chosen_map]
 
@@ -258,6 +294,46 @@ def save_bot_summary(bot_dir: str, results: List[Dict[str, Any]]) -> None:
         json.dump(payload, handle, ensure_ascii=False, indent=2)
 
 
+def run_task_batch(
+    tasks: List[Dict[str, Any]],
+    workers: int,
+    label: str,
+) -> List[Dict[str, Any]]:
+    results: List[Dict[str, Any]] = []
+    if not tasks:
+        return results
+
+    print(f"\n=== {label}: {len(tasks)} parallel games ===")
+    with ProcessPoolExecutor(max_workers=min(workers, len(tasks))) as pool:
+        futures = {pool.submit(run_match, task): task for task in tasks}
+        for future in as_completed(futures):
+            task = futures[future]
+            try:
+                record = future.result()
+            except Exception as exc:
+                record = {
+                    "bot_key": task["bot_key"],
+                    "bot_folder": task["bot_folder"],
+                    "opponent": f"ai.{task['enemy_race']}.{task['difficulty']}",
+                    "enemy_race": task["enemy_race"],
+                    "difficulty": task["difficulty"],
+                    "map": task["map_name"],
+                    "port": task["port"],
+                    "repeat_index": task.get("repeat_index", 1),
+                    "status": "error",
+                    "error": str(exc),
+                    "victory": False,
+                }
+            results.append(record)
+            status = record.get("result", record.get("error", "unknown"))
+            victory = "WIN" if record.get("victory") else "LOSS" if record.get("status") == "ok" else "ERR"
+            print(
+                f"  [{victory}] {record.get('bot_key', '?')} vs {record.get('opponent', '?')} "
+                f"run {record.get('repeat_index', '?')}: {status}"
+            )
+    return results
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Collect Terran BO ability sequences vs ingame AI.")
     parser.add_argument(
@@ -269,6 +345,12 @@ def main() -> None:
     parser.add_argument("--bots", nargs="*", default=None, help="Subset of bot keys or folder names.")
     parser.add_argument("--port-offset", type=int, default=BASE_PORT, help="Starting SC2 port base.")
     parser.add_argument("--workers", type=int, default=15, help="Parallel games per bot.")
+    parser.add_argument(
+        "--parallel-bots",
+        action="store_true",
+        help="Run all bot matchups in one shared pool (true cross-bot concurrency).",
+    )
+    parser.add_argument("--repeats", type=int, default=1, help="Repeat each race/difficulty matchup N times.")
     parser.add_argument("--races", nargs="*", default=None, help="Subset of races (protoss,zerg,terran). Default: all three.")
     parser.add_argument(
         "--difficulties",
@@ -293,6 +375,7 @@ def main() -> None:
         args.port_offset,
         difficulties=args.difficulties,
         enemy_build=args.enemy_build,
+        repeats=args.repeats,
     )
 
     # Apply race filter
@@ -311,34 +394,34 @@ def main() -> None:
 
     all_results: List[Dict[str, Any]] = []
 
-    for group in bot_groups:
-        bot_folder = group[0]["bot_folder"]
-        bot_key = group[0]["bot_key"]
-        print(f"\n=== Bot {bot_key} ({bot_folder}): {len(group)} parallel games ===")
-        bot_dir = os.path.join(output_root, bot_folder)
-        os.makedirs(bot_dir, exist_ok=True)
+    if args.parallel_bots:
+        for task in all_tasks:
+            bot_dir = os.path.join(output_root, task["bot_folder"])
+            os.makedirs(bot_dir, exist_ok=True)
+        all_results = run_task_batch(
+            all_tasks,
+            args.workers,
+            f"All bots ({len(bot_groups)} strategies)",
+        )
+        for group in bot_groups:
+            bot_folder = group[0]["bot_folder"]
+            bot_dir = os.path.join(output_root, bot_folder)
+            bot_results = [r for r in all_results if r.get("bot_folder") == bot_folder]
+            save_bot_summary(bot_dir, bot_results)
+    else:
+        for group in bot_groups:
+            bot_folder = group[0]["bot_folder"]
+            bot_key = group[0]["bot_key"]
+            bot_dir = os.path.join(output_root, bot_folder)
+            os.makedirs(bot_dir, exist_ok=True)
 
-        with ProcessPoolExecutor(max_workers=min(args.workers, len(group))) as pool:
-            futures = {pool.submit(run_match, task): task for task in group}
-            for future in as_completed(futures):
-                task = futures[future]
-                try:
-                    record = future.result()
-                except Exception as exc:
-                    record = {
-                        "bot_key": task["bot_key"],
-                        "opponent": f"ai.{task['enemy_race']}.{task['difficulty']}",
-                        "status": "error",
-                        "error": str(exc),
-                        "victory": False,
-                    }
-                all_results.append(record)
-                status = record.get("result", record.get("error", "unknown"))
-                victory = "WIN" if record.get("victory") else "LOSS" if record.get("status") == "ok" else "ERR"
-                print(f"  [{victory}] {record.get('opponent', '?')}: {status}")
-
-        bot_results = [r for r in all_results if r.get("bot_folder") == bot_folder]
-        save_bot_summary(bot_dir, bot_results)
+            group_results = run_task_batch(
+                group,
+                args.workers,
+                f"Bot {bot_key} ({bot_folder})",
+            )
+            all_results.extend(group_results)
+            save_bot_summary(bot_dir, group_results)
 
     summary_path = save_summary(output_root, all_results)
     wins = sum(1 for r in all_results if r.get("victory"))

@@ -22,6 +22,9 @@
 ## 当前统一要求
 
 - 对局采集使用本仓库的 bot 和 `tools/collect_terran_bo.py` / `sft_pipeline.collect.run_collect`。
+- Action 采集统一使用 `sc2-outcome-v2`：命令下达只进入 pending，只有建筑开工、单位生成、形态变化或科技完成等 SC2 引擎结果事件才能写入 sequence。
+- `obs` / `local_obs` 使用下令时快照；未确认、过期或被替代的命令不得进入 `sequence` / `order_list`。
+- 并行采集的每局必须使用唯一 `match_id` 和固定 sequence 路径，`results.json` 不通过共享目录文件差推断结果。
 - `SC2-Agent-260510` 只作为 prompt/context 标准来源，不作为采集 bot。
 - step 与 SFT 数据默认只使用 `Victory` 对局。
 - action list 到 NL step 的标注统一使用 `bo_2_nlstep/Tools/bo_to_doc_v8.py` / `sft_pipeline.label_steps.build_v8_steps`。v8 继承 v7 的 no-ordinal、数量描述、summary 和 concise final step，并在 normal step 中加入 worker saturation、supply buffer、gas capacity 三类宏观控制提示。
@@ -36,7 +39,7 @@
 说明如何批量运行 Terran bot，对抗内置 AI，采集 sequence JSON、obs、replay 和 log。包含 `--workers` 并发、bot/race/difficulty/map 参数、输出目录和 QA 检查。
 
 **[ability_recorder_commit_and_addon.md](ability_recorder_commit_and_addon.md)**  
-说明 `AbilityRecorderManager` 为什么要在 action 被 SC2 接受后再写入 sequence，如何处理 TechLab/Reactor 命名，以及 train 多候选 executor context 的保存规则。
+说明 `AbilityRecorderManager` 如何通过 SC2 结果事件确认 Action、保存下令时 observation、过滤未落实命令、处理 TechLab/Reactor 命名，以及保存 train 多候选 executor context。
 
 **[sft_pipeline_usage.md](sft_pipeline_usage.md)**  
 说明模块化 SFT pipeline：采集、obs 校验、v8 step 标注、legacy Markdown 恢复 JSONL、构造 Agent-aligned SFT。

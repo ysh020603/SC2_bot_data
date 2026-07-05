@@ -7,6 +7,8 @@ from sc2.constants import abilityid_to_unittypeid
 from sc2.data import Result
 from sc2.game_data import Cost
 from sc2.ids.unit_typeid import UnitTypeId
+from sc2.ids.upgrade_id import UpgradeId
+from sc2.unit import Unit
 from sc2.unit_command import UnitCommand
 from sc2.units import Units
 from config import get_config, get_version
@@ -135,6 +137,31 @@ class SkeletonBot(BotAI, ABC):
 
     async def on_unit_destroyed(self, unit_tag: int):
         await self.knowledge.on_unit_destroyed(unit_tag)
+
+    async def on_unit_created(self, unit: Unit):
+        recorder = getattr(self, "ability_recorder", None)
+        if recorder:
+            recorder.on_unit_created(unit)
+
+    async def on_building_construction_started(self, unit: Unit):
+        recorder = getattr(self, "ability_recorder", None)
+        if recorder:
+            recorder.on_building_construction_started(unit)
+
+    async def on_building_construction_complete(self, unit: Unit):
+        recorder = getattr(self, "ability_recorder", None)
+        if recorder:
+            recorder.on_building_construction_complete(unit)
+
+    async def on_unit_type_changed(self, unit: Unit, previous_type: UnitTypeId):
+        recorder = getattr(self, "ability_recorder", None)
+        if recorder:
+            recorder.on_unit_type_changed(unit, previous_type)
+
+    async def on_upgrade_complete(self, upgrade: UpgradeId):
+        recorder = getattr(self, "ability_recorder", None)
+        if recorder:
+            recorder.on_upgrade_complete(upgrade)
 
     async def on_end(self, game_result: Result):
         await self.knowledge.on_end(game_result)

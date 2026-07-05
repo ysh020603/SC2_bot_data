@@ -20,6 +20,7 @@ def main() -> None:
     parser.add_argument("--races", nargs="*", default=None)
     parser.add_argument("--difficulties", nargs="*", default=None)
     parser.add_argument("--workers", type=int, default=8)
+    parser.add_argument("--repeats", type=int, default=1)
     parser.add_argument("--port-offset", type=int, default=25000)
     parser.add_argument("--enemy-build", default="random")
     args = parser.parse_args()
@@ -32,6 +33,8 @@ def main() -> None:
         str(output),
         "--workers",
         str(args.workers),
+        "--repeats",
+        str(args.repeats),
         "--port-offset",
         str(args.port_offset),
     ]
@@ -57,9 +60,11 @@ def main() -> None:
             "races": args.races,
             "difficulties": args.difficulties,
             "workers": args.workers,
+            "repeats": args.repeats,
             "port_offset": args.port_offset,
             "enemy_build": args.enemy_build,
             "obs_schema_version": "v1-train-executor-context",
+            "action_confirmation_schema": "sc2-outcome-v2",
         },
     )
     raise SystemExit(subprocess.call(cmd, cwd=ROOT))

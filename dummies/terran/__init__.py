@@ -14,3 +14,10 @@ from .safe_211_mine import SafeTwoOneOneMine
 from .bio_mine_macro import BioMineMacro
 from .raven_liberator_tank import RavenLiberatorTank
 from .tank_thor_mech import TankThorMech
+from .raven_screams import RavenScreams
+from .yamato_rust_fleet import YamatoRustFleet
+from .rusty_bio_mines import RustyBioMines
+from .blueflame_locks import BlueflameLocks
+from .stim_rush_relay import StimRushRelay
+from .old_rusty_anvil import OldRustyAnvil
+from .two_base_matrix_tanks import TwoBaseMatrixTanks

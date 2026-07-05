@@ -303,6 +303,13 @@ class BotDefinitions:
             DummyBuilder("biomine", "RustyBioMines", Race.Terran, "bio_mine_macro.py", BioMineMacro),
             DummyBuilder("ravlibtank", "RustyRavenLiberatorTank", Race.Terran, "raven_liberator_tank.py", RavenLiberatorTank),
             DummyBuilder("mechthor", "RustyTankThorMech", Race.Terran, "tank_thor_mech.py", TankThorMech),
+            DummyBuilder("ravenscreams", "RavenScreams", Race.Terran, "raven_screams.py", RavenScreams),
+            DummyBuilder("yamatofleet", "YamatoRustFleet", Race.Terran, "yamato_rust_fleet.py", YamatoRustFleet, params_count=1),
+            DummyBuilder("biominesv2", "RustyBioMinesV2", Race.Terran, "rusty_bio_mines.py", RustyBioMines),
+            DummyBuilder("blueflame", "BlueflameLocks", Race.Terran, "blueflame_locks.py", BlueflameLocks),
+            DummyBuilder("stimrush", "StimRushRelay", Race.Terran, "stim_rush_relay.py", StimRushRelay, params_count=1),
+            DummyBuilder("rustyanvil", "OldRustyAnvil", Race.Terran, "old_rusty_anvil.py", OldRustyAnvil),
+            DummyBuilder("matrixtank", "TwoBaseMatrixTanks", Race.Terran, "two_base_matrix_tanks.py", TwoBaseMatrixTanks),
         ]
 
         for bot in bots:
