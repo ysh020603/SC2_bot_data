@@ -61,8 +61,6 @@ class RavenScreams(KnowledgeBot):
             Step(UnitReady(UnitTypeId.STARPORTTECHLAB, 1), Tech(UpgradeId.BANSHEECLOAK)),
             Tech(UpgradeId.BANSHEESPEED),
             Step(UnitReady(UnitTypeId.STARPORTTECHLAB, 1), Tech(UpgradeId.RAVENCORVIDREACTOR)),
-            Tech(UpgradeId.RAVENENHANCEDMUNITIONS),
-            Tech(UpgradeId.RAVENRECALIBRATEDEXPLOSIVES),
             Step(UnitReady(UnitTypeId.ARMORY, 1), Tech(UpgradeId.TERRANSHIPWEAPONSLEVEL1)),
             Tech(UpgradeId.TERRANSHIPARMORSLEVEL1),
             Tech(UpgradeId.TERRANSHIPWEAPONSLEVEL2),

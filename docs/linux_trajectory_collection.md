@@ -35,8 +35,10 @@ cd /data2/SC2_2606/sharpy-sc2
 说明：
 
 - `SC2PATH` 必须指向 StarCraft II 安装根目录（含 `Maps/`、`Versions/`）。
-- `PYTHONPATH` 需要包含仓库内的 `python-sc2` 子目录，否则 `import sc2` 可能失败。
+- `PYTHONPATH` 必须包含当前采集仓库自己的 `python-sc2` 子目录，不能指向 conda 版本或 `SC2-Agent-260510/python-sc2`。
 - `PYTHONUTF8=1` 避免日志和 sequence JSON 在中文环境下出现编码问题。
+
+依赖边界和导入来源自检见 [python_sc2_dependency_boundary.md](python_sc2_dependency_boundary.md)。
 
 ### 1.2 检查地图是否已安装
 

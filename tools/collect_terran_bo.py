@@ -265,6 +265,111 @@ def group_tasks_by_bot(tasks: List[Dict[str, Any]]) -> List[List[Dict[str, Any]]
     return [groups[folder] for _, folder in TERRAN_BOTS if folder in groups]
 
 
+def _opponent_id(enemy_race: str, difficulty: str, enemy_build: str = "random") -> str:
+    if enemy_build and enemy_build != "random":
+        return f"ai.{enemy_race}.{difficulty}.{enemy_build}"
+    return f"ai.{enemy_race}.{difficulty}"
+
+
+def _matchup_file_prefix(task: Dict[str, Any]) -> str:
+    enemy_build = task.get("enemy_build", "random")
+    return (
+        f"{task['bot_key']}-{_opponent_id(task['enemy_race'], task['difficulty'], enemy_build)}"
+        f"_{task['map_name']}"
+    )
+
+
+def _result_task_key(record: Dict[str, Any]) -> Tuple[str, str, int]:
+    return (
+        record.get("enemy_race", ""),
+        record.get("difficulty", ""),
+        record.get("repeat_index", 1),
+    )
+
+
+def _is_valid_sequence_file(path: str, task: Dict[str, Any]) -> bool:
+    if not os.path.isfile(path):
+        return False
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+        meta = payload.get("meta", {})
+        if not meta.get("match_id"):
+            return False
+        expected_opponent = (
+            f"{task['bot_key']}-{_opponent_id(task['enemy_race'], task['difficulty'], task.get('enemy_build', 'random'))}"
+        )
+        opponent_id = meta.get("opponent_id", "")
+        return opponent_id == expected_opponent and meta.get("map") == task["map_name"]
+    except (OSError, json.JSONDecodeError):
+        return False
+
+
+def _is_task_complete(task: Dict[str, Any]) -> bool:
+    bot_dir = os.path.join(task["output_root"], task["bot_folder"])
+    seq_dir = os.path.join(bot_dir, "sequences")
+    prefix = _matchup_file_prefix(task)
+    if not os.path.isdir(seq_dir):
+        return False
+    for name in os.listdir(seq_dir):
+        if not name.startswith(prefix) or not name.endswith(".json"):
+            continue
+        if _is_valid_sequence_file(os.path.join(seq_dir, name), task):
+            return True
+    return False
+
+
+def _cleanup_stale_artifacts(task: Dict[str, Any]) -> None:
+    bot_dir = os.path.join(task["output_root"], task["bot_folder"])
+    prefix = _matchup_file_prefix(task)
+    for sub, suffix in (("logs", ".log"), ("replays", ".SC2Replay")):
+        dirpath = os.path.join(bot_dir, sub)
+        if not os.path.isdir(dirpath):
+            continue
+        for name in os.listdir(dirpath):
+            if name.startswith(prefix) and name.endswith(suffix):
+                try:
+                    os.remove(os.path.join(dirpath, name))
+                except OSError:
+                    pass
+
+
+def _load_bot_results(bot_dir: str) -> List[Dict[str, Any]]:
+    path = os.path.join(bot_dir, "results.json")
+    if not os.path.isfile(path):
+        return []
+    with open(path, "r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+    return payload.get("matches", [])
+
+
+def _merge_bot_results(existing: List[Dict[str, Any]], new_results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    merged: Dict[Tuple[str, str, int], Dict[str, Any]] = {}
+    for record in existing:
+        key = _result_task_key(record)
+        seq = record.get("sequence_file")
+        if record.get("status") == "ok" and seq and os.path.isfile(seq):
+            merged[key] = record
+    for record in new_results:
+        merged[_result_task_key(record)] = record
+    return list(merged.values())
+
+
+def filter_pending_tasks(
+    tasks: List[Dict[str, Any]],
+    skip_existing: bool,
+    cleanup_stale: bool,
+) -> List[Dict[str, Any]]:
+    pending: List[Dict[str, Any]] = []
+    for task in tasks:
+        if skip_existing and _is_task_complete(task):
+            continue
+        if cleanup_stale:
+            _cleanup_stale_artifacts(task)
+        pending.append(task)
+    return pending
+
+
 def save_summary(output_root: str, all_results: List[Dict[str, Any]]) -> str:
     summary_path = os.path.join(output_root, "summary.json")
     wins = sum(1 for r in all_results if r.get("victory"))
@@ -363,6 +468,16 @@ def main() -> None:
         default="random",
         help="Ingame AI build style (random, macro, rush, timing, power, air). Default: random.",
     )
+    parser.add_argument(
+        "--skip-existing",
+        action="store_true",
+        help="Skip matchups that already have a valid sequence JSON on disk.",
+    )
+    parser.add_argument(
+        "--cleanup-stale",
+        action="store_true",
+        help="Delete orphan logs/replays for matchups that will be (re)run.",
+    )
     args = parser.parse_args()
 
     output_root = os.path.abspath(args.output)
@@ -387,10 +502,15 @@ def main() -> None:
 
     bot_groups = group_tasks_by_bot(all_tasks)
 
+    pending_tasks = filter_pending_tasks(all_tasks, args.skip_existing, args.cleanup_stale)
+    skipped = len(all_tasks) - len(pending_tasks)
+
     print(f"Output root: {output_root}")
     print(f"Map: {maps_used[0]}")
     print(f"Bots: {len(bot_groups)}, games per bot: {len(bot_groups[0]) if bot_groups else 0}")
     print(f"Total games: {len(all_tasks)}")
+    if args.skip_existing:
+        print(f"Pending games: {len(pending_tasks)} (skipped {skipped} existing)")
 
     all_results: List[Dict[str, Any]] = []
 
@@ -398,16 +518,19 @@ def main() -> None:
         for task in all_tasks:
             bot_dir = os.path.join(output_root, task["bot_folder"])
             os.makedirs(bot_dir, exist_ok=True)
-        all_results = run_task_batch(
-            all_tasks,
+        batch_results = run_task_batch(
+            pending_tasks,
             args.workers,
             f"All bots ({len(bot_groups)} strategies)",
         )
         for group in bot_groups:
             bot_folder = group[0]["bot_folder"]
             bot_dir = os.path.join(output_root, bot_folder)
-            bot_results = [r for r in all_results if r.get("bot_folder") == bot_folder]
-            save_bot_summary(bot_dir, bot_results)
+            existing = _load_bot_results(bot_dir)
+            bot_results = [r for r in batch_results if r.get("bot_folder") == bot_folder]
+            merged = _merge_bot_results(existing, bot_results)
+            save_bot_summary(bot_dir, merged)
+            all_results.extend(merged)
     else:
         for group in bot_groups:
             bot_folder = group[0]["bot_folder"]
@@ -415,13 +538,20 @@ def main() -> None:
             bot_dir = os.path.join(output_root, bot_folder)
             os.makedirs(bot_dir, exist_ok=True)
 
-            group_results = run_task_batch(
-                group,
-                args.workers,
-                f"Bot {bot_key} ({bot_folder})",
-            )
-            all_results.extend(group_results)
-            save_bot_summary(bot_dir, group_results)
+            pending_group = filter_pending_tasks(group, args.skip_existing, args.cleanup_stale)
+            existing = _load_bot_results(bot_dir)
+            if pending_group:
+                group_results = run_task_batch(
+                    pending_group,
+                    args.workers,
+                    f"Bot {bot_key} ({bot_folder})",
+                )
+                merged = _merge_bot_results(existing, group_results)
+            else:
+                merged = existing
+                print(f"\n=== Bot {bot_key} ({bot_folder}): all {len(group)} games already complete, skipped ===")
+            all_results.extend(merged)
+            save_bot_summary(bot_dir, merged)
 
     summary_path = save_summary(output_root, all_results)
     wins = sum(1 for r in all_results if r.get("victory"))

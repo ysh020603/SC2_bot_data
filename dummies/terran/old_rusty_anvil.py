@@ -85,8 +85,7 @@ class BuildAnvil(BuildOrder):
         ]
 
         upgrades = [
-            Step(UnitReady(UnitTypeId.ARMORY, 1), Tech(UpgradeId.TRANSFORMATIONSERVOS)),
-            Tech(UpgradeId.SMARTSERVOS),
+            Step(UnitReady(UnitTypeId.ARMORY, 1), Tech(UpgradeId.SMARTSERVOS)),
             Tech(UpgradeId.HIGHCAPACITYBARRELS),
             Tech(UpgradeId.TERRANVEHICLEWEAPONSLEVEL1),
             Tech(UpgradeId.TERRANVEHICLEANDSHIPARMORSLEVEL1),

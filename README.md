@@ -119,7 +119,7 @@ PYTHONUTF8=1     # 避免中文环境下日志/JSON 编码问题
 PYTHONIOENCODING=utf-8
 ```
 
-Linux 服务器还需将仓库内 `python-sc2` 加入 `PYTHONPATH`；Windows 下 `SC2PATH` 示例见下方「快速开始」。
+Linux 服务器还需将**本仓库自己的** `python-sc2` 加入 `PYTHONPATH`；Windows 下 `SC2PATH` 示例见下方「快速开始」。独立的 `SC2-Agent-260510` 使用它自己仓库内的副本，不依赖此目录，详见 [python-sc2 依赖边界](docs/python_sc2_dependency_boundary.md)。
 
 ## 快速开始
 
@@ -219,6 +219,7 @@ tools/                       # 采集脚本
 | [docs/windows_environment_setup.md](docs/windows_environment_setup.md) | Windows conda 环境、依赖、`SC2PATH`、地图检查 |
 | [docs/windows_run_bots.md](docs/windows_run_bots.md) | 手动运行 bot、查看可用 bot/地图/AI 参数 |
 | [docs/linux_trajectory_collection.md](docs/linux_trajectory_collection.md) | Linux 服务器环境、tmux 后台采集、并发与进度监控 |
+| [docs/python_sc2_dependency_boundary.md](docs/python_sc2_dependency_boundary.md) | 采集仓库与独立 Agent 各自固定 python-sc2 来源的规则和自检 |
 
 **采集与 SFT 数据**
 

@@ -21,6 +21,7 @@
 
 ## 当前统一要求
 
+- 根仓库和独立 Agent 各自使用仓库内固定的 `python-sc2`，不跨仓库引用，也不依赖 conda 中的随机版本；见 [python_sc2_dependency_boundary.md](python_sc2_dependency_boundary.md)。
 - 对局采集使用本仓库的 bot 和 `tools/collect_terran_bo.py` / `sft_pipeline.collect.run_collect`。
 - Action 采集统一使用 `sc2-outcome-v2`：命令下达只进入 pending，只有建筑开工、单位生成、形态变化或科技完成等 SC2 引擎结果事件才能写入 sequence。
 - `obs` / `local_obs` 使用下令时快照；未确认、过期或被替代的命令不得进入 `sequence` / `order_list`。
@@ -57,6 +58,10 @@ Naming CoT 精选、重采样、last-step 补充与训练划分经验。
 Executor 规则黄金标签（`build_executor_golden_rank`）的排序规则与用法。
 
 ## 运行与环境文档
+
+**[python_sc2_dependency_boundary.md](python_sc2_dependency_boundary.md)**
+
+说明采集仓库与独立 Agent 的 python-sc2 依赖边界、固定加载来源和启动自检。
 
 **[linux_trajectory_collection.md](linux_trajectory_collection.md)**  
 Linux 服务器上的轨迹采集实践：`sharpy-sc2` conda 环境、`SC2PATH`/`PYTHONPATH`、tmux 后台运行、多地图批量脚本（`tools/run_terran_10bots_3maps_collect.sh`）、并发建议、进度监控与常见问题。

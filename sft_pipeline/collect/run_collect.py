@@ -23,6 +23,8 @@ def main() -> None:
     parser.add_argument("--repeats", type=int, default=1)
     parser.add_argument("--port-offset", type=int, default=25000)
     parser.add_argument("--enemy-build", default="random")
+    parser.add_argument("--skip-existing", action="store_true")
+    parser.add_argument("--cleanup-stale", action="store_true")
     args = parser.parse_args()
 
     output = Path(args.output or ROOT / "bo_collection_runs" / datetime.now().strftime("%Y-%m-%d_%H_%M_%S_sft"))
@@ -48,6 +50,10 @@ def main() -> None:
         cmd.extend(["--difficulties", *args.difficulties])
     if args.enemy_build and args.enemy_build != "random":
         cmd.extend(["--enemy-build", args.enemy_build])
+    if args.skip_existing:
+        cmd.append("--skip-existing")
+    if args.cleanup_stale:
+        cmd.append("--cleanup-stale")
 
     output.mkdir(parents=True, exist_ok=True)
     write_json(
@@ -63,6 +69,8 @@ def main() -> None:
             "repeats": args.repeats,
             "port_offset": args.port_offset,
             "enemy_build": args.enemy_build,
+            "skip_existing": args.skip_existing,
+            "cleanup_stale": args.cleanup_stale,
             "obs_schema_version": "v1-train-executor-context",
             "action_confirmation_schema": "sc2-outcome-v2",
         },

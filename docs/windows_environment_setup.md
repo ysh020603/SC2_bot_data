@@ -54,7 +54,7 @@ conda activate SC2_0615
 安装运行依赖：
 
 ```powershell
-pip install burnysc2==7.1.3 s2clientprotocol mpyq portpicker requests aiohttp `
+pip install s2clientprotocol mpyq portpicker requests aiohttp `
   numpy scipy scikit-learn opencv-python-headless more-itertools six `
   protobuf==3.20.3 loguru
 ```
@@ -67,7 +67,7 @@ pip install "pytest<7.0.0" "pytest-asyncio==0.20.3"
 
 说明：
 
-- `burnysc2` 提供 `import sc2`。
+- `sc2` 来自当前采集仓库的 `python-sc2/`。手动执行 `python -c` 等非标准入口时，先设置 `$env:PYTHONPATH=(Resolve-Path .\python-sc2).Path`；标准采集脚本会自行加入该绝对路径。
 - `protobuf==3.20.3` 用于避免 `s2clientprotocol` 与新版 protobuf 不兼容。
 - Windows 下仓库内已有 `sc2pathlib/sc2pathlib.py` fallback，不需要额外 pip 安装 `sc2pathlib`。
 
@@ -188,7 +188,7 @@ $py = 'C:\Users\Descfly\.conda\envs\SC2_0615\python.exe'
 
 | 现象 | 处理方式 |
 | --- | --- |
-| `No module named 'sc2'` | 确认已在 `SC2_0615` 中安装 `burnysc2==7.1.3` |
+| `No module named 'sc2'` | 确认仓库含 `python-sc2/sc2`，并对非标准入口设置 `$env:PYTHONPATH=(Resolve-Path .\python-sc2).Path` |
 | `No module named 'sc2pathlib.sc2pathlib'` | 确认仓库内存在 `sc2pathlib/sc2pathlib.py` |
 | 找不到 SC2 | 检查 `$env:SC2PATH` 是否指向 StarCraft II 根目录 |
 | 找不到地图 | 检查 `$env:SC2PATH\Maps` 下是否有对应 `.SC2Map` |
@@ -203,10 +203,11 @@ cd C:\code\SC2_bot_data
 $env:SC2PATH = 'C:\Program Files (x86)\StarCraft II'
 $env:PYTHONUTF8 = '1'
 $env:PYTHONIOENCODING = 'utf-8'
+$env:PYTHONPATH = (Resolve-Path .\python-sc2).Path
 $py = 'C:\Users\Descfly\.conda\envs\SC2_0615\python.exe'
 
 & $py --version
-& $py -c "import sc2, sc2pathlib, sharpy; print('OK')"
+& $py -c "import sc2, sc2pathlib, sharpy; print(sc2.__file__); print('OK')"
 Get-ChildItem "$env:SC2PATH\Maps" -Recurse -Filter '*Kairos*' |
   Select-Object -First 3 FullName
 ```

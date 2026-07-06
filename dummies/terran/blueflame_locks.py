@@ -74,11 +74,8 @@ class BlueflameLocks(KnowledgeBot):
         ]
 
         upgrades = [
-            Step(UnitReady(UnitTypeId.FACTORYTECHLAB, 2), Tech(UpgradeId.CYCLONELOCKONRANGEUPGRADE)),
-            Step(None, Tech(UpgradeId.CYCLONERAPIDFIRELAUNCHERS)),
             Step(None, Tech(UpgradeId.ARMORPIERCINGROCKETS)),
-            Step(UnitReady(UnitTypeId.ARMORY, 1), Tech(UpgradeId.TRANSFORMATIONSERVOS)),
-            Tech(UpgradeId.SMARTSERVOS),
+            Step(UnitReady(UnitTypeId.ARMORY, 1), Tech(UpgradeId.SMARTSERVOS)),
             Tech(UpgradeId.TERRANVEHICLEWEAPONSLEVEL1),
             Tech(UpgradeId.TERRANVEHICLEANDSHIPARMORSLEVEL1),
             Tech(UpgradeId.TERRANVEHICLEWEAPONSLEVEL2),
