@@ -73,19 +73,18 @@ In Naming, “action” should be read as **answer entity patterns**, not raw SC
 
 | Concept | Definition | Used for |
 |---------|------------|----------|
-| **Multiset** | `(canonical_name -> count)` tuple, order ignored | Nothink resampling |
-| **Class** | `frozenset(items[].name)` — types only, counts ignored | CoT coverage stats, per-class caps |
+| **Class** | `frozenset(items[].name)` — types only, counts ignored | Nothink resampling, CoT coverage stats, per-class caps |
 
-**Core rule:** the training set should cover every **class** (or multiset) that appears in validation — ideally all classes seen in the full corpus. If validation contains `{Battlecruiser, FusionCore, ...}` combinations never seen in training, the model tends to hallucinate entities or drop ongoing production (especially `SCV`).
+**Core rule:** the training set should cover every **class** that appears in validation — ideally all classes seen in the full corpus. If validation contains `{Battlecruiser, FusionCore, ...}` combinations never seen in training, the model tends to hallucinate entities or drop ongoing production (especially `SCV`).
 
 ### How to enforce coverage
 
 1. Build base SFT: `python3 -m sft_pipeline.build_sft.build_naming_sft`
-2. After choosing a val strategy set, compute class/multiset histograms on train vs val.
+2. After choosing a val strategy set, compute class histograms on train vs val.
 3. For missing or sparse classes, use:
    - `extract_priority_naming_classes.py` — find gap prompts with zero or sparse CoT
    - Priority CoT inject with `--class-target-min 2` and `--skip-teacher`
-4. Nothink resampling keeps **full multiset coverage** while down-weighting frequent patterns (see Section 4).
+4. Nothink resampling keeps **full class coverage** while down-weighting frequent patterns (see Section 4).
 
 ---
 
@@ -186,42 +185,41 @@ Final curated CoT (example): **1149** samples across **636** classes (from 4366 
 
 ---
 
-## 4. Imbalanced Distributions: Resample by Answer Result
+## 4. Imbalanced Distributions: Resample by Name-Set Class
 
-Raw BO pipeline data is heavily skewed toward early-game multisets (`SCV + Barracks + SupplyDepot`) and under-represents late-game combinations.
+Raw BO pipeline data is heavily skewed toward early-game name combinations (`SCV + Barracks + SupplyDepot`) and under-represents late-game combinations.
 
-### Nothink track: `resample_naming_sft.py`
+### Nothink / thinking track: `resample_naming_sft.py`
 
-Resample by **answer multiset frequency** with **step balancing**.
+Resample by **answer name-set class** (`frozenset(items[].name)`), ignoring count and order.
 
-| Tier | Original freq | Keep policy |
-|------|---------------|-------------|
-| T0 | ≥ 50 | cap = **25** |
-| T1 | ≥ 30 | cap = 15 |
-| T2 | ≥ 10 | keep 50% |
-| T3 | ≥ 5 | keep 75% |
-| Rare / singleton | < 5 | **keep all** |
+| Tier | Original class freq | Keep policy |
+|------|---------------------|-------------|
+| Rare | ≤ `--rare-max` (default 2) | **keep all** |
+| Common | > `--rare-max` | cap at `--per-class-cap` (default 8) |
 
-Step balance: `--step-balance-alpha 0.65` blends toward uniform `[Step N]` counts so the model does not only see opening steps.
+Within a common class, selection spreads across distinct `[Step N]` for diversity.
+Handles both thinking and nothink answer formats.
 
-Example outcome (`2026-06-24`):
+Example outcome (`2026-07-05_terran_new7bots_3maps_macro`, R=2, K=8):
 
 ```text
-4474 original -> 2541 resampled
-1867 unique multisets: full coverage retained
+5040 original -> 3327 resampled
+1361 unique classes: full coverage retained
 ```
 
 Script:
 
 ```bash
-python3 -m sft_pipeline.build_sft.resample_naming_sft \
-  --input  sft_agent_aligned/naming/sc2_naming_qwen3_nothink_sft.json \
-  --output curated_nothink/resampled/sc2_naming_qwen3_nothink_resampled.json \
-  --report curated_nothink/resampled/naming_resample_report.json \
-  --target-size 3000 --t0-cap 25 --step-balance-alpha 0.65
+python3 -m sft_pipeline.resample.naming.resample_naming_sft \
+  --input  sft_agent_aligned/naming/sc2_naming_qwen3_thinking_sft.json \
+  --output curated_by_class/sc2_naming_resampled.json \
+  --report curated_by_class/naming_resample_report.json \
+  --rare-max 2 --per-class-cap 8
 ```
 
-A copy with run-specific docs also lives under `sft_pipeline_outputs/<run_id>/sft_agent_aligned/naming/curated_nothink/scripts/`.
+Canonical copy: `sft_pipeline/resample/naming/resample_naming_sft.py`.
+Also runnable via `python3 -m sft_pipeline.build_sft.resample_naming_sft`.
 
 ### CoT track: class-level balancing
 
@@ -285,13 +283,12 @@ Last-step samples teach **reasonable extrapolation** from strong NL steps (e.g. 
    python3 -m sft_pipeline.build_sft.build_naming_sft
    -> sft_agent_aligned/naming/sc2_naming_qwen3_{thinking,nothink}_sft.json
 
-4. Choose train/val strategy split; audit class/multiset coverage on val
+4. Choose train/val strategy split; audit class coverage on val
 
-5. Nothink curated train set
-   resample_naming_sft.py
-   + build_laststep_naming_sft.py (8–20 tasks)
-   + merge_naming_sharegpt.py
-   -> curated_nothink/merged/sc2_naming_qwen3_nothink_merged_sft.json
+5. Curated train set
+   resample_naming_sft.py (class-based)
+   + build_naming_prompt_answer_dataset.py (last-step, optional)
+   -> curated_by_class/...
 
 6. CoT curated train set (optional, for thinking / GRPO prep)
    inject_cot_sft (32B / 14B / 4B)
@@ -314,7 +311,7 @@ Last-step samples teach **reasonable extrapolation** from strong NL steps (e.g. 
 | Train / val | Split by **strategy bot**; ensure train **classes** cover val |
 | CoT generator | Qwen3 **32B / 14B / 4B**, not 1.7B |
 | CoT quality gate | Gold **entity types** must all appear in generated answer; canonical names; total count 5–15 |
-| Distribution | Resample by answer **multiset** freq + step balance (α≈0.65); CoT cap **3 / class** |
+| Distribution | Resample by answer **class** (`frozenset(name)`); rare kept, common cap K; CoT cap **3 / class** |
 | Last step | Online victory QA only; prefer task count **8–20** for curated tracks |
 | Prompt alignment | Always `build_naming_messages()` from `SC2-Agent-260510` |
 
@@ -330,5 +327,5 @@ Last-step samples teach **reasonable extrapolation** from strong NL steps (e.g. 
 | `build_sft/extract_priority_naming_classes.py` | Sparse / missing class subset for priority inject |
 | `build_sft/build_naming_cot_curated_sft.py` | Merge multi-model CoT + last-step |
 | `build_sft/build_naming_prompt_answer_dataset.py` | Plain prompt/answer dataset (no ShareGPT) |
-| `build_sft/resample_naming_sft.py` | Multiset + step resampling for nothink |
+| `resample/naming/resample_naming_sft.py` | Class-based resampling (rare full + common cap) |
 | `common/agent_reference.py` | Agent-aligned naming prompts and canonical names |

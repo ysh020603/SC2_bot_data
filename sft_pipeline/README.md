@@ -38,9 +38,19 @@ sft_pipeline/
     build_naming_cot_curated_sft.py
     build_naming_prompt_answer_dataset.py
     extract_priority_naming_classes.py
-    resample_naming_sft.py
+    resample_naming_sft.py            # CLI 入口，委托 resample/naming/
     recover_naming_cot_from_rejects.py
     rematch_priority_cot_subset.py
+  resample/                 # 重采样脚本（按环节分类，见 resample/README.md）
+    multiset_balancing.py   # Ordering 共享的 multiset cap + step 均衡
+    naming/
+      resample_naming_sft.py          # Naming：按 name-set class 重采样
+      build_naming_prompt_answer_dataset.py
+      build_naming_cot_curated_sft.py
+    ordering/
+      resample_ordering_sft.py
+    executor/
+      resample_executor_golden.py
   common/
     agent_reference.py      # 复用 SC2-Agent-260510 的 prompt 与数据工具
     executor_golden_rank.py # Executor 解析与打分
