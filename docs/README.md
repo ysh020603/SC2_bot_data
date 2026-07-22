@@ -48,6 +48,9 @@
 **[sft_data_format.md](sft_data_format.md)**  
 说明 Qwen3 thinking / nothink 训练样本格式。当前 pipeline 输出 ShareGPT 格式。
 
+**[tulu3_sft_mixture_general_capability_data.md](tulu3_sft_mixture_general_capability_data.md)**  
+English note on `allenai/tulu-3-sft-mixture`: local path under `extra_data/base_data/`, role as general capability retention data, download / sampling guidance.
+
 **[cot_generation_validation_notes.md](cot_generation_validation_notes.md)**  
 说明 CoT 后处理模块 `inject_cot_sft` 的设计、整条轨迹测试结果与调参建议。
 
